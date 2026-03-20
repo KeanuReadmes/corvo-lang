@@ -580,3 +580,150 @@ fn test_run_source_error() {
     let result = corvo_lang::run_source("invalid syntax here");
     assert!(result.is_err());
 }
+
+// --- @ Variable Shortcut Tests ---
+
+#[test]
+fn test_at_var_set_shortcut() {
+    let state = run_with_state(
+        r#"
+        @name = "Corvo"
+        @count = 42
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("name").unwrap(),
+        corvo_lang::type_system::Value::String("Corvo".to_string())
+    );
+    assert_eq!(
+        state.var_get("count").unwrap(),
+        corvo_lang::type_system::Value::Number(42.0)
+    );
+}
+
+#[test]
+fn test_at_var_get_shortcut() {
+    let state = run_with_state(
+        r#"
+        @greeting = "hello"
+        @result = string.to_upper(@greeting)
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("HELLO".to_string())
+    );
+}
+
+#[test]
+fn test_at_var_shortcut_in_expression() {
+    let state = run_with_state(
+        r#"
+        @a = 10
+        @b = 20
+        @sum = math.add(@a, @b)
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("sum").unwrap(),
+        corvo_lang::type_system::Value::Number(30.0)
+    );
+}
+
+#[test]
+fn test_at_var_shortcut_interop_with_var_get_set() {
+    let state = run_with_state(
+        r#"
+        var.set("x", 100)
+        @y = math.add(@x, 1)
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("y").unwrap(),
+        corvo_lang::type_system::Value::Number(101.0)
+    );
+}
+
+#[test]
+fn test_at_var_get_in_string_interpolation() {
+    let state = run_with_state(
+        r#"
+        @name = "World"
+        @msg = "Hello ${@name}!"
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("msg").unwrap(),
+        corvo_lang::type_system::Value::String("Hello World!".to_string())
+    );
+}
+
+// --- dont_panic Block Tests ---
+
+#[test]
+fn test_dont_panic_suppresses_var_not_found() {
+    // Without dont_panic this would error; with it, it should succeed silently
+    let state = run_with_state(
+        r#"
+        @x = 1
+        dont_panic {
+            sys.echo(@non_existent)
+        }
+        @x = math.add(@x, 1)
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("x").unwrap(),
+        corvo_lang::type_system::Value::Number(2.0)
+    );
+}
+
+#[test]
+fn test_dont_panic_allows_normal_execution() {
+    let state = run_with_state(
+        r#"
+        @result = "initial"
+        dont_panic {
+            @result = "updated"
+        }
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("updated".to_string())
+    );
+}
+
+#[test]
+fn test_var_not_found_panics_outside_dont_panic() {
+    let result = run_with_state(r#"sys.echo(@non_existent)"#);
+    assert!(result.is_err());
+    assert!(format!("{}", result.unwrap_err()).contains("non_existent"));
+}
+
+#[test]
+fn test_dont_panic_suppresses_all_errors() {
+    // dont_panic catches any runtime error, not just variable-not-found
+    let state = run_with_state(
+        r#"
+        @flag = "ok"
+        dont_panic {
+            math.div(1, 0)
+            @flag = "should not reach"
+        }
+        "#,
+    )
+    .unwrap();
+    // flag stays "ok" because div-by-zero was caught before the assignment
+    assert_eq!(
+        state.var_get("flag").unwrap(),
+        corvo_lang::type_system::Value::String("ok".to_string())
+    );
+}

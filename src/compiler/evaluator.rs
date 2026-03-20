@@ -81,6 +81,13 @@ impl Evaluator {
                 Ok(())
             }
             Stmt::Assert { kind, args } => self.eval_assertion(kind, args, state),
+            Stmt::DontPanic { body } => {
+                // Intentionally suppress all runtime errors from the block body.
+                // This includes VariableNotFound, DivisionByZero, Assertion failures,
+                // and any other execution error that would normally propagate.
+                let _ = self.execute_block(body, state);
+                Ok(())
+            }
         }
     }
 

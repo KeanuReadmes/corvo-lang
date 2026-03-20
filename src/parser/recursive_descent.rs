@@ -38,11 +38,28 @@ impl Parser {
             TokenType::Try => self.parse_try_block()?,
             TokenType::Loop => self.parse_loop()?,
             TokenType::Terminate => self.parse_terminate()?,
+            TokenType::DontPanic => self.parse_dont_panic()?,
             TokenType::AssertEq
             | TokenType::AssertNeq
             | TokenType::AssertGt
             | TokenType::AssertLt
             | TokenType::AssertMatch => self.parse_assert()?,
+            TokenType::At => {
+                // @name = value → VarSet shortcut
+                // @name         → ExprStmt (VarGet shortcut)
+                let is_assignment = matches!(
+                    self.tokens.get(self.current + 1).map(|t| &t.token_type),
+                    Some(TokenType::Identifier(_))
+                ) && matches!(
+                    self.tokens.get(self.current + 2).map(|t| &t.token_type),
+                    Some(TokenType::Equals)
+                );
+                if is_assignment {
+                    self.parse_at_var_set()?
+                } else {
+                    self.parse_expr_statement()?
+                }
+            }
             _ => self.parse_expr_statement()?,
         };
 
@@ -122,6 +139,25 @@ impl Parser {
     fn parse_terminate(&mut self) -> CorvoResult<Stmt> {
         self.advance(); // consume 'terminate'
         Ok(Stmt::Terminate)
+    }
+
+    fn parse_dont_panic(&mut self) -> CorvoResult<Stmt> {
+        self.advance(); // consume 'dont_panic'
+        self.consume(TokenType::LeftBrace, "Expected '{' after 'dont_panic'")?;
+        let body = self.parse_block_body("dont_panic block")?;
+        Ok(Stmt::DontPanic { body })
+    }
+
+    fn parse_at_var_set(&mut self) -> CorvoResult<Stmt> {
+        self.advance(); // consume '@'
+        let name = match &self.peek().token_type {
+            TokenType::Identifier(s) => s.clone(),
+            _ => return Err(self.error("Expected variable name after '@'")),
+        };
+        self.advance(); // consume identifier
+        self.consume(TokenType::Equals, "Expected '=' after variable name")?;
+        let value = self.parse_expression()?;
+        Ok(Stmt::VarSet { name, value })
     }
 
     fn parse_assert(&mut self) -> CorvoResult<Stmt> {
@@ -238,6 +274,17 @@ impl Parser {
             }
             TokenType::LeftBracket => self.parse_list_literal(),
             TokenType::LeftBrace => self.parse_map_literal(),
+            TokenType::At => {
+                self.advance(); // consume '@'
+                match &self.peek().token_type {
+                    TokenType::Identifier(s) => {
+                        let name = s.clone();
+                        self.advance(); // consume identifier
+                        Ok(Expr::VarGet { name })
+                    }
+                    _ => Err(self.error("Expected variable name after '@'")),
+                }
+            }
             _ => Err(self.error(format!("Unexpected token: {}", token.token_type))),
         }
     }

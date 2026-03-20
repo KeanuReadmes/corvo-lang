@@ -10,6 +10,7 @@ pub enum TokenType {
     Fallback,
     Loop,
     Terminate,
+    DontPanic,
     AssertEq,
     AssertNeq,
     AssertGt,
@@ -32,6 +33,8 @@ pub enum TokenType {
     Comma,
     Dot,
     Colon,
+    At,
+    Equals,
 
     // Special
     StringInterpolation(Vec<Token>),
@@ -49,6 +52,7 @@ impl fmt::Display for TokenType {
             Self::Fallback => write!(f, "fallback"),
             Self::Loop => write!(f, "loop"),
             Self::Terminate => write!(f, "terminate"),
+            Self::DontPanic => write!(f, "dont_panic"),
             Self::AssertEq => write!(f, "assert_eq"),
             Self::AssertNeq => write!(f, "assert_neq"),
             Self::AssertGt => write!(f, "assert_gt"),
@@ -73,6 +77,8 @@ impl fmt::Display for TokenType {
             Self::Comma => write!(f, ","),
             Self::Dot => write!(f, "."),
             Self::Colon => write!(f, ":"),
+            Self::At => write!(f, "@"),
+            Self::Equals => write!(f, "="),
             Self::StringInterpolation(_) => write!(f, "string(...)"),
             Self::Comment(text) => write!(f, "#{}", text),
             Self::Eof => write!(f, "EOF"),

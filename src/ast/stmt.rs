@@ -30,6 +30,9 @@ pub enum Stmt {
         kind: AssertKind,
         args: Vec<Expr>,
     },
+    DontPanic {
+        body: Vec<Stmt>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]

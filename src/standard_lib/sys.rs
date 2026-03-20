@@ -60,14 +60,11 @@ pub fn panic(args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResul
 }
 
 pub fn exec(args: &[Value], named_args: &HashMap<String, Value>) -> CorvoResult<Value> {
-    let cmd_list = args
-        .first()
-        .and_then(|v| v.as_list())
-        .ok_or_else(|| {
-            CorvoError::invalid_argument(
-                "sys.exec requires a list of strings as the command, e.g. [\"ls\", \"-la\"]",
-            )
-        })?;
+    let cmd_list = args.first().and_then(|v| v.as_list()).ok_or_else(|| {
+        CorvoError::invalid_argument(
+            "sys.exec requires a list of strings as the command, e.g. [\"ls\", \"-la\"]",
+        )
+    })?;
 
     if cmd_list.is_empty() {
         return Err(CorvoError::invalid_argument(
@@ -79,9 +76,7 @@ pub fn exec(args: &[Value], named_args: &HashMap<String, Value>) -> CorvoResult<
         .iter()
         .map(|v| {
             v.as_string().map(|s| s.as_str()).ok_or_else(|| {
-                CorvoError::invalid_argument(
-                    "sys.exec command list elements must all be strings",
-                )
+                CorvoError::invalid_argument("sys.exec command list elements must all be strings")
             })
         })
         .collect::<CorvoResult<Vec<&str>>>()?;
@@ -260,12 +255,7 @@ mod tests {
     // sys.exec tests
 
     fn make_cmd(parts: &[&str]) -> Value {
-        Value::List(
-            parts
-                .iter()
-                .map(|s| Value::String(s.to_string()))
-                .collect(),
-        )
+        Value::List(parts.iter().map(|s| Value::String(s.to_string())).collect())
     }
 
     #[test]
