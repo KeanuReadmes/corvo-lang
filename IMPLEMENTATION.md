@@ -172,6 +172,8 @@ browse(@matrix, row_idx, row) {
 
 ### Hashing & Encryption (`crypto`)
 * `crypto.hash(algorithm: string, data: string) -> string` (Supports "md5", "sha256", "sha512")
+* `crypto.hash_file(algorithm: string, path: string) -> string` (Hashes a file's contents; supports "md5", "sha256", "sha512")
+* `crypto.checksum(path: string) -> string` (SHA-256 checksum of a file; returns 64-char hex string)
 * `crypto.encrypt(data: string, key: string) -> string` (AES-GCM)
 * `crypto.decrypt(data: string, key: string) -> string`
 * `crypto.uuid() -> string` (Generates a UUIDv4)
@@ -214,6 +216,8 @@ browse(@matrix, row_idx, row) {
 
 ### Security & Crypto (`crypto`)
 * `crypto.hash(algorithm: string, data: string) -> string` (Supports "md5", "sha256", "sha512")
+* `crypto.hash_file(algorithm: string, path: string) -> string` (Hashes a file's contents; supports "md5", "sha256", "sha512")
+* `crypto.checksum(path: string) -> string` (SHA-256 checksum of a file; returns 64-char hex string)
 * `crypto.encrypt(data: string, key: string) -> string` (AES-GCM)
 * `crypto.decrypt(data: string, key: string) -> string`
 * `crypto.uuid() -> string` (Generates a UUIDv4)

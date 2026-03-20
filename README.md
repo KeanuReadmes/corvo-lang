@@ -103,7 +103,7 @@ No `import`. No package manager. No dependency hell.
 | `csv` | parse |
 | `xml` | parse |
 | `hcl` | parse, stringify |
-| `crypto` | hash, encrypt, decrypt, uuid |
+| `crypto` | hash, hash_file, checksum, encrypt, decrypt, uuid |
 | `dns` | resolve, lookup |
 | `math` | add, sub, mul, div, mod |
 | `os` | get_env, set_env, exec, info |
