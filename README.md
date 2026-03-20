@@ -6,10 +6,10 @@ Corvo is a modern scripting language designed to be a direct alternative to Bash
 
 ```corvo
 # Fetch an API, parse the response, write to disk
-let res = http.get(url: "https://api.example.com/data")
-let data = json.parse(res.response_body)
-fs.write("/tmp/output.json", json.stringify(data))
-sys.echo("Written ${map.len(data)} entries")
+var.set("res", http.get(url: "https://api.example.com/data"))
+var.set("data", json.parse(map.get(var.get("res"), "response_body")))
+fs.write("/tmp/output.json", json.stringify(var.get("data")))
+sys.echo("Written ${map.len(var.get("data"))} entries")
 ```
 
 ---
@@ -102,10 +102,14 @@ No `import`. No package manager. No dependency hell.
 | `yaml` | parse, stringify |
 | `csv` | parse |
 | `xml` | parse |
+| `hcl` | parse, stringify |
 | `crypto` | hash, encrypt, decrypt, uuid |
 | `dns` | resolve, lookup |
 | `math` | add, sub, mul, div, mod |
 | `os` | get_env, set_env, exec, info |
+| `ssh` | exec, scp_upload, scp_download |
+| `rsync` | sync |
+| `llm` | model, prompt, embed, chat |
 | `string` | 12 methods (concat, replace, split, trim, ...) |
 | `list` | 11 methods (push, pop, get, join, ...) |
 | `map` | 9 methods (keys, values, merge, ...) |
@@ -118,7 +122,7 @@ No `import`. No package manager. No dependency hell.
 ### Install
 
 ```bash
-git clone https://github.com/anomalyco/corvo-lang
+git clone https://github.com/KeanuReadmes/corvo-lang
 cd corvo-lang
 cargo build --release
 # Binary is at target/release/corvo
@@ -226,7 +230,7 @@ Trigger fallback on failure:
 | `assert_neq(a, b)` | a != b |
 | `assert_gt(a, b)` | a > b |
 | `assert_lt(a, b)` | a < b |
-| `assert_match(regex, str)` | str matches regex pattern |
+| `assert_match(regex, target)` | target matches regex pattern |
 
 ```corvo
 try {
@@ -262,18 +266,20 @@ Inspired by Python's `subprocess.run`:
 ```corvo
 # Basic command execution
 var.set("result", sys.exec("ls -la /tmp"))
-sys.echo(var.get("result").stdout)
+sys.echo(map.get(var.get("result"), "stdout"))
 
 # With input piped to stdin
 var.set("upper", sys.exec("tr '[:lower:]' '[:upper:]'", input: "hello world"))
-sys.echo(upper.stdout)  # "HELLO WORLD"
+sys.echo(map.get(var.get("upper"), "stdout"))  # "HELLO WORLD"
 
 # With working directory and environment
 sys.exec("make build", cwd: "/src/project", env: {"CC": "clang"})
 
-# Timeout protection
+# Timeout protection: timeout causes a runtime error that triggers fallback
 try {
-    sys.exec("slow-command", timeout: 30)
+    var.set("result", sys.exec("slow-command", timeout: 30))
+    assert_eq(map.get(var.get("result"), "code"), 0)
+    sys.echo("Command succeeded")
 } fallback {
     sys.echo("Command timed out or failed")
 }
@@ -365,19 +371,21 @@ All return `{status_code, response_body, headers}`.
 | `yaml.parse(str)` | Parse YAML string |
 | `yaml.stringify(value)` | Serialize to YAML |
 
-### `csv` / `xml` -- Data formats
+### `csv` / `xml` / `hcl` -- Data formats
 
 | Function | Description |
 |---|---|
 | `csv.parse(str, delimiter?)` | Parse CSV with headers |
 | `xml.parse(str)` | Parse XML to Corvo value |
+| `hcl.parse(str)` | Parse HCL/Terraform config to Corvo value |
+| `hcl.stringify(value)` | Serialize to HCL |
 
 ### `crypto` -- Cryptography
 
 | Function | Description |
 |---|---|
 | `crypto.hash(algorithm, data)` | Hash: `md5`, `sha256`, `sha512` |
-| `crypto.encrypt(data, key)` | Encrypt (XOR + base64) |
+| `crypto.encrypt(data, key)` | Encrypt (AES-GCM) |
 | `crypto.decrypt(data, key)` | Decrypt |
 | `crypto.uuid()` | Generate UUID v4 |
 
@@ -404,8 +412,31 @@ All return `{status_code, response_body, headers}`.
 |---|---|
 | `os.get_env(key, default?)` | Get environment variable |
 | `os.set_env(key, value)` | Set environment variable |
-| `os.exec(cmd)` | Simple command execution |
+| `os.exec(cmd, args?)` | Simple process execution |
 | `os.info()` | Returns `{os, arch, hostname}` |
+
+### `ssh` -- Remote shell
+
+| Function | Description |
+|---|---|
+| `ssh.exec(host, user, key_path, cmd)` | Execute command on remote host |
+| `ssh.scp_upload(host, user, key_path, local_path, remote_path)` | Upload file via SCP |
+| `ssh.scp_download(host, user, key_path, remote_path, local_path)` | Download file via SCP |
+
+### `rsync` -- File synchronization
+
+| Function | Description |
+|---|---|
+| `rsync.sync(source, dest, options?)` | Synchronize files/directories |
+
+### `llm` -- AI language models
+
+| Function | Description |
+|---|---|
+| `llm.model(name, provider, options?)` | Build a model connection string |
+| `llm.prompt(model, prompt, tokens?)` | Execute a prompt against a model |
+| `llm.embed(model, text)` | Generate a vector embedding |
+| `llm.chat(id, model, messages, tokens?)` | Execute a chat conversation |
 
 ### `string` methods
 
@@ -504,12 +535,12 @@ sys.echo("Found ${var.get("count")} error lines")
 var.set("res", http.get(url: "https://api.github.com/repos/rust-lang/rust"))
 
 try {
-    assert_eq(var.get("res").status_code, 200)
+    assert_eq(map.get(var.get("res"), "status_code"), 200)
 } fallback {
     sys.panic("API request failed")
 }
 
-var.set("repo", json.parse(var.get("res").response_body))
+var.set("repo", json.parse(map.get(var.get("res"), "response_body")))
 sys.echo("Name: ${map.get(var.get("repo"), "full_name")}")
 sys.echo("Stars: ${map.get(var.get("repo"), "stargazers_count")}")
 sys.echo("Language: ${map.get(var.get("repo"), "language")}")
@@ -523,14 +554,14 @@ sys.echo("Host: ${map.get(var.get("info"), "hostname")}")
 sys.echo("OS: ${map.get(var.get("info"), "os")}/${map.get(var.get("info"), "arch")}")
 
 var.set("disk", sys.exec("df -h / | tail -1"))
-sys.echo("Disk: ${string.trim(var.get("disk").stdout)}")
+sys.echo("Disk: ${string.trim(map.get(var.get("disk"), "stdout"))}")
 
 var.set("mem", sys.exec("free -h | grep Mem | awk '{print $3 \"/\" $2}'"))
-sys.echo("Memory: ${string.trim(var.get("mem").stdout)}")
+sys.echo("Memory: ${string.trim(map.get(var.get("mem"), "stdout"))}")
 
-var.set("result", sys.exec("curl -s -o /dev/null -w '%{http_code}' https://example.com", timeout: 5)
+var.set("result", sys.exec("curl -s -o /dev/null -w '%{http_code}' https://example.com", timeout: 5))
 try {
-    assert_eq(var.get("result").stdout, "200")
+    assert_eq(map.get(var.get("result"), "stdout"), "200")
     sys.echo("Health: OK")
 } fallback {
     sys.echo("Health: DEGRADED")

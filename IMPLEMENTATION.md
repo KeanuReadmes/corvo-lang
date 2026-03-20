@@ -18,9 +18,13 @@ Corvo is strongly and limited typed. A variable's type is inferred on its first 
 * `string.split(target: string, delimiter: string) -> list`
 * `string.trim(target: string) -> string`
 * `string.contains(target: string, substr: string) -> boolean`
+* `string.starts_with(target: string, prefix: string) -> boolean`
+* `string.ends_with(target: string, suffix: string) -> boolean`
 * `string.to_lower(target: string) -> string`
 * `string.to_upper(target: string) -> string`
 * `string.len(target: string) -> number`
+* `string.reverse(target: string) -> string`
+* `string.is_empty(target: string) -> boolean`
 
 ### `number`
 * `number.to_string(num: number) -> string`
@@ -31,16 +35,25 @@ Corvo is strongly and limited typed. A variable's type is inferred on its first 
 * `list.push(target: list, item: any) -> list` (Returns a new list with the item appended)
 * `list.pop(target: list) -> list` (Returns a new list without the last item)
 * `list.get(target: list, index: number) -> any`
+* `list.set(target: list, index: number, value: any) -> list` (Returns a new list with the item at index replaced)
+* `list.first(target: list) -> any`
+* `list.last(target: list) -> any`
 * `list.len(target: list) -> number`
+* `list.is_empty(target: list) -> boolean`
 * `list.contains(target: list, item: any) -> boolean`
+* `list.reverse(target: list) -> list`
 * `list.join(target: list, delimiter: string) -> string`
 
 ### `map`
 * `map.keys(target: map) -> list`
 * `map.values(target: map) -> list`
+* `map.len(target: map) -> number`
+* `map.is_empty(target: map) -> boolean`
 * `map.has_key(target: map, key: string) -> boolean`
 * `map.get(target: map, key: string, default: any) -> any`
 * `map.set(target: map, key: string, value: any) -> map` (Returns a new map with the updated key)
+* `map.remove(target: map, key: string) -> map` (Returns a new map without the specified key)
+* `map.merge(target: map, other: map) -> map` (Returns a new map with keys from both maps)
 
 ## 3. State Management
 
@@ -83,9 +96,10 @@ Corvo supports a single, infinite loop construct. The only way to exit is by cal
 * `sys.read_line(prompt: string) -> string`: Reads user input from stdin.
 * `sys.sleep(ms: number)`: Pauses execution.
 * `sys.panic(msg: string)`: Terminates with a non-zero exit code.
+* `sys.exec(cmd: string, input?: string, check?: boolean, timeout?: number, cwd?: string, env?: map, shell?: string) -> map`: Executes a shell command with full control. Returns `{"stdout": string, "stderr": string, "code": number}`. Named parameters: `input` (data piped to stdin), `check` (error on non-zero exit), `timeout` (kill after N seconds, triggers fallback on timeout), `cwd` (working directory), `env` (environment variables), `shell` (shell to use, default: `sh`). Use `sys.exec` when you need shell features, piping, timeouts, or environment control.
 * `os.get_env(key: string, default: string) -> string`
 * `os.set_env(key: string, value: string)`
-* `os.exec(cmd: string, args: list) -> map`: Returns `{"stdout": string, "stderr": string, "code": number}`.
+* `os.exec(cmd: string, args: list) -> map`: Simple process execution without a shell. Returns `{"stdout": string, "stderr": string, "code": number}`. Use `os.exec` for direct process invocation when you have a command and its arguments as separate values and do not need shell features.
 * `os.info() -> map`: Returns `{"os": string, "arch": string, "hostname": string}`.
 * `math.add(a: number, b: number) -> number`
 * `math.sub(a: number, b: number) -> number`
