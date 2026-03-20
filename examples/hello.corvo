@@ -1,0 +1,5 @@
+# hello.corvo - Hello World example
+sys.echo("Hello, World!")
+
+var.set("name", "Corvo")
+sys.echo("Welcome to ${var.get("name")}!")

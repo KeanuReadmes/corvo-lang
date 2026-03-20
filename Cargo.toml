@@ -1,0 +1,57 @@
+[package]
+name = "corvo-lang"
+version = "0.1.0"
+edition = "2021"
+authors = ["Corvo Team"]
+description = "A modern programming language for scripting and batch programming"
+license = "MIT"
+repository = "https://github.com/anomalyco/corvo-lang"
+keywords = ["language", "scripting", "compiler", "interpreter"]
+categories = ["command-line-utilities", "development-tools"]
+
+[lib]
+name = "corvo_lang"
+path = "src/lib.rs"
+
+[[bin]]
+name = "corvo"
+path = "src/main.rs"
+
+[dependencies]
+miette = { version = "5.10", features = ["fancy"] }
+thiserror = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+csv = "1.3"
+quick-xml = { version = "0.31", features = ["serialize"] }
+regex = "1.10"
+uuid = { version = "1.6", features = ["v4", "serde"] }
+aes-gcm = "0.10"
+sha2 = "0.10"
+md-5 = "0.10"
+rand = "0.8"
+reqwest = { version = "0.11", features = ["json", "blocking"] }
+tokio = { version = "1.35", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+directories = "5.0"
+chrono = "0.4"
+hmac = "0.12"
+base64 = "0.21"
+dns-lookup = "2.0"
+hostname = "0.4"
+structopt = "0.3"
+
+[dependencies.rustyline]
+version = "12.0"
+optional = true
+
+[dev-dependencies]
+tempfile = "3.9"
+pretty_assertions = "1.4"
+proptest = "1.4"
+
+[features]
+default = ["repl"]
+repl = ["rustyline"]

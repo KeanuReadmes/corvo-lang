@@ -1,0 +1,37 @@
+# crypto_example.corvo - Hashing and encryption
+
+sys.echo("=== Crypto Example ===")
+
+# Hashing
+var.set("data", "Hello, Corvo!")
+sys.echo("Data: ${var.get("data")}")
+sys.echo("MD5: ${crypto.hash("md5", var.get("data"))}")
+sys.echo("SHA-256: ${crypto.hash("sha256", var.get("data"))}")
+
+# UUID generation
+sys.echo("")
+sys.echo("=== UUID Generation ===")
+var.set("id1", crypto.uuid())
+var.set("id2", crypto.uuid())
+sys.echo("UUID 1: ${var.get("id1")}")
+sys.echo("UUID 2: ${var.get("id2")}")
+
+# Encrypt and decrypt
+sys.echo("")
+sys.echo("=== Encrypt/Decrypt ===")
+var.set("secret", "my secret message")
+var.set("key", "encryption_key_123")
+sys.echo("Original: ${var.get("secret")}")
+
+var.set("encrypted", crypto.encrypt(var.get("secret"), var.get("key")))
+sys.echo("Encrypted: ${var.get("encrypted")}")
+
+var.set("decrypted", crypto.decrypt(var.get("encrypted"), var.get("key")))
+sys.echo("Decrypted: ${var.get("decrypted")}")
+
+try {
+    assert_eq(var.get("secret"), var.get("decrypted"))
+    sys.echo("Roundtrip: SUCCESS")
+} fallback {
+    sys.echo("Roundtrip: FAILED")
+}

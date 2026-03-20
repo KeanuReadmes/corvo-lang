@@ -1,0 +1,17 @@
+# variables.corvo - Working with variables
+var.set("x", 10)
+var.set("y", 20)
+var.set("sum", math.add(var.get("x"), var.get("y")))
+sys.echo("${var.get("x")} + ${var.get("y")} = ${var.get("sum")}")
+
+var.set("product", math.mul(var.get("x"), var.get("y")))
+sys.echo("${var.get("x")} * ${var.get("y")} = ${var.get("product")}")
+
+var.set("ratio", math.div(var.get("y"), var.get("x")))
+sys.echo("${var.get("y")} / ${var.get("x")} = ${var.get("ratio")}")
+
+# String operations
+var.set("greeting", string.concat("Hello, ", "World"))
+sys.echo(var.get("greeting"))
+sys.echo("Uppercase: ${string.to_upper(var.get("greeting"))}")
+sys.echo("Length: ${string.len(var.get("greeting"))}")

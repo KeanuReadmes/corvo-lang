@@ -1,0 +1,48 @@
+# error_handling.corvo - try/fallback patterns
+
+sys.echo("=== Error Handling ===")
+
+# Simple try/fallback
+var.set("result", "init")
+try {
+    assert_eq(1, 1)
+    var.set("result", "assertion passed")
+} fallback {
+    var.set("result", "assertion failed")
+}
+sys.echo("Simple try: ${var.get("result")}")
+
+# Failed assertion triggers fallback
+try {
+    assert_eq(1, 2)
+    var.set("result", "should not reach")
+} fallback {
+    var.set("result", "correctly caught error")
+}
+sys.echo("Failed try: ${var.get("result")}")
+
+# Multiple fallbacks
+sys.echo("")
+sys.echo("=== Multiple Fallbacks ===")
+var.set("step", 0)
+try {
+    var.set("step", math.add(var.get("step"), 1))
+    assert_eq(1, 2)
+} fallback {
+    var.set("step", math.add(var.get("step"), 1))
+    assert_eq(3, 4)
+} fallback {
+    var.set("step", math.add(var.get("step"), 1))
+    sys.echo("Third fallback executed, step=${var.get("step")}")
+}
+
+# Safe variable access
+sys.echo("")
+sys.echo("=== Safe Access ===")
+var.set("config", {"host": "localhost", "port": 8080})
+try {
+    var.set("timeout", map.get(var.get("config"), "timeout"))
+    sys.echo("Timeout: ${var.get("timeout")}")
+} fallback {
+    sys.echo("Timeout not configured, using default")
+}

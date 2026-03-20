@@ -1,0 +1,23 @@
+# data_structures.corvo - Lists and Maps
+
+# Working with lists
+sys.echo("=== Lists ===")
+var.set("fruits", ["apple", "banana", "cherry"])
+sys.echo("Fruits: ${list.join(var.get("fruits"), ", ")}")
+sys.echo("Count: ${list.len(var.get("fruits"))}")
+sys.echo("First: ${list.get(var.get("fruits"), 0)}")
+
+var.set("fruits", list.push(var.get("fruits"), "date"))
+sys.echo("After push: ${list.join(var.get("fruits"), ", ")}")
+
+# Working with maps
+sys.echo("")
+sys.echo("=== Maps ===")
+var.set("person", {"name": "Alice", "age": 30, "city": "Tokyo"})
+sys.echo("Name: ${map.get(var.get("person"), "name")}")
+sys.echo("Age: ${map.get(var.get("person"), "age")}")
+sys.echo("Has email: ${map.has_key(var.get("person"), "email")}")
+
+var.set("person", map.set(var.get("person"), "email", "alice@example.com"))
+sys.echo("Email: ${map.get(var.get("person"), "email")}")
+sys.echo("Keys: ${list.join(map.keys(var.get("person")), ", ")}")
