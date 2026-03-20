@@ -76,7 +76,7 @@ Shell scripts are interpreted. Corvo compiles to a self-contained executable wit
 cat > deploy.corvo << 'EOF'
 var.set("env", os.get_env("DEPLOY_ENV", "staging"))
 sys.echo("Deploying to ${var.get("env")}...")
-sys.exec("rsync -avz ./build/ server:/app/", check: true)
+sys.exec(["rsync", "-avz", "./build/", "server:/app/"], check: true)
 sys.echo("Done.")
 EOF
 
@@ -261,23 +261,23 @@ sys.echo(json.stringify(var.get("config")))
 
 ### Subprocess execution
 
-Inspired by Python's `subprocess.run`:
+Inspired by Python's `subprocess.run`, `sys.exec` accepts a list of strings where the first element is the program and the remaining elements are its arguments. This avoids shell injection and makes argument passing explicit:
 
 ```corvo
 # Basic command execution
-var.set("result", sys.exec("ls -la /tmp"))
+var.set("result", sys.exec(["ls", "-la", "/tmp"]))
 sys.echo(map.get(var.get("result"), "stdout"))
 
 # With input piped to stdin
-var.set("upper", sys.exec("tr '[:lower:]' '[:upper:]'", input: "hello world"))
+var.set("upper", sys.exec(["tr", "[:lower:]", "[:upper:]"], input: "hello world"))
 sys.echo(map.get(var.get("upper"), "stdout"))  # "HELLO WORLD"
 
 # With working directory and environment
-sys.exec("make build", cwd: "/src/project", env: {"CC": "clang"})
+sys.exec(["make", "build"], cwd: "/src/project", env: {"CC": "clang"})
 
 # Timeout protection: timeout causes a runtime error that triggers fallback
 try {
-    var.set("result", sys.exec("slow-command", timeout: 30))
+    var.set("result", sys.exec(["slow-command"], timeout: 30))
     assert_eq(map.get(var.get("result"), "code"), 0)
     sys.echo("Command succeeded")
 } fallback {
@@ -285,10 +285,10 @@ try {
 }
 
 # Strict mode: error on non-zero exit
-sys.exec("deploy.sh", check: true)
+sys.exec(["deploy.sh"], check: true)
 
-# Custom shell
-sys.exec("echo $PS1", shell: "bash")
+# When shell features like pipelines are needed, pass them via sh -c
+var.set("result", sys.exec(["sh", "-c", "df -h / | tail -1"]))
 ```
 
 | Named arg | Type | Description |
@@ -298,7 +298,6 @@ sys.exec("echo $PS1", shell: "bash")
 | `timeout` | number | Kill after N seconds |
 | `cwd` | string | Working directory |
 | `env` | map | Environment variables |
-| `shell` | string | Shell to use (default: `sh`) |
 
 Returns: `{stdout: "...", stderr: "...", code: 0}`
 
@@ -329,7 +328,7 @@ http.post("https://api.example.com", body: '{"key": "val"}', headers: {"Content-
 | `sys.read_line(prompt?)` | Read a line from stdin |
 | `sys.sleep(ms)` | Pause for milliseconds |
 | `sys.panic(msg?)` | Raise a runtime error |
-| `sys.exec(cmd, ...)` | Execute a shell command |
+| `sys.exec(cmd, ...)` | Execute a process from a list of strings |
 
 ### `fs` -- File system
 
@@ -553,13 +552,13 @@ var.set("info", os.info())
 sys.echo("Host: ${map.get(var.get("info"), "hostname")}")
 sys.echo("OS: ${map.get(var.get("info"), "os")}/${map.get(var.get("info"), "arch")}")
 
-var.set("disk", sys.exec("df -h / | tail -1"))
+var.set("disk", sys.exec(["sh", "-c", "df -h / | tail -1"]))
 sys.echo("Disk: ${string.trim(map.get(var.get("disk"), "stdout"))}")
 
-var.set("mem", sys.exec("free -h | grep Mem | awk '{print $3 \"/\" $2}'"))
+var.set("mem", sys.exec(["sh", "-c", "free -h | grep Mem | awk '{print $3 \"/\" $2}'"]))
 sys.echo("Memory: ${string.trim(map.get(var.get("mem"), "stdout"))}")
 
-var.set("result", sys.exec("curl -s -o /dev/null -w '%{http_code}' https://example.com", timeout: 5))
+var.set("result", sys.exec(["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", "https://example.com"], timeout: 5))
 try {
     assert_eq(map.get(var.get("result"), "stdout"), "200")
     sys.echo("Health: OK")
@@ -576,7 +575,7 @@ static.set("DEST", "backup-server:/data/important")
 
 try {
     sys.exec(
-        "rsync -avz --delete ${static.get("SRC")}/ ${static.get("DEST")}/",
+        ["rsync", "-avz", "--delete", "${static.get("SRC")}/", "${static.get("DEST")}/"],
         timeout: 300,
         check: true
     )

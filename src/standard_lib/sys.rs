@@ -60,19 +60,37 @@ pub fn panic(args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResul
 }
 
 pub fn exec(args: &[Value], named_args: &HashMap<String, Value>) -> CorvoResult<Value> {
-    let cmd = args
+    let cmd_list = args
         .first()
-        .and_then(|v| v.as_string())
-        .ok_or_else(|| CorvoError::invalid_argument("sys.exec requires a command string"))?;
+        .and_then(|v| v.as_list())
+        .ok_or_else(|| {
+            CorvoError::invalid_argument(
+                "sys.exec requires a list of strings as the command, e.g. [\"ls\", \"-la\"]",
+            )
+        })?;
 
-    let shell = named_args
-        .get("shell")
-        .and_then(|v| v.as_string())
-        .cloned()
-        .unwrap_or_else(|| "sh".to_string());
+    if cmd_list.is_empty() {
+        return Err(CorvoError::invalid_argument(
+            "sys.exec command list must not be empty",
+        ));
+    }
 
-    let mut command = std::process::Command::new(&shell);
-    command.arg("-c").arg(cmd);
+    let parts: Vec<&str> = cmd_list
+        .iter()
+        .map(|v| {
+            v.as_string().map(|s| s.as_str()).ok_or_else(|| {
+                CorvoError::invalid_argument(
+                    "sys.exec command list elements must all be strings",
+                )
+            })
+        })
+        .collect::<CorvoResult<Vec<&str>>>()?;
+
+    let program = parts[0];
+    let cmd_display = parts.join(" ");
+
+    let mut command = std::process::Command::new(program);
+    command.args(&parts[1..]);
 
     if let Some(cwd) = named_args.get("cwd").and_then(|v| v.as_string()) {
         command.current_dir(cwd);
@@ -135,7 +153,7 @@ pub fn exec(args: &[Value], named_args: &HashMap<String, Value>) -> CorvoResult<
     if check && code != 0 {
         return Err(CorvoError::runtime(format!(
             "command '{}' returned non-zero exit code {}",
-            cmd, code
+            cmd_display, code
         )));
     }
 
@@ -241,9 +259,18 @@ mod tests {
 
     // sys.exec tests
 
+    fn make_cmd(parts: &[&str]) -> Value {
+        Value::List(
+            parts
+                .iter()
+                .map(|s| Value::String(s.to_string()))
+                .collect(),
+        )
+    }
+
     #[test]
     fn test_exec_basic() {
-        let args = vec![Value::String("echo hello".to_string())];
+        let args = vec![make_cmd(&["echo", "hello"])];
         let result = exec(&args, &empty_args()).unwrap();
         match result {
             Value::Map(m) => {
@@ -258,7 +285,7 @@ mod tests {
 
     #[test]
     fn test_exec_with_input() {
-        let args = vec![Value::String("cat".to_string())];
+        let args = vec![make_cmd(&["cat"])];
         let mut named = HashMap::new();
         named.insert("input".to_string(), Value::String("pipe input".to_string()));
         let result = exec(&args, &named).unwrap();
@@ -273,7 +300,7 @@ mod tests {
 
     #[test]
     fn test_exec_with_cwd() {
-        let args = vec![Value::String("pwd".to_string())];
+        let args = vec![make_cmd(&["pwd"])];
         let mut named = HashMap::new();
         named.insert("cwd".to_string(), Value::String("/tmp".to_string()));
         let result = exec(&args, &named).unwrap();
@@ -288,7 +315,7 @@ mod tests {
 
     #[test]
     fn test_exec_with_env() {
-        let args = vec![Value::String("echo $CORVO_TEST_EXEC_VAR".to_string())];
+        let args = vec![make_cmd(&["printenv", "CORVO_TEST_EXEC_VAR"])];
         let mut env_map = HashMap::new();
         env_map.insert(
             "CORVO_TEST_EXEC_VAR".to_string(),
@@ -308,7 +335,7 @@ mod tests {
 
     #[test]
     fn test_exec_check_passes() {
-        let args = vec![Value::String("true".to_string())];
+        let args = vec![make_cmd(&["true"])];
         let mut named = HashMap::new();
         named.insert("check".to_string(), Value::Boolean(true));
         assert!(exec(&args, &named).is_ok());
@@ -316,7 +343,7 @@ mod tests {
 
     #[test]
     fn test_exec_check_fails() {
-        let args = vec![Value::String("false".to_string())];
+        let args = vec![make_cmd(&["false"])];
         let mut named = HashMap::new();
         named.insert("check".to_string(), Value::Boolean(true));
         let err = exec(&args, &named).unwrap_err();
@@ -329,8 +356,23 @@ mod tests {
     }
 
     #[test]
+    fn test_exec_empty_list() {
+        let args = vec![Value::List(vec![])];
+        assert!(exec(&args, &empty_args()).is_err());
+    }
+
+    #[test]
+    fn test_exec_non_string_element() {
+        let args = vec![Value::List(vec![
+            Value::String("echo".to_string()),
+            Value::Number(42.0),
+        ])];
+        assert!(exec(&args, &empty_args()).is_err());
+    }
+
+    #[test]
     fn test_exec_timeout() {
-        let args = vec![Value::String("sleep 10".to_string())];
+        let args = vec![make_cmd(&["sleep", "10"])];
         let mut named = HashMap::new();
         named.insert("timeout".to_string(), Value::Number(1.0));
         let result = exec(&args, &named);
@@ -339,7 +381,7 @@ mod tests {
 
     #[test]
     fn test_exec_nonzero_exit() {
-        let args = vec![Value::String("exit 42".to_string())];
+        let args = vec![make_cmd(&["sh", "-c", "exit 42"])];
         let result = exec(&args, &empty_args()).unwrap();
         match result {
             Value::Map(m) => {
@@ -351,17 +393,22 @@ mod tests {
     }
 
     #[test]
-    fn test_exec_with_shell() {
-        let args = vec![Value::String("echo $0".to_string())];
-        let mut named = HashMap::new();
-        named.insert("shell".to_string(), Value::String("bash".to_string()));
-        let result = exec(&args, &named).unwrap();
+    fn test_exec_multiple_args() {
+        let args = vec![make_cmd(&["echo", "hello", "world"])];
+        let result = exec(&args, &empty_args()).unwrap();
         match result {
             Value::Map(m) => {
                 let stdout = m.get("stdout").unwrap().as_string().unwrap();
-                assert!(stdout.contains("bash"));
+                assert!(stdout.contains("hello"));
+                assert!(stdout.contains("world"));
             }
             _ => panic!("Expected Map"),
         }
+    }
+
+    #[test]
+    fn test_exec_not_a_list() {
+        let args = vec![Value::String("echo hello".to_string())];
+        assert!(exec(&args, &empty_args()).is_err());
     }
 }
