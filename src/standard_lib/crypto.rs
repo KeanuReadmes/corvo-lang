@@ -109,6 +109,62 @@ pub fn uuid(_args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResul
     Ok(Value::String(uuid::Uuid::new_v4().to_string()))
 }
 
+pub fn hash_file(args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResult<Value> {
+    let algorithm = args
+        .first()
+        .and_then(|v| v.as_string())
+        .ok_or_else(|| CorvoError::invalid_argument("crypto.hash_file requires an algorithm"))?;
+
+    let path = args
+        .get(1)
+        .and_then(|v| v.as_string())
+        .ok_or_else(|| CorvoError::invalid_argument("crypto.hash_file requires a file path"))?;
+
+    let data = std::fs::read(path).map_err(|e| CorvoError::file_system(e.to_string()))?;
+
+    let result = match algorithm.as_str() {
+        "md5" => {
+            use md5::{Digest, Md5};
+            let mut hasher = Md5::new();
+            hasher.update(&data);
+            format!("{:x}", hasher.finalize())
+        }
+        "sha256" => {
+            use sha2::{Digest, Sha256};
+            let mut hasher = Sha256::new();
+            hasher.update(&data);
+            format!("{:x}", hasher.finalize())
+        }
+        "sha512" => {
+            use sha2::{Digest, Sha512};
+            let mut hasher = Sha512::new();
+            hasher.update(&data);
+            format!("{:x}", hasher.finalize())
+        }
+        _ => {
+            return Err(CorvoError::invalid_argument(
+                "Unsupported hash algorithm. Use md5, sha256, or sha512",
+            ))
+        }
+    };
+
+    Ok(Value::String(result))
+}
+
+pub fn checksum(args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResult<Value> {
+    let path = args
+        .first()
+        .and_then(|v| v.as_string())
+        .ok_or_else(|| CorvoError::invalid_argument("crypto.checksum requires a file path"))?;
+
+    let data = std::fs::read(path).map_err(|e| CorvoError::file_system(e.to_string()))?;
+
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(&data);
+    Ok(Value::String(format!("{:x}", hasher.finalize())))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -215,5 +271,126 @@ mod tests {
         let u1 = uuid(&[], &empty_args()).unwrap();
         let u2 = uuid(&[], &empty_args()).unwrap();
         assert_ne!(u1, u2);
+    }
+
+    #[test]
+    fn test_hash_file_sha256() {
+        use std::io::Write;
+        let mut tmp = tempfile::NamedTempFile::new().unwrap();
+        tmp.write_all(b"hello").unwrap();
+        let path = tmp.path().to_str().unwrap().to_string();
+
+        let args = vec![
+            Value::String("sha256".to_string()),
+            Value::String(path),
+        ];
+        let result = hash_file(&args, &empty_args()).unwrap();
+        match result {
+            Value::String(h) => assert_eq!(h.len(), 64),
+            _ => panic!("Expected String"),
+        }
+    }
+
+    #[test]
+    fn test_hash_file_md5() {
+        use std::io::Write;
+        let mut tmp = tempfile::NamedTempFile::new().unwrap();
+        tmp.write_all(b"hello").unwrap();
+        let path = tmp.path().to_str().unwrap().to_string();
+
+        let args = vec![
+            Value::String("md5".to_string()),
+            Value::String(path),
+        ];
+        let result = hash_file(&args, &empty_args()).unwrap();
+        match result {
+            Value::String(h) => assert_eq!(h, "5d41402abc4b2a76b9719d911017c592"),
+            _ => panic!("Expected String"),
+        }
+    }
+
+    #[test]
+    fn test_hash_file_matches_hash() {
+        use std::io::Write;
+        let mut tmp = tempfile::NamedTempFile::new().unwrap();
+        tmp.write_all(b"corvo test content").unwrap();
+        let path = tmp.path().to_str().unwrap().to_string();
+
+        let file_args = vec![
+            Value::String("sha256".to_string()),
+            Value::String(path),
+        ];
+        let file_result = hash_file(&file_args, &empty_args()).unwrap();
+
+        let data_args = vec![
+            Value::String("sha256".to_string()),
+            Value::String("corvo test content".to_string()),
+        ];
+        let data_result = hash(&data_args, &empty_args()).unwrap();
+
+        assert_eq!(file_result, data_result);
+    }
+
+    #[test]
+    fn test_hash_file_invalid_algorithm() {
+        use std::io::Write;
+        let mut tmp = tempfile::NamedTempFile::new().unwrap();
+        tmp.write_all(b"data").unwrap();
+        let path = tmp.path().to_str().unwrap().to_string();
+
+        let args = vec![
+            Value::String("sha1".to_string()),
+            Value::String(path),
+        ];
+        assert!(hash_file(&args, &empty_args()).is_err());
+    }
+
+    #[test]
+    fn test_hash_file_missing_file() {
+        let args = vec![
+            Value::String("sha256".to_string()),
+            Value::String("/nonexistent/path/file.txt".to_string()),
+        ];
+        assert!(hash_file(&args, &empty_args()).is_err());
+    }
+
+    #[test]
+    fn test_checksum_sha256() {
+        use std::io::Write;
+        let mut tmp = tempfile::NamedTempFile::new().unwrap();
+        tmp.write_all(b"hello").unwrap();
+        let path = tmp.path().to_str().unwrap().to_string();
+
+        let args = vec![Value::String(path)];
+        let result = checksum(&args, &empty_args()).unwrap();
+        match result {
+            Value::String(h) => assert_eq!(h.len(), 64), // SHA-256 produces 64 hex chars
+            _ => panic!("Expected String"),
+        }
+    }
+
+    #[test]
+    fn test_checksum_matches_hash_file_sha256() {
+        use std::io::Write;
+        let mut tmp = tempfile::NamedTempFile::new().unwrap();
+        tmp.write_all(b"checksum test").unwrap();
+        let path = tmp.path().to_str().unwrap().to_string();
+
+        let checksum_args = vec![Value::String(path.clone())];
+        let checksum_result = checksum(&checksum_args, &empty_args()).unwrap();
+
+        let hash_file_args = vec![
+            Value::String("sha256".to_string()),
+            Value::String(path),
+        ];
+        let hash_file_result = hash_file(&hash_file_args, &empty_args()).unwrap();
+
+        assert_eq!(checksum_result, hash_file_result);
+    }
+
+    #[test]
+    fn test_checksum_missing_file() {
+        let args = vec![Value::String("/nonexistent/path/file.txt".to_string())];
+        assert!(checksum(&args, &empty_args()).is_err());
     }
 }

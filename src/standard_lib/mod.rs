@@ -61,6 +61,8 @@ pub fn call(
         "dns.lookup" => dns::lookup(args, named_args),
 
         "crypto.hash" => crypto::hash(args, named_args),
+        "crypto.hash_file" => crypto::hash_file(args, named_args),
+        "crypto.checksum" => crypto::checksum(args, named_args),
         "crypto.encrypt" => crypto::encrypt(args, named_args),
         "crypto.decrypt" => crypto::decrypt(args, named_args),
         "crypto.uuid" => crypto::uuid(args, named_args),

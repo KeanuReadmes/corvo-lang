@@ -599,6 +599,83 @@ fn test_uuid_generation() {
 }
 
 #[test]
+fn test_crypto_hash_file() {
+    let tmp = tempfile::NamedTempFile::new().unwrap();
+    let path = tmp.path().to_str().unwrap().to_string();
+    std::fs::write(&path, "hello").unwrap();
+
+    let source = format!(
+        r#"var.set("h", crypto.hash_file("sha256", "{path}"))"#,
+        path = path
+    );
+    let state = run_with_state(&source).unwrap();
+    match state.var_get("h").unwrap() {
+        corvo_lang::type_system::Value::String(h) => assert_eq!(h.len(), 64),
+        _ => panic!("Expected String"),
+    }
+}
+
+#[test]
+fn test_crypto_hash_file_matches_hash() {
+    let tmp = tempfile::NamedTempFile::new().unwrap();
+    let path = tmp.path().to_str().unwrap().to_string();
+    std::fs::write(&path, "hello").unwrap();
+
+    let source = format!(
+        r#"
+        var.set("file_hash", crypto.hash_file("md5", "{path}"))
+        var.set("data_hash", crypto.hash("md5", "hello"))
+        "#,
+        path = path
+    );
+    let state = run_with_state(&source).unwrap();
+    assert_eq!(
+        state.var_get("file_hash").unwrap(),
+        state.var_get("data_hash").unwrap()
+    );
+}
+
+#[test]
+fn test_crypto_checksum() {
+    let tmp = tempfile::NamedTempFile::new().unwrap();
+    let path = tmp.path().to_str().unwrap().to_string();
+    std::fs::write(&path, "checksum content").unwrap();
+
+    let source = format!(
+        r#"
+        var.set("cs", crypto.checksum("{path}"))
+        var.set("len", string.len(var.get("cs")))
+        "#,
+        path = path
+    );
+    let state = run_with_state(&source).unwrap();
+    assert_eq!(
+        state.var_get("len").unwrap(),
+        corvo_lang::type_system::Value::Number(64.0)
+    );
+}
+
+#[test]
+fn test_crypto_checksum_matches_hash_file_sha256() {
+    let tmp = tempfile::NamedTempFile::new().unwrap();
+    let path = tmp.path().to_str().unwrap().to_string();
+    std::fs::write(&path, "verify content").unwrap();
+
+    let source = format!(
+        r#"
+        var.set("cs", crypto.checksum("{path}"))
+        var.set("hf", crypto.hash_file("sha256", "{path}"))
+        "#,
+        path = path
+    );
+    let state = run_with_state(&source).unwrap();
+    assert_eq!(
+        state.var_get("cs").unwrap(),
+        state.var_get("hf").unwrap()
+    );
+}
+
+#[test]
 fn test_file_write_read_exists() {
     let state = run_with_state(
         r#"
