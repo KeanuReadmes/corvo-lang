@@ -366,9 +366,7 @@ fn test_prep_block_must_come_first() {
     );
     assert!(result.is_err());
     let err = result.unwrap_err();
-    assert!(
-        format!("{}", err).contains("prep block must come before all other statements")
-    );
+    assert!(format!("{}", err).contains("prep block must come before all other statements"));
 }
 
 #[test]
@@ -376,9 +374,7 @@ fn test_static_set_outside_prep_is_error() {
     let result = run_with_state(r#"static.set("x", 1)"#);
     assert!(result.is_err());
     let err = result.unwrap_err();
-    assert!(
-        format!("{}", err).contains("static.set() can only be used inside a prep block")
-    );
+    assert!(format!("{}", err).contains("static.set() can only be used inside a prep block"));
 }
 
 #[test]

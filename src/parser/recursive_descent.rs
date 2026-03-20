@@ -30,9 +30,7 @@ impl Parser {
 
             if matches!(self.peek().token_type, TokenType::Prep) {
                 if seen_non_prep {
-                    return Err(self.error(
-                        "prep block must come before all other statements",
-                    ));
+                    return Err(self.error("prep block must come before all other statements"));
                 }
                 let stmt = self.parse_prep()?;
                 statements.push(stmt);
@@ -56,9 +54,7 @@ impl Parser {
 
         let stmt = match &self.peek().token_type {
             TokenType::Prep => {
-                return Err(self.error(
-                    "prep block can only appear at the top level of a program",
-                ));
+                return Err(self.error("prep block can only appear at the top level of a program"));
             }
             TokenType::Static => self.parse_static_set()?,
             TokenType::Var => self.parse_var_set()?,
@@ -107,9 +103,7 @@ impl Parser {
 
     fn parse_static_set(&mut self) -> CorvoResult<Stmt> {
         if !self.in_prep_block {
-            return Err(self.error(
-                "static.set() can only be used inside a prep block",
-            ));
+            return Err(self.error("static.set() can only be used inside a prep block"));
         }
         self.advance(); // consume 'static'
 

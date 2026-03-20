@@ -366,8 +366,7 @@ mod tests {
     #[test]
     fn test_pre_execute_captures_statics() {
         std::env::set_var("CORVO_TEST_VAR", "test_value_123");
-        let source =
-            r#"prep { static.set("config", os.get_env("CORVO_TEST_VAR")) }"#.to_string();
+        let source = r#"prep { static.set("config", os.get_env("CORVO_TEST_VAR")) }"#.to_string();
         let mut compiler = Compiler::new(source, PathBuf::from("test.corvo"));
         compiler.pre_execute().unwrap();
 
