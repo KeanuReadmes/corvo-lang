@@ -34,6 +34,14 @@ impl Evaluator {
 
     fn exec_stmt(&mut self, stmt: &Stmt, state: &mut RuntimeState) -> CorvoResult<()> {
         match stmt {
+            Stmt::PrepBlock { body } => {
+                // Execute the prep block body to set static variables, then discard
+                // any runtime vars created in it. Vars in a prep block are scoped
+                // to the block and are not available in the rest of the program.
+                self.execute_block(body, state)?;
+                state.clear_vars();
+                Ok(())
+            }
             Stmt::StaticSet { name, value } => {
                 // Skip if already set (baked in from compilation)
                 if state.has_static(name) {
@@ -354,7 +362,7 @@ mod tests {
 
     #[test]
     fn test_eval_static_set_and_get() {
-        let state = eval_source(r#"static.set("pi", 2.5)"#).unwrap();
+        let state = eval_source(r#"prep { static.set("pi", 2.5) }"#).unwrap();
         assert_eq!(state.static_get("pi").unwrap(), Value::Number(2.5));
     }
 
@@ -819,8 +827,10 @@ mod tests {
     fn test_eval_static_var_independent() {
         let state = eval_source(
             r#"
+            prep {
+                static.set("x", 2)
+            }
             var.set("x", 1)
-            static.set("x", 2)
             "#,
         )
         .unwrap();

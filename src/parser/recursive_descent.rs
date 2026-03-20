@@ -6,19 +6,39 @@ use std::collections::HashMap;
 pub struct Parser {
     tokens: Vec<Token>,
     current: usize,
+    in_prep_block: bool,
 }
 
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Self {
-        Self { tokens, current: 0 }
+        Self {
+            tokens,
+            current: 0,
+            in_prep_block: false,
+        }
     }
 
     pub fn parse(&mut self) -> CorvoResult<Program> {
         let mut statements = Vec::new();
+        let mut seen_non_prep = false;
 
         while !self.is_at_end() {
-            if let Some(stmt) = self.parse_statement()? {
+            self.skip_comments();
+            if self.is_at_end() {
+                break;
+            }
+
+            if matches!(self.peek().token_type, TokenType::Prep) {
+                if seen_non_prep {
+                    return Err(self.error("prep block must come before all other statements"));
+                }
+                let stmt = self.parse_prep()?;
                 statements.push(stmt);
+            } else {
+                seen_non_prep = true;
+                if let Some(stmt) = self.parse_statement()? {
+                    statements.push(stmt);
+                }
             }
         }
 
@@ -33,6 +53,9 @@ impl Parser {
         }
 
         let stmt = match &self.peek().token_type {
+            TokenType::Prep => {
+                return Err(self.error("prep block can only appear at the top level of a program"));
+            }
             TokenType::Static => self.parse_static_set()?,
             TokenType::Var => self.parse_var_set()?,
             TokenType::Try => self.parse_try_block()?,
@@ -69,7 +92,19 @@ impl Parser {
 
     // --- Statement Parsers ---
 
+    fn parse_prep(&mut self) -> CorvoResult<Stmt> {
+        self.advance(); // consume 'prep'
+        self.consume(TokenType::LeftBrace, "Expected '{' after 'prep'")?;
+        self.in_prep_block = true;
+        let body = self.parse_block_body("prep block");
+        self.in_prep_block = false;
+        Ok(Stmt::PrepBlock { body: body? })
+    }
+
     fn parse_static_set(&mut self) -> CorvoResult<Stmt> {
+        if !self.in_prep_block {
+            return Err(self.error("static.set() can only be used inside a prep block"));
+        }
         self.advance(); // consume 'static'
 
         self.consume(TokenType::Dot, "Expected '.' after 'static'")?;
@@ -602,12 +637,70 @@ mod tests {
 
     #[test]
     fn test_parse_static_set() {
-        let program = parse_source(r#"static.set("key", 42)"#).unwrap();
+        let program = parse_source(r#"prep { static.set("key", 42) }"#).unwrap();
         assert_eq!(program.statements.len(), 1);
         match &program.statements[0] {
-            Stmt::StaticSet { name, .. } => assert_eq!(name, "key"),
-            _ => panic!("Expected StaticSet"),
+            Stmt::PrepBlock { body } => {
+                assert_eq!(body.len(), 1);
+                match &body[0] {
+                    Stmt::StaticSet { name, .. } => assert_eq!(name, "key"),
+                    _ => panic!("Expected StaticSet inside PrepBlock"),
+                }
+            }
+            _ => panic!("Expected PrepBlock"),
         }
+    }
+
+    #[test]
+    fn test_parse_prep_block() {
+        let program = parse_source(
+            r#"
+            prep {
+                static.set("config", "value")
+            }
+            var.set("x", 1)
+            "#,
+        )
+        .unwrap();
+        assert_eq!(program.statements.len(), 2);
+        match &program.statements[0] {
+            Stmt::PrepBlock { body } => assert_eq!(body.len(), 1),
+            _ => panic!("Expected PrepBlock"),
+        }
+    }
+
+    #[test]
+    fn test_parse_prep_must_come_first() {
+        let err = parse_expect_err(
+            r#"
+            var.set("x", 1)
+            prep {
+                static.set("config", "value")
+            }
+            "#,
+        );
+        let msg = format!("{}", err);
+        assert!(msg.contains("prep block must come before all other statements"));
+    }
+
+    #[test]
+    fn test_parse_prep_not_allowed_in_nested_block() {
+        let err = parse_expect_err(
+            r#"
+            try {
+                prep { static.set("x", 1) }
+            } fallback {}
+            "#,
+        );
+        let msg = format!("{}", err);
+        assert!(msg.contains("prep block can only appear at the top level"));
+    }
+
+    #[test]
+    fn test_parse_static_set_outside_prep_error() {
+        let err = parse_expect_err(r#"static.set("key", 42)"#);
+        let msg = format!("{}", err);
+        assert!(msg.contains("static.set() can only be used inside a prep block"));
     }
 
     #[test]
@@ -1082,7 +1175,7 @@ mod tests {
 
     #[test]
     fn test_parse_error_static_set_missing_string() {
-        let err = parse_expect_err("static.set(42, 1)");
+        let err = parse_expect_err("prep { static.set(42, 1) }");
         let msg = format!("{}", err);
         assert!(msg.contains("Expected string"));
     }
@@ -1112,8 +1205,10 @@ mod tests {
         let program = parse_source(
             r#"
             # Initialize
+            prep {
+                static.set("max", 10)
+            }
             var.set("counter", 0)
-            static.set("max", 10)
 
             # Main loop
             loop {

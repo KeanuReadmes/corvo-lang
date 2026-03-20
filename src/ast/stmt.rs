@@ -7,6 +7,9 @@ pub struct FallbackBlock {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
+    PrepBlock {
+        body: Vec<Stmt>,
+    },
     StaticSet {
         name: String,
         value: Expr,

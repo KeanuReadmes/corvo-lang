@@ -314,6 +314,7 @@ impl<'a> Lexer<'a> {
                     }
 
                     let token_type = match name.as_str() {
+                        "prep" => TokenType::Prep,
                         "static" => TokenType::Static,
                         "var" => TokenType::Var,
                         "try" => TokenType::Try,
@@ -389,6 +390,7 @@ impl<'a> Lexer<'a> {
         let end = self.pos;
 
         let keyword = match name.as_str() {
+            "prep" => TokenType::Prep,
             "static" => TokenType::Static,
             "var" => TokenType::Var,
             "try" => TokenType::Try,

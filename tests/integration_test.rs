@@ -302,8 +302,10 @@ fn test_map_literal_and_methods() {
 fn test_static_vs_var_independence() {
     let state = run_with_state(
         r#"
+        prep {
+            static.set("x", 2)
+        }
         var.set("x", 1)
-        static.set("x", 2)
         var.set("var_x", var.get("x"))
         var.set("static_x", static.get("x"))
         "#,
@@ -316,6 +318,91 @@ fn test_static_vs_var_independence() {
     assert_eq!(
         state.var_get("static_x").unwrap(),
         corvo_lang::type_system::Value::Number(2.0)
+    );
+}
+
+// --- Prep Block Integration Tests ---
+
+#[test]
+fn test_prep_block_sets_static() {
+    let state = run_with_state(
+        r#"
+        prep {
+            static.set("api_version", "v2")
+        }
+        var.set("result", static.get("api_version"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("v2".to_string())
+    );
+}
+
+#[test]
+fn test_prep_block_vars_not_available_outside() {
+    let result = run_with_state(
+        r#"
+        prep {
+            var.set("temp", 42)
+        }
+        var.set("x", var.get("temp"))
+        "#,
+    );
+    // var "temp" should not be available outside the prep block
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_prep_block_must_come_first() {
+    let result = run_with_state(
+        r#"
+        var.set("x", 1)
+        prep {
+            static.set("config", "value")
+        }
+        "#,
+    );
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert!(format!("{}", err).contains("prep block must come before all other statements"));
+}
+
+#[test]
+fn test_static_set_outside_prep_is_error() {
+    let result = run_with_state(r#"static.set("x", 1)"#);
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert!(format!("{}", err).contains("static.set() can only be used inside a prep block"));
+}
+
+#[test]
+fn test_prep_block_multiple_statics() {
+    let state = run_with_state(
+        r#"
+        prep {
+            static.set("host", "localhost")
+            static.set("port", 8080)
+            static.set("debug", true)
+        }
+        var.set("h", static.get("host"))
+        var.set("p", static.get("port"))
+        var.set("d", static.get("debug"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("h").unwrap(),
+        corvo_lang::type_system::Value::String("localhost".to_string())
+    );
+    assert_eq!(
+        state.var_get("p").unwrap(),
+        corvo_lang::type_system::Value::Number(8080.0)
+    );
+    assert_eq!(
+        state.var_get("d").unwrap(),
+        corvo_lang::type_system::Value::Boolean(true)
     );
 }
 

@@ -12,40 +12,46 @@ Corvo is a programming language designed for simplicity and readability. It emph
 * REPL Support: Corvo includes a Read-Eval-Print Loop (REPL) that allows developers to interactively test and debug their code. This feature provides immediate feedback and helps developers quickly identify and fix issues in their scripts.
 * Compiled Language: Corvo is a compiled language, which means that scripts are compiled into executable files before they are run. This approach can improve performance and allows for better error checking during the development process.
 * Strongly and limited Typed: Corvo is a strongly typed language, which means that variables must be declared with a specific type and cannot be changed to a different type. This design choice helps prevent type-related errors and promotes better code organization. Valid types: string, number, boolean, list, map.
-* Static Variables: Stores immutable values for compile-time constants and configuration settings. Static variables are defined at the beginning of the script and cannot be modified during runtime, ensuring that critical values remain consistent throughout the execution of the program.
+* Static Variables: Stores immutable values for compile-time constants and configuration settings. Static variables must be defined inside a `prep` block at the top of the script and cannot be modified during runtime, ensuring that critical values remain consistent throughout the execution of the program.
 
 ## Language Syntax
 Corvo's syntax is designed to be clean and straightforward. Here are some examples of Corvo code:
 
 ```corvo
 # This is a comment in Corvo
+
+# prep block — runs at compile time only.
+# This is the only place where static.set() is allowed.
+# Variables created here are NOT available outside the block.
+prep {
+    static.set("appName", "Corvo") # Compile-time constant, baked into the binary
+    static.set("version", os.get_env("CORVO_VERSION")) # Read from environment at compile time
+    static.set("pi", 3.14159)
+}
+
 # Print a message to the console
 sys.echo("Hello, World!")
-
-static.set("appName", "Corvo") # Compile-time constant assignment. Must be encrypted stored 
-static.set("version", os.get_env("CORVO_VERSION", "1.0.0")) # Compile-time constant assignment. Must be encrypted stored with fallback to "1.0.0" if the environment variable is not set.
+sys.echo("App: ${static.get("appName")}")
 
 # Variable assignment
 var.set("greeting", "Hello, Corvo!")
-sys.echo(var.get("greeting", "Bye, Corvo!"))
+sys.echo(var.get("greeting"))
 
 # @ shorthand: @name reads a variable (var.get), @name = val writes it (var.set)
 @greeting = "Hello, shorthand!"
 sys.echo(@greeting)
 
-# Static variable assignment
-static.set("pi", 3.14159)
 sys.echo(static.get("pi"))
 
 # Try/Fallback example
 try {
     sys.echo("Check if pi is greater than 3.5")
-    assert_gt(var.get("pi"), 3.5)
+    assert_gt(static.get("pi"), 3.5)
 } fallback {
     sys.echo("Pi is not greater than 3.5, checking if it's less than 3")
-    assert_lt(var.get("pi"), 3)
+    assert_lt(static.get("pi"), 3)
 } fallback {
-    sys.panic("Pi is exactly ${var.get("pi")}")
+    sys.echo("Pi is exactly ${static.get("pi")}")
 }
 
 # Infinite loop example, exit on `terminate` call.

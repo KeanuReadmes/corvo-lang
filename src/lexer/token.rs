@@ -4,6 +4,7 @@ use std::fmt;
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenType {
     // Keywords
+    Prep,
     Static,
     Var,
     Try,
@@ -47,6 +48,7 @@ pub enum TokenType {
 impl fmt::Display for TokenType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::Prep => write!(f, "prep"),
             Self::Static => write!(f, "static"),
             Self::Var => write!(f, "var"),
             Self::Try => write!(f, "try"),
