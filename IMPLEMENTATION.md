@@ -4,12 +4,13 @@
 When generating Corvo code, you **must** strictly adhere to the following language rules:
 * **NO USER-DEFINED FUNCTIONS:** Do not generate `def`, `fn`, `function`, or lambda expressions. All operations must use the built-in library calls.
 * **NO IF/ELSE STATEMENTS:** Do not generate `if`, `elif`, `else`, `switch`, or `match`. Control flow is strictly handled via `try { ... } fallback { ... }` combined with `assert_*` commands.
-* **NO ASSIGNMENT OPERATORS:** Do not use `=` for assignment. State is strictly managed via `var.set()` and `static.set()`.
+* **NO ASSIGNMENT OPERATORS:** Do not use `=` for assignment. State is strictly managed via `var.set()` and `static.set()` (the latter only inside a `prep` block).
 * **STRING INTERPOLATION:** Use `${}` for string interpolation (e.g., `sys.echo("Value: ${var.get("key")}")`).
 * **NAMED PARAMETERS:** Library functions support Python-like named parameters for clarity (e.g., `http.get(url: "https://...")`).
 * **IMMUTABILITY OF METHODS:** Type methods (like `string.replace`) do not mutate the variable in place; they return a new value that must be reassigned via `var.set()`.
 * **VARIABLE SHORTHAND:** `@name` is shorthand for `var.get("name")`; `@name = value` is shorthand for `var.set("name", value)`. Only use `@` for regular runtime variables.
 * **BROWSE BINDINGS:** Inside a `browse` block, the key and value bindings are accessed with the `$` prefix (e.g., `$key`, `$value`). Never use `@` or `var.get()` to read browse-bound variables; use `$name` directly or `${$name}` inside string interpolation.
+* **PREP BLOCK:** `static.set()` is **only** allowed inside a `prep { }` block. The `prep` block must appear before all other statements. Variables created inside `prep` are not available outside it.
 
 ## 2. Type System & Type Methods
 Corvo is strongly and limited typed. A variable's type is inferred on its first assignment and cannot change. Type methods are called using the type namespace (e.g., `string.method(value, ...)`).
@@ -72,10 +73,12 @@ sys.echo(@target_dir)
 ```
 
 ### 3.2 Compile-Time Constants (`static`)
-Used for configuration and immutable values. These are encrypted and baked into the compiled binary.
+Used for configuration and immutable values. These are baked into the compiled binary. `static.set()` is **only** allowed inside a `prep` block, which must appear before all other statements. Variables created inside `prep` are not available outside it.
 ```corvo
-static.set("appName", "Colonia_Agent")
-static.set("db_password", os.get_env("DB_PASS", "default_secret"))
+prep {
+    static.set("appName", "Colonia_Agent")
+    static.set("db_password", os.get_env("DB_PASS"))
+}
 ```
 
 ### 3.3 Browse Bindings (`$`)

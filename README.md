@@ -175,14 +175,36 @@ Type is fixed after first `var.set`. Reassigning with a different type is an err
 No `=` sign. Two namespaces:
 
 ```corvo
+# Compile-time constants (baked into binary when compiling)
+# static.set() is only allowed inside a prep block, which must come first.
+prep {
+    static.set("VERSION", "1.0.0")
+}
+
 # Runtime variables (mutable)
 var.set("counter", 0)
 var.set("counter", math.add(var.get("counter"), 1))
-
-# Compile-time constants (baked into binary when compiling)
-static.set("VERSION", "1.0.0")
 sys.echo(var.get("counter"))          # prints 1
 sys.echo(static.get("VERSION"))       # prints 1.0.0
+```
+
+#### The `prep` block
+
+The `prep` block is used for compile-time setup. It has three strict rules:
+
+1. **Must appear before all other statements.** It is a parse error to place code before a `prep` block.
+2. **`static.set()` is only allowed inside `prep`.** Calling `static.set()` anywhere else is a parse error.
+3. **Variables created inside `prep` are not available outside it.** Use `static.set()` to pass values to the rest of the program.
+
+```corvo
+prep {
+    static.set("host", os.get_env("APP_HOST"))
+    static.set("port", 8080)
+    var.set("tmp", "only visible inside prep")  # not available after prep
+}
+
+# static values are accessible everywhere after prep
+sys.echo("Connecting to ${static.get("host")}:${static.get("port")}")
 ```
 
 #### Variable shorthand
@@ -684,8 +706,10 @@ try {
 ### File sync with error recovery
 
 ```corvo
-static.set("SRC", "/data/important")
-static.set("DEST", "backup-server:/data/important")
+prep {
+    static.set("SRC", "/data/important")
+    static.set("DEST", "backup-server:/data/important")
+}
 
 try {
     sys.exec(
