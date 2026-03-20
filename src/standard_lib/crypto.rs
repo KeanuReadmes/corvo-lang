@@ -280,10 +280,7 @@ mod tests {
         tmp.write_all(b"hello").unwrap();
         let path = tmp.path().to_str().unwrap().to_string();
 
-        let args = vec![
-            Value::String("sha256".to_string()),
-            Value::String(path),
-        ];
+        let args = vec![Value::String("sha256".to_string()), Value::String(path)];
         let result = hash_file(&args, &empty_args()).unwrap();
         match result {
             Value::String(h) => assert_eq!(h.len(), 64),
@@ -298,10 +295,7 @@ mod tests {
         tmp.write_all(b"hello").unwrap();
         let path = tmp.path().to_str().unwrap().to_string();
 
-        let args = vec![
-            Value::String("md5".to_string()),
-            Value::String(path),
-        ];
+        let args = vec![Value::String("md5".to_string()), Value::String(path)];
         let result = hash_file(&args, &empty_args()).unwrap();
         match result {
             Value::String(h) => assert_eq!(h, "5d41402abc4b2a76b9719d911017c592"),
@@ -316,10 +310,7 @@ mod tests {
         tmp.write_all(b"corvo test content").unwrap();
         let path = tmp.path().to_str().unwrap().to_string();
 
-        let file_args = vec![
-            Value::String("sha256".to_string()),
-            Value::String(path),
-        ];
+        let file_args = vec![Value::String("sha256".to_string()), Value::String(path)];
         let file_result = hash_file(&file_args, &empty_args()).unwrap();
 
         let data_args = vec![
@@ -338,10 +329,7 @@ mod tests {
         tmp.write_all(b"data").unwrap();
         let path = tmp.path().to_str().unwrap().to_string();
 
-        let args = vec![
-            Value::String("sha1".to_string()),
-            Value::String(path),
-        ];
+        let args = vec![Value::String("sha1".to_string()), Value::String(path)];
         assert!(hash_file(&args, &empty_args()).is_err());
     }
 
@@ -379,10 +367,7 @@ mod tests {
         let checksum_args = vec![Value::String(path.clone())];
         let checksum_result = checksum(&checksum_args, &empty_args()).unwrap();
 
-        let hash_file_args = vec![
-            Value::String("sha256".to_string()),
-            Value::String(path),
-        ];
+        let hash_file_args = vec![Value::String("sha256".to_string()), Value::String(path)];
         let hash_file_result = hash_file(&hash_file_args, &empty_args()).unwrap();
 
         assert_eq!(checksum_result, hash_file_result);

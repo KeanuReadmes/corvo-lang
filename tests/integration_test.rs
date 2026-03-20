@@ -669,10 +669,7 @@ fn test_crypto_checksum_matches_hash_file_sha256() {
         path = path
     );
     let state = run_with_state(&source).unwrap();
-    assert_eq!(
-        state.var_get("cs").unwrap(),
-        state.var_get("hf").unwrap()
-    );
+    assert_eq!(state.var_get("cs").unwrap(), state.var_get("hf").unwrap());
 }
 
 #[test]
