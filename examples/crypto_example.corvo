@@ -1,12 +1,39 @@
-# crypto_example.corvo - Hashing and encryption
+# crypto_example.corvo - Hashing, file hashing, checksums, and encryption
 
 sys.echo("=== Crypto Example ===")
 
-# Hashing
+# Hashing strings
 var.set("data", "Hello, Corvo!")
 sys.echo("Data: ${var.get("data")}")
 sys.echo("MD5: ${crypto.hash("md5", var.get("data"))}")
 sys.echo("SHA-256: ${crypto.hash("sha256", var.get("data"))}")
+sys.echo("SHA-512: ${crypto.hash("sha512", var.get("data"))}")
+
+# Hashing a file's contents
+sys.echo("")
+sys.echo("=== File Hashing ===")
+var.set("file_path", "/tmp/corvo_hash_demo.txt")
+fs.write(var.get("file_path"), "Hello, Corvo!")
+sys.echo("File: ${var.get("file_path")}")
+sys.echo("MD5:    ${crypto.hash_file("md5", var.get("file_path"))}")
+sys.echo("SHA-256: ${crypto.hash_file("sha256", var.get("file_path"))}")
+sys.echo("SHA-512: ${crypto.hash_file("sha512", var.get("file_path"))}")
+
+# Checksum (SHA-256) of a file
+sys.echo("")
+sys.echo("=== File Checksum ===")
+var.set("checksum", crypto.checksum(var.get("file_path")))
+sys.echo("SHA-256 checksum: ${var.get("checksum")}")
+
+# Verify that hash_file("sha256") and checksum produce the same result
+try {
+    assert_eq(crypto.hash_file("sha256", var.get("file_path")), var.get("checksum"))
+    sys.echo("Checksum consistency: VERIFIED")
+} fallback {
+    sys.echo("Checksum consistency: MISMATCH")
+}
+
+fs.delete(var.get("file_path"))
 
 # UUID generation
 sys.echo("")
