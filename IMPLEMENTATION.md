@@ -8,6 +8,8 @@ When generating Corvo code, you **must** strictly adhere to the following langua
 * **STRING INTERPOLATION:** Use `${}` for string interpolation (e.g., `sys.echo("Value: ${var.get("key")}")`).
 * **NAMED PARAMETERS:** Library functions support Python-like named parameters for clarity (e.g., `http.get(url: "https://...")`).
 * **IMMUTABILITY OF METHODS:** Type methods (like `string.replace`) do not mutate the variable in place; they return a new value that must be reassigned via `var.set()`.
+* **VARIABLE SHORTHAND:** `@name` is shorthand for `var.get("name")`; `@name = value` is shorthand for `var.set("name", value)`. Only use `@` for regular runtime variables.
+* **BROWSE BINDINGS:** Inside a `browse` block, the key and value bindings are accessed with the `$` prefix (e.g., `$key`, `$value`). Never use `@` or `var.get()` to read browse-bound variables; use `$name` directly or `${$name}` inside string interpolation.
 
 ## 2. Type System & Type Methods
 Corvo is strongly and limited typed. A variable's type is inferred on its first assignment and cannot change. Type methods are called using the type namespace (e.g., `string.method(value, ...)`).
@@ -63,6 +65,10 @@ Used for dynamic data that changes during execution.
 var.set("target_dir", "/var/www/html")
 # Type method usage
 var.set("target_dir", string.concat(var.get("target_dir"), "/public"))
+
+# @ shorthand: @name = var.get("name"), @name = val = var.set("name", val)
+@target_dir = "/var/www/html"
+sys.echo(@target_dir)
 ```
 
 ### 3.2 Compile-Time Constants (`static`)
@@ -70,6 +76,15 @@ Used for configuration and immutable values. These are encrypted and baked into 
 ```corvo
 static.set("appName", "Colonia_Agent")
 static.set("db_password", os.get_env("DB_PASS", "default_secret"))
+```
+
+### 3.3 Browse Bindings (`$`)
+Inside a `browse` block, the key and value names declared in the block header are accessed with the `$` prefix. They are block-scoped and must not be confused with regular runtime variables.
+```corvo
+browse(var.get("items"), k, v) {
+    # $k and $v are browse-bound — do NOT use @k, @v, or var.get("k")
+    sys.echo("${$k} -> ${$v}")
+}
 ```
 
 ## 4. Control Flow
@@ -94,31 +109,41 @@ Corvo supports a single, infinite loop construct. The only way to exit is by cal
 
 * For a **list**: `key` is the zero-based numeric index; `value` is the element.
 * For a **map**: `key` is the string key; `value` is the associated value. Keys are visited in sorted order.
+* Inside the block, access bindings with the `$` prefix: `$key`, `$value`. Use `${$name}` for string interpolation.
+* Pass a browse-bound value to a nested `browse` (or any function) using `$name` directly.
 * `terminate` exits the browse block early (same semantics as inside `loop`).
 * Browse blocks may be nested.
 * Using `browse` on a non-list/non-map value raises a type error.
 
 ```corvo
-# List example
+# List example — use $idx and $fruit to access the browse bindings
 var.set("fruits", ["apple", "banana", "cherry"])
 browse(var.get("fruits"), idx, fruit) {
-    sys.echo("${idx}: ${var.get("fruit")}")
+    sys.echo("${$idx}: ${$fruit}")
 }
 
-# Map example
+# Map example — use $key and $val
 var.set("config", {"host": "localhost", "port": 8080})
 browse(var.get("config"), key, val) {
-    sys.echo("${key} = ${var.get("val")}")
+    sys.echo("${$key} = ${$val}")
 }
 
-# Early exit
+# Early exit — pass $v to assert_eq, use $v in echo
 var.set("items", [1, 2, 3, 4, 5])
 browse(var.get("items"), k, v) {
-    sys.echo(var.get("v"))
+    sys.echo($v)
     try {
-        assert_eq(var.get("v"), 3)
+        assert_eq($v, 3)
         terminate
     } fallback {}
+}
+
+# Nested browse — pass $row (browse-bound) to inner browse
+@matrix = [[1, 2], [3, 4]]
+browse(@matrix, row_idx, row) {
+    browse($row, col_idx, cell) {
+        sys.echo("[${$row_idx}][${$col_idx}] = ${$cell}")
+    }
 }
 ```
 

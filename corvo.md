@@ -29,6 +29,10 @@ static.set("version", os.get_env("CORVO_VERSION", "1.0.0")) # Compile-time const
 var.set("greeting", "Hello, Corvo!")
 sys.echo(var.get("greeting", "Bye, Corvo!"))
 
+# @ shorthand: @name reads a variable (var.get), @name = val writes it (var.set)
+@greeting = "Hello, shorthand!"
+sys.echo(@greeting)
+
 # Static variable assignment
 static.set("pi", 3.14159)
 sys.echo(static.get("pi"))
@@ -59,9 +63,10 @@ loop {
 # Browse block — iterate over a list or map.
 # For a list: key is the zero-based index, value is the element.
 # For a map:  key is the string key, value is the associated value.
+# Inside the block, use the $ prefix to access browse-bound names.
 var.set("fruits", ["apple", "banana", "cherry"])
 browse(var.get("fruits"), idx, fruit) {
-    sys.echo("${idx}: ${var.get("fruit")}")
+    sys.echo("${$idx}: ${$fruit}")
 }
 # Prints:
 # 0: apple
@@ -70,7 +75,7 @@ browse(var.get("fruits"), idx, fruit) {
 
 var.set("config", {"host": "localhost", "port": 8080})
 browse(var.get("config"), key, val) {
-    sys.echo("${key} = ${var.get("val")}")
+    sys.echo("${$key} = ${$val}")
 }
 # Prints:
 # host = localhost
