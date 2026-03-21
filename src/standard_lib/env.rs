@@ -25,10 +25,7 @@ pub fn parse_value(args: &[Value], _named_args: &HashMap<String, Value>) -> Corv
 
         let key = line[..eq_pos].trim().to_string();
         if key.is_empty() {
-            return Err(CorvoError::parsing(format!(
-                "invalid .env line: {}",
-                line
-            )));
+            return Err(CorvoError::parsing(format!("invalid .env line: {}", line)));
         }
 
         let raw_value = line[eq_pos + 1..].trim();
@@ -163,10 +160,7 @@ mod tests {
         let result = parse_value(&args, &empty_named_args()).unwrap();
         match result {
             Value::Map(m) => {
-                assert_eq!(
-                    m.get("KEY").unwrap(),
-                    &Value::String("val=ue".to_string())
-                );
+                assert_eq!(m.get("KEY").unwrap(), &Value::String("val=ue".to_string()));
             }
             _ => panic!("Expected Map"),
         }
