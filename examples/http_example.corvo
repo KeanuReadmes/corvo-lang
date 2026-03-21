@@ -1,0 +1,52 @@
+# http_example.corvo - http.get, http.post, http.put, http.delete
+# NOTE: These examples require an active internet connection.
+#       Each request is wrapped in try/fallback so the file runs cleanly offline.
+
+sys.echo("=== http.get ===")
+try {
+    var.set("res", http.get("https://httpbin.org/get"))
+    sys.echo("Status: ${map.get(var.get("res"), "status_code")}")
+    var.set("body", json.parse(map.get(var.get("res"), "response_body")))
+    sys.echo("URL reported by server: ${map.get(var.get("body"), "url")}")
+} fallback {
+    sys.echo("(skipped — no network access)")
+}
+
+# http.get with custom headers
+sys.echo("")
+sys.echo("=== http.get with headers ===")
+try {
+    var.set("headers", {"Accept": "application/json", "X-Custom": "corvo"})
+    var.set("res2", http.get("https://httpbin.org/headers", var.get("headers")))
+    sys.echo("Status: ${map.get(var.get("res2"), "status_code")}")
+} fallback {
+    sys.echo("(skipped — no network access)")
+}
+
+sys.echo("")
+sys.echo("=== http.post ===")
+try {
+    var.set("payload", json.stringify({"name": "Corvo", "type": "language"}))
+    var.set("post_res", http.post("https://httpbin.org/post", var.get("payload")))
+    sys.echo("Status: ${map.get(var.get("post_res"), "status_code")}")
+} fallback {
+    sys.echo("(skipped — no network access)")
+}
+
+sys.echo("")
+sys.echo("=== http.put ===")
+try {
+    var.set("put_res", http.put("https://httpbin.org/put", json.stringify({"updated": true})))
+    sys.echo("Status: ${map.get(var.get("put_res"), "status_code")}")
+} fallback {
+    sys.echo("(skipped — no network access)")
+}
+
+sys.echo("")
+sys.echo("=== http.delete ===")
+try {
+    var.set("del_res", http.delete("https://httpbin.org/delete"))
+    sys.echo("Status: ${map.get(var.get("del_res"), "status_code")}")
+} fallback {
+    sys.echo("(skipped — no network access)")
+}

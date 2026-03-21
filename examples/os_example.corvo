@@ -1,0 +1,32 @@
+# os_example.corvo - All os.* functions
+
+sys.echo("=== os.set_env ===")
+os.set_env("CORVO_APP", "my-app")
+os.set_env("CORVO_ENV", "development")
+sys.echo("Set CORVO_APP and CORVO_ENV")
+
+sys.echo("")
+sys.echo("=== os.get_env ===")
+var.set("app", os.get_env("CORVO_APP"))
+sys.echo("CORVO_APP = ${var.get("app")}")
+
+# get_env with a default when the variable is not set
+var.set("missing", os.get_env("CORVO_UNDEFINED_XYZ", "default-value"))
+sys.echo("CORVO_UNDEFINED_XYZ (with default) = ${var.get("missing")}")
+
+sys.echo("")
+sys.echo("=== os.exec ===")
+# os.exec runs a command through sh -c and returns stdout, stderr, code
+var.set("result", os.exec("echo hello from os.exec"))
+sys.echo("stdout: ${map.get(var.get("result"), "stdout")}")
+sys.echo("exit code: ${map.get(var.get("result"), "code")}")
+
+var.set("pwd_result", os.exec("pwd"))
+sys.echo("Working dir: ${string.trim(map.get(var.get("pwd_result"), "stdout"))}")
+
+sys.echo("")
+sys.echo("=== os.info ===")
+var.set("info", os.info())
+sys.echo("OS: ${map.get(var.get("info"), "os")}")
+sys.echo("Arch: ${map.get(var.get("info"), "arch")}")
+sys.echo("Hostname: ${map.get(var.get("info"), "hostname")}")

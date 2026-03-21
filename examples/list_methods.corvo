@@ -1,0 +1,51 @@
+# list_methods.corvo - All list.* type methods
+
+var.set("fruits", ["apple", "banana", "cherry"])
+
+sys.echo("=== list.len ===")
+sys.echo("Length: ${list.len(var.get("fruits"))}")
+
+sys.echo("")
+sys.echo("=== list.get ===")
+sys.echo("Index 0: ${list.get(var.get("fruits"), 0)}")
+sys.echo("Index 2: ${list.get(var.get("fruits"), 2)}")
+
+sys.echo("")
+sys.echo("=== list.first / list.last ===")
+sys.echo("First: ${list.first(var.get("fruits"))}")
+sys.echo("Last:  ${list.last(var.get("fruits"))}")
+
+sys.echo("")
+sys.echo("=== list.push ===")
+var.set("fruits", list.push(var.get("fruits"), "date"))
+sys.echo("After push: ${list.join(var.get("fruits"), ", ")}")
+
+sys.echo("")
+sys.echo("=== list.pop ===")
+var.set("fruits", list.pop(var.get("fruits")))
+sys.echo("After pop: ${list.join(var.get("fruits"), ", ")}")
+
+sys.echo("")
+sys.echo("=== list.set ===")
+var.set("fruits", list.set(var.get("fruits"), 1, "blueberry"))
+sys.echo("After set index 1 to 'blueberry': ${list.join(var.get("fruits"), ", ")}")
+
+sys.echo("")
+sys.echo("=== list.contains ===")
+sys.echo("Contains 'apple': ${list.contains(var.get("fruits"), "apple")}")
+sys.echo("Contains 'mango': ${list.contains(var.get("fruits"), "mango")}")
+
+sys.echo("")
+sys.echo("=== list.is_empty ===")
+sys.echo("Is fruits empty: ${list.is_empty(var.get("fruits"))}")
+sys.echo("Is [] empty: ${list.is_empty([])}")
+
+sys.echo("")
+sys.echo("=== list.reverse ===")
+var.set("reversed", list.reverse(var.get("fruits")))
+sys.echo("Reversed: ${list.join(var.get("reversed"), ", ")}")
+
+sys.echo("")
+sys.echo("=== list.join ===")
+var.set("nums", [1, 2, 3, 4, 5])
+sys.echo("Joined with '-': ${list.join(var.get("nums"), "-")}")

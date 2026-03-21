@@ -1,0 +1,38 @@
+# sys_example.corvo - System I/O functions
+
+sys.echo("=== sys.echo ===")
+sys.echo("Hello from sys.echo!")
+sys.echo("Supports string interpolation: ${string.concat("foo", "bar")}")
+
+# sys.sleep - pause execution for a number of milliseconds
+sys.echo("")
+sys.echo("=== sys.sleep ===")
+sys.echo("Sleeping for 100ms...")
+sys.sleep(100)
+sys.echo("Awake!")
+
+# sys.exec - run an external command (list of strings)
+sys.echo("")
+sys.echo("=== sys.exec ===")
+var.set("result", sys.exec(["echo", "hello from sys.exec"]))
+sys.echo("stdout: ${map.get(var.get("result"), "stdout")}")
+sys.echo("exit code: ${map.get(var.get("result"), "code")}")
+
+var.set("ls_result", sys.exec(["ls", "-1", "/tmp"]))
+sys.echo("exit code from ls: ${map.get(var.get("ls_result"), "code")}")
+
+# sys.panic - terminate with an error message (use inside try to catch)
+sys.echo("")
+sys.echo("=== sys.panic ===")
+try {
+    sys.panic("something went wrong")
+} fallback {
+    sys.echo("sys.panic triggered the fallback as expected")
+}
+
+# sys.read_line - read a line from stdin (interactive; skipped in this demo)
+# var.set("input", sys.read_line("Enter your name: "))
+# sys.echo("You typed: ${var.get("input")}")
+sys.echo("")
+sys.echo("=== sys.read_line ===")
+sys.echo("(sys.read_line requires interactive input — see comment above)")

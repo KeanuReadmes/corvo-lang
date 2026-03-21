@@ -1,0 +1,51 @@
+# map_methods.corvo - All map.* type methods
+
+var.set("person", {"name": "Alice", "age": 30, "city": "Tokyo"})
+
+sys.echo("=== map.len ===")
+sys.echo("Number of keys: ${map.len(var.get("person"))}")
+
+sys.echo("")
+sys.echo("=== map.is_empty ===")
+sys.echo("Is person empty: ${map.is_empty(var.get("person"))}")
+sys.echo("Is {} empty: ${map.is_empty({})}")
+
+sys.echo("")
+sys.echo("=== map.has_key ===")
+sys.echo("Has 'name': ${map.has_key(var.get("person"), "name")}")
+sys.echo("Has 'email': ${map.has_key(var.get("person"), "email")}")
+
+sys.echo("")
+sys.echo("=== map.get ===")
+sys.echo("name: ${map.get(var.get("person"), "name")}")
+sys.echo("age:  ${map.get(var.get("person"), "age")}")
+
+# map.get with a default value
+sys.echo("email (default): ${map.get(var.get("person"), "email", "not set")}")
+
+sys.echo("")
+sys.echo("=== map.keys ===")
+var.set("keys", map.keys(var.get("person")))
+sys.echo("Keys: ${list.join(var.get("keys"), ", ")}")
+
+sys.echo("")
+sys.echo("=== map.values ===")
+var.set("vals", map.values(var.get("person")))
+sys.echo("Values: ${list.join(var.get("vals"), ", ")}")
+
+sys.echo("")
+sys.echo("=== map.set ===")
+var.set("person", map.set(var.get("person"), "email", "alice@example.com"))
+sys.echo("After set 'email': ${map.get(var.get("person"), "email")}")
+
+sys.echo("")
+sys.echo("=== map.remove ===")
+var.set("person", map.remove(var.get("person"), "city"))
+sys.echo("After remove 'city'. Has 'city': ${map.has_key(var.get("person"), "city")}")
+
+sys.echo("")
+sys.echo("=== map.merge ===")
+var.set("extra", {"country": "Japan", "age": 31})
+var.set("merged", map.merge(var.get("person"), var.get("extra")))
+sys.echo("Merged age (overwritten): ${map.get(var.get("merged"), "age")}")
+sys.echo("Merged country: ${map.get(var.get("merged"), "country")}")

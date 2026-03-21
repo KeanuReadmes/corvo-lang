@@ -1,0 +1,90 @@
+# prep_env.corvo - Baking environment variables and system info into static constants
+#
+# The `prep` block runs at startup (before the rest of the script).
+# Values stored with static.set() are baked in as compile-time constants
+# and accessed anywhere via static.get().
+#
+# Usage:
+#   DATABASE_URL=postgres://prod-host/mydb APP_ENV=production corvo prep_env.corvo
+
+prep {
+    # Bake in DATABASE_URL with a safe localhost default
+    static.set("DATABASE_URL", os.get_env("DATABASE_URL", "postgres://localhost:5432/mydb"))
+
+    # App environment — controls behaviour throughout the script
+    static.set("APP_ENV", os.get_env("APP_ENV", "development"))
+
+    # Optional config knobs
+    static.set("APP_PORT", os.get_env("APP_PORT", "8080"))
+    static.set("LOG_LEVEL", os.get_env("LOG_LEVEL", "info"))
+    static.set("MAX_RETRIES", os.get_env("MAX_RETRIES", "3"))
+
+    # Bake in host OS information once at startup
+    var.set("host_info", os.info())
+    static.set("HOST_OS",   map.get(var.get("host_info"), "os"))
+    static.set("HOST_ARCH", map.get(var.get("host_info"), "arch"))
+    static.set("HOSTNAME",  map.get(var.get("host_info"), "hostname"))
+
+    # Derive a boolean debug flag from APP_ENV
+    var.set("env_val", os.get_env("APP_ENV", "development"))
+    var.set("is_dev", string.contains(var.get("env_val"), "dev"))
+    static.set("DEBUG", var.get("is_dev"))
+}
+
+# ── Runtime code uses the baked-in constants ───────────────────────────────────
+
+sys.echo("=== Application Configuration ===")
+sys.echo("Environment : ${static.get("APP_ENV")}")
+sys.echo("Port        : ${static.get("APP_PORT")}")
+sys.echo("Log level   : ${static.get("LOG_LEVEL")}")
+sys.echo("Debug mode  : ${static.get("DEBUG")}")
+
+sys.echo("")
+sys.echo("=== Database ===")
+sys.echo("DATABASE_URL: ${static.get("DATABASE_URL")}")
+
+# Use the connection string — parse the protocol as a sanity check
+var.set("db_url", static.get("DATABASE_URL"))
+try {
+    assert_eq(string.starts_with(var.get("db_url"), "postgres://"), true)
+    sys.echo("Protocol    : PostgreSQL")
+} fallback {
+    try {
+        assert_eq(string.starts_with(var.get("db_url"), "mysql://"), true)
+        sys.echo("Protocol    : MySQL")
+    } fallback {
+        sys.echo("Protocol    : unknown")
+    }
+}
+
+sys.echo("")
+sys.echo("=== Host Info ===")
+sys.echo("OS          : ${static.get("HOST_OS")}")
+sys.echo("Arch        : ${static.get("HOST_ARCH")}")
+sys.echo("Hostname    : ${static.get("HOSTNAME")}")
+
+# ── Conditional behaviour driven by the baked-in env ──────────────────────────
+
+sys.echo("")
+sys.echo("=== Environment-Specific Behaviour ===")
+try {
+    assert_eq(static.get("APP_ENV"), "production")
+    sys.echo("Running in PRODUCTION mode — verbose logging suppressed")
+} fallback {
+    sys.echo("Running in DEVELOPMENT mode — verbose logging enabled")
+}
+
+# Retry loop controlled by the baked-in MAX_RETRIES value
+var.set("max", number.parse(0, static.get("MAX_RETRIES")))
+sys.echo("")
+sys.echo("Max retries baked in: ${var.get("max")}")
+var.set("attempt", 0)
+loop {
+    var.set("attempt", math.add(var.get("attempt"), 1))
+    sys.echo("Attempt ${var.get("attempt")} of ${var.get("max")}")
+    try {
+        assert_eq(var.get("attempt"), var.get("max"))
+        terminate
+    } fallback {}
+}
+sys.echo("Done.")

@@ -1,0 +1,42 @@
+# math_example.corvo - All math.* functions
+
+sys.echo("=== math.add ===")
+var.set("sum", math.add(10, 5))
+sys.echo("10 + 5 = ${var.get("sum")}")
+
+sys.echo("")
+sys.echo("=== math.sub ===")
+var.set("diff", math.sub(10, 5))
+sys.echo("10 - 5 = ${var.get("diff")}")
+
+sys.echo("")
+sys.echo("=== math.mul ===")
+var.set("product", math.mul(10, 5))
+sys.echo("10 * 5 = ${var.get("product")}")
+
+sys.echo("")
+sys.echo("=== math.div ===")
+var.set("quotient", math.div(10, 5))
+sys.echo("10 / 5 = ${var.get("quotient")}")
+
+# Division by zero is caught by fallback
+try {
+    var.set("bad", math.div(10, 0))
+} fallback {
+    sys.echo("math.div by zero raises an error (caught by fallback)")
+}
+
+sys.echo("")
+sys.echo("=== math.mod ===")
+var.set("remainder", math.mod(10, 3))
+sys.echo("10 mod 3 = ${var.get("remainder")}")
+
+var.set("even_check", math.mod(8, 2))
+sys.echo("8 mod 2 = ${var.get("even_check")} (0 means even)")
+
+# Modulo by zero is also an error
+try {
+    var.set("bad_mod", math.mod(10, 0))
+} fallback {
+    sys.echo("math.mod by zero raises an error (caught by fallback)")
+}

@@ -3,7 +3,7 @@
 sys.echo("=== JSON Example ===")
 
 # Parse JSON string
-var.set("json_str", '{"name": "Corvo", "version": "0.1.0", "features": ["lexer", "parser", "evaluator"]}')
+var.set("json_str", "{\"name\": \"Corvo\", \"version\": \"0.1.0\", \"features\": [\"lexer\", \"parser\", \"evaluator\"]}")
 var.set("data", json.parse(var.get("json_str")))
 
 sys.echo("Name: ${map.get(var.get("data"), "name")}")

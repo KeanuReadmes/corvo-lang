@@ -1,0 +1,22 @@
+# yaml_example.corvo - yaml.parse and yaml.stringify
+
+sys.echo("=== yaml.parse ===")
+var.set("yaml_str", "name: Corvo\nversion: 1\nfeatures:\n  - lexer\n  - parser\n  - evaluator\n")
+var.set("data", yaml.parse(var.get("yaml_str")))
+sys.echo("name: ${map.get(var.get("data"), "name")}")
+sys.echo("version: ${map.get(var.get("data"), "version")}")
+var.set("features", map.get(var.get("data"), "features"))
+sys.echo("features: ${list.join(var.get("features"), ", ")}")
+
+sys.echo("")
+sys.echo("=== yaml.stringify ===")
+var.set("config", {"host": "localhost", "port": 5432, "ssl": true})
+var.set("yaml_out", yaml.stringify(var.get("config")))
+sys.echo("Serialized to YAML:")
+sys.echo(var.get("yaml_out"))
+
+# Round-trip: parse → modify → stringify
+sys.echo("=== Round-trip ===")
+var.set("parsed_back", yaml.parse(var.get("yaml_out")))
+sys.echo("host: ${map.get(var.get("parsed_back"), "host")}")
+sys.echo("port: ${map.get(var.get("parsed_back"), "port")}")

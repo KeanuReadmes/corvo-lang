@@ -9,12 +9,12 @@ sys.echo("Language: ${@language}")
 
 # --- browse over a list ---
 # The key and value bindings declared in browse(expr, key, val) are accessed
-# inside the block with the $ prefix: $key, $val (NOT @key / var.get("key")).
+# inside the block with the @ prefix: @key, @val (same as var.get).
 
 var.set("fruits", ["apple", "banana", "cherry"])
 
 browse(var.get("fruits"), idx, fruit) {
-    sys.echo("${$idx}: ${$fruit}")
+    sys.echo("${@idx}: ${@fruit}")
 }
 # Prints:
 # 0: apple
@@ -26,7 +26,7 @@ browse(var.get("fruits"), idx, fruit) {
 @scores = {"alice": 95, "bob": 87, "carol": 92}
 
 browse(@scores, name, score) {
-    sys.echo("${$name}: ${$score}")
+    sys.echo("${@name}: ${@score}")
 }
 # Prints (sorted by key):
 # alice: 95
@@ -38,22 +38,22 @@ browse(@scores, name, score) {
 var.set("numbers", [10, 20, 30, 40, 50])
 
 browse(var.get("numbers"), i, n) {
-    sys.echo($n)
+    sys.echo(@n)
     try {
-        assert_eq($n, 30)
+        assert_eq(@n, 30)
         terminate
     } fallback {}
 }
 # Prints 10, 20, 30 — stops after 30
 
 # --- nested browse ---
-# Pass a browse-bound value as the iterable for an inner browse using $name.
+# Pass a browse-bound value as the iterable for an inner browse using @name.
 
 var.set("matrix", [[1, 2, 3], [4, 5, 6]])
 
 browse(var.get("matrix"), row_idx, row) {
-    browse($row, col_idx, cell) {
-        sys.echo("[${$row_idx}][${$col_idx}] = ${$cell}")
+    browse(@row, col_idx, cell) {
+        sys.echo("[${@row_idx}][${@col_idx}] = ${@cell}")
     }
 }
 # Prints:
@@ -66,7 +66,7 @@ var.set("prices", {"apple": 1, "banana": 2, "cherry": 3})
 var.set("total", 0)
 
 browse(var.get("prices"), item, price) {
-    var.set("total", math.add(var.get("total"), $price))
+    var.set("total", math.add(var.get("total"), @price))
 }
 
 sys.echo("Total: ${var.get("total")}")
