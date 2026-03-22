@@ -96,8 +96,8 @@ Functions are grouped by module. Parameter names in `[brackets]` are optional.
 | `crypto.hash` | `algorithm: string, data: string` | `string` | Hash a string (`md5`, `sha256`, `sha512`) |
 | `crypto.hash_file` | `algorithm: string, path: string` | `string` | Hash the contents of a file |
 | `crypto.checksum` | `path: string` | `string` | SHA-256 checksum of a file |
-| `crypto.encrypt` | `data: string, key: string` | `string` | XOR-encrypt and base64-encode |
-| `crypto.decrypt` | `data: string, key: string` | `string` | Base64-decode and XOR-decrypt |
+| `crypto.encrypt` | `secret: string, value: string` | `string` | XOR-encrypt and base64-encode |
+| `crypto.decrypt` | `secret: string, value: string` | `string` | Base64-decode and XOR-decrypt |
 | `crypto.uuid` | *(none)* | `string` | Generate a UUID v4 |
 
 **Example file:** [`examples/crypto_example.corvo`](examples/crypto_example.corvo)

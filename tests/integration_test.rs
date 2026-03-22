@@ -614,8 +614,8 @@ fn test_crypto_hash() {
 fn test_crypto_encrypt_decrypt() {
     let state = run_with_state(
         r#"
-        var.set("encrypted", crypto.encrypt("secret", "mykey"))
-        var.set("decrypted", crypto.decrypt(var.get("encrypted"), "mykey"))
+        var.set("encrypted", crypto.encrypt("mykey", "secret"))
+        var.set("decrypted", crypto.decrypt("mykey", var.get("encrypted")))
         "#,
     )
     .unwrap();

@@ -50,10 +50,10 @@ var.set("secret", "my secret message")
 var.set("key", "encryption_key_123")
 sys.echo("Original: ${var.get("secret")}")
 
-var.set("encrypted", crypto.encrypt(var.get("secret"), var.get("key")))
+var.set("encrypted", crypto.encrypt(var.get("key"), var.get("secret")))
 sys.echo("Encrypted: ${var.get("encrypted")}")
 
-var.set("decrypted", crypto.decrypt(var.get("encrypted"), var.get("key")))
+var.set("decrypted", crypto.decrypt(var.get("key"), var.get("encrypted")))
 sys.echo("Decrypted: ${var.get("decrypted")}")
 
 try {

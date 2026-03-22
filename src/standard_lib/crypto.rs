@@ -43,23 +43,23 @@ pub fn hash(args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResult
 }
 
 pub fn encrypt(args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResult<Value> {
-    let data = args
+    let secret = args
         .first()
         .and_then(|v| v.as_string())
-        .ok_or_else(|| CorvoError::invalid_argument("crypto.encrypt requires data"))?;
+        .ok_or_else(|| CorvoError::invalid_argument("crypto.encrypt requires a secret"))?;
 
-    let key = args
+    let value = args
         .get(1)
         .and_then(|v| v.as_string())
-        .ok_or_else(|| CorvoError::invalid_argument("crypto.encrypt requires a key"))?;
+        .ok_or_else(|| CorvoError::invalid_argument("crypto.encrypt requires a value"))?;
 
-    let key_bytes: Vec<u8> = key
+    let key_bytes: Vec<u8> = secret
         .bytes()
         .take(32)
         .chain(std::iter::repeat(0u8))
         .take(32)
         .collect();
-    let data_bytes = data.as_bytes();
+    let data_bytes = value.as_bytes();
 
     let encrypted: Vec<u8> = data_bytes
         .iter()
@@ -74,20 +74,20 @@ pub fn encrypt(args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoRes
 }
 
 pub fn decrypt(args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResult<Value> {
-    let data = args
+    let secret = args
         .first()
         .and_then(|v| v.as_string())
-        .ok_or_else(|| CorvoError::invalid_argument("crypto.decrypt requires data"))?;
+        .ok_or_else(|| CorvoError::invalid_argument("crypto.decrypt requires a secret"))?;
 
-    let key = args
+    let value = args
         .get(1)
         .and_then(|v| v.as_string())
-        .ok_or_else(|| CorvoError::invalid_argument("crypto.decrypt requires a key"))?;
+        .ok_or_else(|| CorvoError::invalid_argument("crypto.decrypt requires a value"))?;
 
-    let encrypted = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, data)
+    let encrypted = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, value)
         .map_err(|_| CorvoError::invalid_argument("Invalid base64 data"))?;
 
-    let key_bytes: Vec<u8> = key
+    let key_bytes: Vec<u8> = secret
         .bytes()
         .take(32)
         .chain(std::iter::repeat(0u8))
@@ -227,12 +227,12 @@ mod tests {
         let key = "mykey";
 
         let enc_args = vec![
-            Value::String(data.to_string()),
             Value::String(key.to_string()),
+            Value::String(data.to_string()),
         ];
         let encrypted = encrypt(&enc_args, &empty_args()).unwrap();
 
-        let dec_args = vec![encrypted, Value::String(key.to_string())];
+        let dec_args = vec![Value::String(key.to_string()), encrypted];
         let decrypted = decrypt(&dec_args, &empty_args()).unwrap();
         assert_eq!(decrypted, Value::String(data.to_string()));
     }
@@ -240,12 +240,12 @@ mod tests {
     #[test]
     fn test_encrypt_wrong_key() {
         let enc_args = vec![
-            Value::String("data".to_string()),
             Value::String("correct_key".to_string()),
+            Value::String("data".to_string()),
         ];
         let encrypted = encrypt(&enc_args, &empty_args()).unwrap();
 
-        let dec_args = vec![encrypted, Value::String("wrong_key".to_string())];
+        let dec_args = vec![Value::String("wrong_key".to_string()), encrypted];
         let result = decrypt(&dec_args, &empty_args());
         // May succeed but produce garbage, or fail on UTF-8
         // Either way it should NOT equal the original
