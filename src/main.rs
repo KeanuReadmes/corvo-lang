@@ -262,11 +262,7 @@ fn lint_file(file: &std::path::Path) {
             file.display()
         );
     } else if errors > 0 {
-        eprintln!(
-            "corvo: {} error(s) found in `{}`",
-            errors,
-            file.display()
-        );
+        eprintln!("corvo: {} error(s) found in `{}`", errors, file.display());
     } else {
         eprintln!(
             "corvo: {} warning(s) found in `{}`",

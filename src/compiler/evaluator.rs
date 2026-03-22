@@ -35,6 +35,26 @@ impl Evaluator {
     fn exec_stmt(&mut self, stmt: &Stmt, state: &mut RuntimeState) -> CorvoResult<()> {
         match stmt {
             Stmt::PrepBlock { body } => {
+                // If every static that this prep block would set is already
+                // present in state (baked in at compile time), skip the entire
+                // block.  This prevents re-running side effects such as
+                // `fs.read` calls when the compiled binary is executed after
+                // the source files have been removed.
+                let mut has_any_static = false;
+                let mut all_statics_preset = true;
+                for s in body {
+                    if let Stmt::StaticSet { name, .. } = s {
+                        has_any_static = true;
+                        if !state.has_static(name) {
+                            all_statics_preset = false;
+                            break;
+                        }
+                    }
+                }
+                if has_any_static && all_statics_preset {
+                    return Ok(());
+                }
+
                 // Execute the prep block body to set static variables, then discard
                 // any runtime vars created in it. Vars in a prep block are scoped
                 // to the block and are not available in the rest of the program.

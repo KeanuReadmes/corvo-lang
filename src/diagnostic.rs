@@ -231,8 +231,8 @@ fn lint_expr(expr: &Expr, out: &mut Vec<LintDiagnostic>) {
 
 /// All namespaces recognised by the standard library.
 const KNOWN_NAMESPACES: &[&str] = &[
-    "sys", "os", "math", "fs", "http", "dns", "crypto", "json", "yaml", "hcl", "csv", "xml",
-    "env", "llm", "string", "number", "list", "map", "var", "static",
+    "sys", "os", "math", "fs", "http", "dns", "crypto", "json", "yaml", "hcl", "csv", "xml", "env",
+    "llm", "string", "number", "list", "map", "var", "static",
 ];
 
 /// All functions recognised by the standard library and type system.
@@ -445,13 +445,13 @@ fn get_help(error: &CorvoError) -> Option<String> {
             name
         )),
 
-        CorvoError::Parsing { .. } => Some(
-            "Check the Corvo language documentation for correct syntax.".to_string(),
-        ),
+        CorvoError::Parsing { .. } => {
+            Some("Check the Corvo language documentation for correct syntax.".to_string())
+        }
 
-        CorvoError::Lexing { .. } => Some(
-            "This character or token is not valid in Corvo source code.".to_string(),
-        ),
+        CorvoError::Lexing { .. } => {
+            Some("This character or token is not valid in Corvo source code.".to_string())
+        }
 
         CorvoError::DivisionByZero { .. } => {
             Some("Ensure the divisor is non-zero before calling `math.div`.".to_string())

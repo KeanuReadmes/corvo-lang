@@ -1,3 +1,4 @@
+use crate::lexer::token::{Token, TokenType};
 use crate::runtime::RuntimeState;
 use crate::type_system::Value;
 use crate::CorvoError;
@@ -6,6 +7,12 @@ use std::path::{Path, PathBuf};
 
 pub struct Compiler {
     source: String,
+    /// Source with the prep block stripped out. Used when embedding source into
+    /// the compiled binary: the prep block is already evaluated at compile time
+    /// and its static values are baked in, so there is no need to re-run it at
+    /// runtime (doing so would re-execute side effects like `fs.read` even
+    /// after the file has been removed).
+    source_without_prep: String,
     _source_path: PathBuf,
     build_mode: BuildMode,
     statics: HashMap<String, Value>,
@@ -18,8 +25,12 @@ pub enum BuildMode {
 
 impl Compiler {
     pub fn new(source: String, source_path: PathBuf) -> Self {
+        // source_without_prep starts as a copy of the full source and is
+        // replaced with the stripped version once pre_execute() runs.
+        let source_without_prep = source.clone();
         Self {
             source,
+            source_without_prep,
             _source_path: source_path,
             build_mode: BuildMode::Release,
             statics: HashMap::new(),
@@ -34,9 +45,21 @@ impl Compiler {
     /// Pre-executes the script to capture static variable values.
     /// This is the key step: static.set("key", os.get_env("VAR")) runs at
     /// compile time, and the resulting value is baked into the binary.
+    ///
+    /// This method also strips the prep block from `source_without_prep` so
+    /// that the compiled binary does not embed the prep block source code.
+    /// Because the static values are already baked in, there is no need to
+    /// re-run the prep block at runtime, and doing so could trigger side
+    /// effects (e.g. `fs.read`) that fail if the referenced files no longer
+    /// exist.
     pub fn pre_execute(&mut self) -> Result<(), CorvoError> {
         let mut lexer = crate::lexer::Lexer::new(&self.source);
         let tokens = lexer.tokenize()?;
+
+        // Strip the prep block from the source that will be embedded in the
+        // binary. The statics are baked in separately, so the prep block must
+        // not run again at runtime.
+        self.source_without_prep = strip_prep_block(&self.source, &tokens);
 
         let mut parser = crate::parser::Parser::new(tokens);
         let program = parser.parse()?;
@@ -99,7 +122,7 @@ impl Compiler {
         std::fs::create_dir_all(&src_dir)
             .map_err(|e| CorvoError::io(format!("Failed to create src dir: {}", e)))?;
 
-        let escaped_source = escape_for_rust(&self.source);
+        let escaped_source = escape_for_rust(&self.source_without_prep);
 
         let mut main_rs = String::new();
         main_rs.push_str("fn main() {\n");
@@ -245,6 +268,66 @@ fn copy_binary(source: &Path, target: &Path) -> Result<PathBuf, CorvoError> {
     }
 
     Ok(final_target)
+}
+
+/// Remove the `prep { ... }` block from `source` so that the compiled binary
+/// does not embed it.  The token list (already produced by the lexer) is used
+/// to locate the exact character range of the block, which means the removal
+/// is accurate regardless of whitespace, comments, or string contents.
+///
+/// If the source contains no prep block the original source is returned
+/// unchanged.
+fn strip_prep_block(source: &str, tokens: &[Token]) -> String {
+    // Locate the `prep` keyword token.
+    let prep_idx = match tokens
+        .iter()
+        .position(|t| matches!(t.token_type, TokenType::Prep))
+    {
+        Some(idx) => idx,
+        None => return source.to_string(),
+    };
+
+    let prep_start = tokens[prep_idx].span.start.offset;
+
+    // Walk forward from the `prep` token and track brace depth to find the
+    // matching closing `}`.  StringInterpolation tokens already have their
+    // inner braces consumed by the lexer, so only top-level LeftBrace /
+    // RightBrace tokens affect the depth counter.
+    let mut brace_depth: usize = 0;
+    let mut prep_end: Option<usize> = None;
+
+    for token in &tokens[prep_idx..] {
+        match &token.token_type {
+            TokenType::LeftBrace => brace_depth += 1,
+            TokenType::RightBrace => {
+                // Guard against malformed source where `}` appears before any `{`.
+                if brace_depth == 0 {
+                    return source.to_string();
+                }
+                brace_depth -= 1;
+                if brace_depth == 0 {
+                    // span.end.offset points to the character *after* the `}`.
+                    prep_end = Some(token.span.end.offset);
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    let prep_end = match prep_end {
+        Some(end) => end,
+        // Malformed source – return as-is so the compiler can report the error.
+        None => return source.to_string(),
+    };
+
+    // Reconstruct the source without the prep block.  Offsets are character
+    // (not byte) indices, matching how the lexer advances its position.
+    let chars: Vec<char> = source.chars().collect();
+    let before: String = chars[..prep_start].iter().collect();
+    let after: String = chars[prep_end..].iter().collect();
+
+    format!("{}{}", before, after).trim().to_string()
 }
 
 fn escape_for_rust(s: &str) -> String {
@@ -427,6 +510,113 @@ mod tests {
         assert!(main_rs.contains("state.static_set"));
         assert!(main_rs.contains("baked_value"));
         assert!(main_rs.contains("run_source_with_state"));
+
+        let _ = std::fs::remove_dir_all(&build_dir);
+    }
+
+    // --- strip_prep_block tests ---
+
+    fn tokenize(source: &str) -> Vec<Token> {
+        crate::lexer::Lexer::new(source).tokenize().unwrap()
+    }
+
+    #[test]
+    fn test_strip_prep_block_removes_prep() {
+        let source = "prep {\n    static.set(\"key\", 42)\n}\nsys.echo(\"hello\")";
+        let tokens = tokenize(source);
+        let stripped = strip_prep_block(source, &tokens);
+        assert!(
+            !stripped.contains("prep"),
+            "stripped source must not contain 'prep'"
+        );
+        assert!(
+            stripped.contains("sys.echo"),
+            "non-prep statements must be preserved"
+        );
+    }
+
+    #[test]
+    fn test_strip_prep_block_no_prep() {
+        let source = "sys.echo(\"hello\")";
+        let tokens = tokenize(source);
+        let stripped = strip_prep_block(source, &tokens);
+        assert_eq!(stripped, source.trim());
+    }
+
+    #[test]
+    fn test_strip_prep_block_only_prep() {
+        let source = "prep {\n    static.set(\"x\", 1)\n}";
+        let tokens = tokenize(source);
+        let stripped = strip_prep_block(source, &tokens);
+        assert!(
+            stripped.is_empty(),
+            "stripping a prep-only source yields an empty string"
+        );
+    }
+
+    #[test]
+    fn test_strip_prep_block_multiline() {
+        let source = "prep {\n    static.set(\"a\", 1)\n    static.set(\"b\", 2)\n}\nvar.set(\"x\", static.get(\"a\"))";
+        let tokens = tokenize(source);
+        let stripped = strip_prep_block(source, &tokens);
+        assert!(!stripped.contains("prep"), "prep block must be stripped");
+        assert!(stripped.contains("var.set"), "non-prep code must survive");
+    }
+
+    #[test]
+    fn test_pre_execute_strips_prep_block() {
+        let source = "prep {\n    static.set(\"msg\", \"hello\")\n}\nsys.echo(static.get(\"msg\"))"
+            .to_string();
+        let mut compiler = Compiler::new(source, PathBuf::from("test.corvo"));
+        compiler.pre_execute().unwrap();
+
+        // The embedded source must not contain the prep block.
+        assert!(
+            !compiler.source_without_prep.contains("prep"),
+            "source_without_prep must not contain 'prep'"
+        );
+        // The rest of the script must still be present.
+        assert!(
+            compiler.source_without_prep.contains("sys.echo"),
+            "non-prep statements must be present in source_without_prep"
+        );
+        // The static value must still have been captured.
+        assert_eq!(
+            compiler.statics.get("msg").unwrap(),
+            &Value::String("hello".to_string())
+        );
+    }
+
+    #[test]
+    fn test_generate_main_rs_does_not_embed_prep_block() {
+        let source = "prep {\n    static.set(\"key\", \"baked\")\n}\nsys.echo(static.get(\"key\"))"
+            .to_string();
+        let mut compiler = Compiler::new(source, PathBuf::from("test.corvo"));
+        compiler.pre_execute().unwrap();
+
+        let build_dir = std::env::temp_dir().join("corvo_test_no_prep_in_binary");
+        let _ = std::fs::remove_dir_all(&build_dir);
+        std::fs::create_dir_all(build_dir.join("src")).unwrap();
+
+        compiler.generate_main_rs(&build_dir).unwrap();
+
+        let main_rs = std::fs::read_to_string(build_dir.join("src/main.rs")).unwrap();
+        // The prep block must not appear in the embedded source string.
+        assert!(
+            !main_rs.contains("static.set"),
+            "prep block (static.set) must not be embedded in the binary source"
+        );
+        // The baked static value must appear via state.static_set.
+        assert!(
+            main_rs.contains("state.static_set"),
+            "baked statics must be present"
+        );
+        assert!(main_rs.contains("baked"), "baked value must appear");
+        // The rest of the corvo script must still be embedded.
+        assert!(
+            main_rs.contains("sys.echo"),
+            "non-prep code must be embedded"
+        );
 
         let _ = std::fs::remove_dir_all(&build_dir);
     }
