@@ -334,6 +334,9 @@ pub const KNOWN_FUNCTIONS: &[&str] = &[
     "list.get",
     "list.set",
     "list.len",
+    "list.first",
+    "list.last",
+    "list.is_empty",
     "list.contains",
     "list.filter",
     "list.map",
@@ -345,16 +348,21 @@ pub const KNOWN_FUNCTIONS: &[&str] = &[
     "list.unique",
     "list.join",
     "list.slice",
+    "list.new",
     // map methods
     "map.get",
     "map.set",
     "map.has",
+    "map.has_key",
     "map.delete",
+    "map.remove",
     "map.keys",
     "map.values",
     "map.entries",
     "map.len",
+    "map.is_empty",
     "map.merge",
+    "map.new",
     // var / static (handled by parser but may appear as function calls in some paths)
     "var.get",
     "var.set",
@@ -530,7 +538,7 @@ mod tests {
         let source = "hello world";
         let span = Span::new(Position::new(1, 1, 0), Position::new(1, 6, 5));
         let ms = span_to_miette(&span, source);
-        assert_eq!(usize::from(ms.offset()), 0);
+        assert_eq!(ms.offset(), 0);
         assert_eq!(ms.len(), 5);
     }
 

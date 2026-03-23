@@ -136,16 +136,27 @@ impl Compiler {
         let mut main_rs = String::new();
         main_rs.push_str("fn main() {\n");
 
-        // Generate static variable initialization from pre-computed values
+        // Serialize and encrypt the statics so that static keys and string
+        // values do not appear as readable strings in the compiled binary.
+        // A fresh random key is generated for the statics independently of
+        // the source-obfuscation key so the two byte arrays look unrelated.
         main_rs.push_str("    let mut state = corvo_lang::RuntimeState::new();\n");
-        for (key, value) in &self.statics {
-            let key_lit = escape_for_rust(key);
-            let value_code = value_to_rust_code(value);
-            main_rs.push_str(&format!(
-                "    state.static_set(\"{}\".to_string(), {});\n",
-                key_lit, value_code
-            ));
-        }
+        let statics_json = statics_to_json_bytes(&self.statics);
+        let statics_key = generate_obfuscation_key();
+        let encrypted_statics = xor_encrypt(&statics_json, &statics_key);
+        let encrypted_statics_literal = bytes_to_rust_array(&encrypted_statics);
+        let statics_key_literal = bytes_to_rust_array(&statics_key);
+        main_rs.push_str(&format!(
+            "    const ENCRYPTED_STATICS: &[u8] = &{};\n",
+            encrypted_statics_literal
+        ));
+        main_rs.push_str(&format!(
+            "    const STATICS_KEY: &[u8] = &{};\n",
+            statics_key_literal
+        ));
+        main_rs.push_str(
+            "    corvo_lang::load_statics_from_encrypted_bytes(&mut state, ENCRYPTED_STATICS, STATICS_KEY);\n",
+        );
 
         // Embed the encrypted source and the key as raw byte arrays, then
         // decrypt at runtime before executing.  Neither the source nor the key
@@ -159,9 +170,8 @@ impl Compiler {
             key_literal
         ));
         main_rs.push_str("    let decrypted: Vec<u8> = ENCRYPTED_SOURCE.iter().enumerate()\n");
-        main_rs.push_str(
-            "        .map(|(i, &b)| b ^ OBFUSCATION_KEY[i % OBFUSCATION_KEY.len()])\n",
-        );
+        main_rs
+            .push_str("        .map(|(i, &b)| b ^ OBFUSCATION_KEY[i % OBFUSCATION_KEY.len()])\n");
         main_rs.push_str("        .collect();\n");
         main_rs.push_str(
             "    let source = String::from_utf8(decrypted).expect(\"invalid UTF-8 in source\");\n",
@@ -389,12 +399,65 @@ fn xor_encrypt(data: &[u8], key: &[u8]) -> Vec<u8> {
         .collect()
 }
 
+/// Serialize the statics map to a JSON byte vector, encoding non-JSON-safe
+/// f64 values (NaN, ±Infinity) as sentinel objects so they survive the
+/// round-trip through the encrypted blob.
+fn statics_to_json_bytes(statics: &HashMap<String, Value>) -> Vec<u8> {
+    let json_map: serde_json::Map<String, serde_json::Value> = statics
+        .iter()
+        .map(|(k, v)| (k.clone(), value_to_json_value(v)))
+        .collect();
+    serde_json::to_vec(&serde_json::Value::Object(json_map))
+        .expect("Failed to serialize statics to JSON")
+}
+
+/// Convert a corvo `Value` to a `serde_json::Value`.
+///
+/// `f64::NAN`, `f64::INFINITY`, and `f64::NEG_INFINITY` are not valid JSON
+/// numbers, so they are stored as `{"__corvo_f64": "nan"}` /
+/// `{"__corvo_f64": "inf"}` / `{"__corvo_f64": "-inf"}` sentinels.
+fn value_to_json_value(v: &Value) -> serde_json::Value {
+    match v {
+        Value::Null => serde_json::Value::Null,
+        Value::Boolean(b) => serde_json::Value::Bool(*b),
+        Value::Number(n) if n.is_nan() => {
+            serde_json::json!({"__corvo_f64": "nan"})
+        }
+        Value::Number(n) if *n == f64::INFINITY => {
+            serde_json::json!({"__corvo_f64": "inf"})
+        }
+        Value::Number(n) if *n == f64::NEG_INFINITY => {
+            serde_json::json!({"__corvo_f64": "-inf"})
+        }
+        Value::Number(n) => serde_json::Value::Number(
+            serde_json::Number::from_f64(*n)
+                .expect("non-finite f64 must be handled by the guards above"),
+        ),
+        Value::String(s) => serde_json::Value::String(s.clone()),
+        Value::List(items) => {
+            serde_json::Value::Array(items.iter().map(value_to_json_value).collect())
+        }
+        Value::Map(map) => {
+            let obj: serde_json::Map<String, serde_json::Value> = map
+                .iter()
+                .map(|(k, v)| (k.clone(), value_to_json_value(v)))
+                .collect();
+            serde_json::Value::Object(obj)
+        }
+    }
+}
+
 /// Format a byte slice as a Rust array literal body, e.g. `[1u8, 2u8, 3u8]`.
 fn bytes_to_rust_array(bytes: &[u8]) -> String {
     let parts: Vec<String> = bytes.iter().map(|b| format!("{}u8", b)).collect();
     format!("[{}]", parts.join(", "))
 }
 
+/// Escape a string for use as a Rust string literal body.
+///
+/// This function is retained for test coverage of the escaping logic even
+/// though production code no longer embeds static values as string literals.
+#[allow(dead_code)]
 fn escape_for_rust(s: &str) -> String {
     let mut result = String::with_capacity(s.len() * 2);
     for ch in s.chars() {
@@ -410,6 +473,12 @@ fn escape_for_rust(s: &str) -> String {
     result
 }
 
+/// Generate a Rust code expression that constructs a corvo `Value` at runtime.
+///
+/// This function is retained for test coverage even though production code no
+/// longer embeds static values as Rust source literals — statics are now
+/// obfuscated via the encrypted statics mechanism.
+#[allow(dead_code)]
 fn value_to_rust_code(value: &Value) -> String {
     match value {
         Value::String(s) => format!(
@@ -572,8 +641,28 @@ mod tests {
         compiler.generate_main_rs(&build_dir).unwrap();
 
         let main_rs = std::fs::read_to_string(build_dir.join("src/main.rs")).unwrap();
-        assert!(main_rs.contains("state.static_set"));
-        assert!(main_rs.contains("baked_value"));
+        // Static keys and values must NOT appear as plaintext — they are
+        // encrypted and loaded via load_statics_from_encrypted_bytes.
+        assert!(
+            !main_rs.contains("baked_value"),
+            "static values must not appear as plaintext in the generated binary"
+        );
+        assert!(
+            !main_rs.contains("\"key\""),
+            "static key names must not appear as plaintext in the generated binary"
+        );
+        assert!(
+            main_rs.contains("ENCRYPTED_STATICS"),
+            "encrypted statics array must be present"
+        );
+        assert!(
+            main_rs.contains("STATICS_KEY"),
+            "statics obfuscation key must be present"
+        );
+        assert!(
+            main_rs.contains("load_statics_from_encrypted_bytes"),
+            "encrypted statics loader must be called"
+        );
         assert!(main_rs.contains("run_source_with_state"));
 
         let _ = std::fs::remove_dir_all(&build_dir);
@@ -671,12 +760,26 @@ mod tests {
             !main_rs.contains("static.set"),
             "prep block (static.set) must not be embedded in the binary source"
         );
-        // The baked static value must appear via state.static_set.
+        // Statics are now loaded via the encrypted statics mechanism —
+        // individual state.static_set calls must NOT appear.
         assert!(
-            main_rs.contains("state.static_set"),
-            "baked statics must be present"
+            !main_rs.contains("state.static_set"),
+            "statics must not be injected as plaintext state.static_set calls"
         );
-        assert!(main_rs.contains("baked"), "baked value must appear");
+        // The baked value must NOT appear as a readable string.
+        assert!(
+            !main_rs.contains("baked"),
+            "baked value must not appear as plaintext in the generated binary"
+        );
+        // The encrypted statics mechanism must be present instead.
+        assert!(
+            main_rs.contains("ENCRYPTED_STATICS"),
+            "encrypted statics array must be present"
+        );
+        assert!(
+            main_rs.contains("load_statics_from_encrypted_bytes"),
+            "encrypted statics loader must be called"
+        );
         // The Corvo source is now embedded as encrypted bytes – plaintext
         // identifiers from the script must NOT appear in the generated code.
         assert!(
@@ -756,5 +859,63 @@ mod tests {
     fn test_bytes_to_rust_array() {
         let arr = bytes_to_rust_array(&[0u8, 255u8, 42u8]);
         assert_eq!(arr, "[0u8, 255u8, 42u8]");
+    }
+
+    #[test]
+    fn test_statics_to_json_bytes_roundtrip() {
+        let mut statics = HashMap::new();
+        statics.insert("KEY".to_string(), Value::String("secret".to_string()));
+        statics.insert("NUM".to_string(), Value::Number(2.5));
+        statics.insert("FLAG".to_string(), Value::Boolean(true));
+        statics.insert("EMPTY".to_string(), Value::Null);
+
+        let json_bytes = statics_to_json_bytes(&statics);
+        // Must be valid JSON
+        let parsed: serde_json::Value = serde_json::from_slice(&json_bytes).unwrap();
+        let obj = parsed.as_object().unwrap();
+        assert_eq!(obj["KEY"].as_str().unwrap(), "secret");
+        assert!((obj["NUM"].as_f64().unwrap() - 2.5).abs() < 1e-10);
+        assert!(obj["FLAG"].as_bool().unwrap());
+        assert!(obj["EMPTY"].is_null());
+    }
+
+    #[test]
+    fn test_value_to_json_value_nan_inf() {
+        let nan = value_to_json_value(&Value::Number(f64::NAN));
+        assert_eq!(nan["__corvo_f64"].as_str().unwrap(), "nan");
+
+        let inf = value_to_json_value(&Value::Number(f64::INFINITY));
+        assert_eq!(inf["__corvo_f64"].as_str().unwrap(), "inf");
+
+        let neg_inf = value_to_json_value(&Value::Number(f64::NEG_INFINITY));
+        assert_eq!(neg_inf["__corvo_f64"].as_str().unwrap(), "-inf");
+    }
+
+    #[test]
+    fn test_statics_encryption_hides_plaintext() {
+        let mut statics = HashMap::new();
+        statics.insert(
+            "SECRET_KEY".to_string(),
+            Value::String("super_secret_value".to_string()),
+        );
+
+        let json_bytes = statics_to_json_bytes(&statics);
+        let key = generate_obfuscation_key();
+        let encrypted = xor_encrypt(&json_bytes, &key);
+
+        // The encrypted bytes must not contain the plaintext key or value.
+        let encrypted_str = String::from_utf8_lossy(&encrypted);
+        assert!(
+            !encrypted_str.contains("SECRET_KEY"),
+            "encrypted statics must not contain plaintext key names"
+        );
+        assert!(
+            !encrypted_str.contains("super_secret_value"),
+            "encrypted statics must not contain plaintext values"
+        );
+
+        // Decrypting must restore the original JSON.
+        let decrypted = xor_encrypt(&encrypted, &key);
+        assert_eq!(decrypted, json_bytes);
     }
 }
