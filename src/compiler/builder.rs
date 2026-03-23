@@ -122,7 +122,16 @@ impl Compiler {
         std::fs::create_dir_all(&src_dir)
             .map_err(|e| CorvoError::io(format!("Failed to create src dir: {}", e)))?;
 
-        let escaped_source = escape_for_rust(&self.source_without_prep);
+        // Obfuscate the Corvo source so it does not appear in `strings` output.
+        // A random 32-byte key is generated per compilation and XOR-encrypted
+        // with the source bytes.  The encrypted bytes and the key are both
+        // stored as raw integer arrays (not string literals) in the binary, so
+        // no readable source text survives in the compiled output.
+        let key = generate_obfuscation_key();
+        let encrypted = xor_encrypt(self.source_without_prep.as_bytes(), &key);
+
+        let encrypted_literal = bytes_to_rust_array(&encrypted);
+        let key_literal = bytes_to_rust_array(&key);
 
         let mut main_rs = String::new();
         main_rs.push_str("fn main() {\n");
@@ -138,11 +147,25 @@ impl Compiler {
             ));
         }
 
-        // Generate and execute the script
+        // Embed the encrypted source and the key as raw byte arrays, then
+        // decrypt at runtime before executing.  Neither the source nor the key
+        // appears as a human-readable string in the compiled binary.
         main_rs.push_str(&format!(
-            "    let source = String::from(\"{}\");\n",
-            escaped_source
+            "    const ENCRYPTED_SOURCE: &[u8] = &{};\n",
+            encrypted_literal
         ));
+        main_rs.push_str(&format!(
+            "    const OBFUSCATION_KEY: &[u8] = &{};\n",
+            key_literal
+        ));
+        main_rs.push_str("    let decrypted: Vec<u8> = ENCRYPTED_SOURCE.iter().enumerate()\n");
+        main_rs.push_str(
+            "        .map(|(i, &b)| b ^ OBFUSCATION_KEY[i % OBFUSCATION_KEY.len()])\n",
+        );
+        main_rs.push_str("        .collect();\n");
+        main_rs.push_str(
+            "    let source = String::from_utf8(decrypted).expect(\"invalid UTF-8 in source\");\n",
+        );
         main_rs.push_str("    match corvo_lang::run_source_with_state(&source, &mut state) {\n");
         main_rs.push_str("        Ok(_) => std::process::exit(0),\n");
         main_rs.push_str("        Err(e) => {\n");
@@ -328,6 +351,48 @@ fn strip_prep_block(source: &str, tokens: &[Token]) -> String {
     let after: String = chars[prep_end..].iter().collect();
 
     format!("{}{}", before, after).trim().to_string()
+}
+
+/// Generate a random 32-byte key used to XOR-obfuscate the embedded source.
+/// A simple LCG seeded from the current nanosecond timestamp is sufficient –
+/// the goal is a different key per compilation so that the encrypted bytes
+/// look like noise to `strings`, not cryptographic security.
+fn generate_obfuscation_key() -> Vec<u8> {
+    // Arbitrary fallback constant used when the system clock is unavailable.
+    // The value has no special meaning; it just ensures the key is never all-zero.
+    const FALLBACK_SEED: u64 = 0x6c62_272e_07bb_0142;
+    // Each LCG iteration produces one u64 (8 bytes).  Four iterations → 32 bytes.
+    const ITERATIONS: usize = 4;
+
+    let seed = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos() as u64)
+        .unwrap_or(FALLBACK_SEED);
+
+    let mut state = seed;
+    let mut key = Vec::with_capacity(ITERATIONS * 8);
+    for _ in 0..ITERATIONS {
+        // LCG constants from Knuth
+        state = state
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
+        key.extend_from_slice(&state.to_le_bytes());
+    }
+    key
+}
+
+/// XOR-encrypt `data` with a repeating `key`.
+fn xor_encrypt(data: &[u8], key: &[u8]) -> Vec<u8> {
+    data.iter()
+        .enumerate()
+        .map(|(i, &b)| b ^ key[i % key.len()])
+        .collect()
+}
+
+/// Format a byte slice as a Rust array literal body, e.g. `[1u8, 2u8, 3u8]`.
+fn bytes_to_rust_array(bytes: &[u8]) -> String {
+    let parts: Vec<String> = bytes.iter().map(|b| format!("{}u8", b)).collect();
+    format!("[{}]", parts.join(", "))
 }
 
 fn escape_for_rust(s: &str) -> String {
@@ -612,12 +677,84 @@ mod tests {
             "baked statics must be present"
         );
         assert!(main_rs.contains("baked"), "baked value must appear");
-        // The rest of the corvo script must still be embedded.
+        // The Corvo source is now embedded as encrypted bytes – plaintext
+        // identifiers from the script must NOT appear in the generated code.
         assert!(
-            main_rs.contains("sys.echo"),
-            "non-prep code must be embedded"
+            !main_rs.contains("sys.echo"),
+            "Corvo source must not appear as plaintext in the generated binary"
+        );
+        // The encrypted source mechanism must be present.
+        assert!(
+            main_rs.contains("ENCRYPTED_SOURCE"),
+            "encrypted source array must be present"
+        );
+        assert!(
+            main_rs.contains("OBFUSCATION_KEY"),
+            "obfuscation key must be present"
         );
 
         let _ = std::fs::remove_dir_all(&build_dir);
+    }
+
+    #[test]
+    fn test_generate_main_rs_obfuscates_source() {
+        let source = "sys.echo(\"secret logic\")".to_string();
+        let compiler = Compiler::new(source, PathBuf::from("test.corvo"));
+
+        let build_dir = std::env::temp_dir().join("corvo_test_obfuscation");
+        let _ = std::fs::remove_dir_all(&build_dir);
+        std::fs::create_dir_all(build_dir.join("src")).unwrap();
+
+        compiler.generate_main_rs(&build_dir).unwrap();
+
+        let main_rs = std::fs::read_to_string(build_dir.join("src/main.rs")).unwrap();
+
+        // The source string must NOT appear as plaintext.
+        assert!(
+            !main_rs.contains("sys.echo"),
+            "source code must not appear as plaintext"
+        );
+        assert!(
+            !main_rs.contains("secret logic"),
+            "source strings must not appear as plaintext"
+        );
+        // The encrypted byte array and key must be embedded instead.
+        assert!(
+            main_rs.contains("ENCRYPTED_SOURCE"),
+            "encrypted source array must be present"
+        );
+        assert!(
+            main_rs.contains("OBFUSCATION_KEY"),
+            "obfuscation key must be present"
+        );
+        // The runtime must decrypt and execute the source.
+        assert!(
+            main_rs.contains("run_source_with_state"),
+            "runtime execution must be invoked"
+        );
+
+        let _ = std::fs::remove_dir_all(&build_dir);
+    }
+
+    #[test]
+    fn test_xor_encrypt_roundtrip() {
+        let data = b"Hello, Corvo! This is some Corvo source code.";
+        let key = generate_obfuscation_key();
+        let encrypted = xor_encrypt(data, &key);
+        // XOR is its own inverse: encrypting twice yields the original.
+        let decrypted = xor_encrypt(&encrypted, &key);
+        assert_eq!(decrypted, data);
+    }
+
+    #[test]
+    fn test_obfuscation_key_length() {
+        let key = generate_obfuscation_key();
+        assert_eq!(key.len(), 32, "key must be 32 bytes");
+    }
+
+    #[test]
+    fn test_bytes_to_rust_array() {
+        let arr = bytes_to_rust_array(&[0u8, 255u8, 42u8]);
+        assert_eq!(arr, "[0u8, 255u8, 42u8]");
     }
 }
