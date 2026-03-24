@@ -16,6 +16,7 @@ pub struct Compiler {
     _source_path: PathBuf,
     build_mode: BuildMode,
     statics: HashMap<String, Value>,
+    no_debug: bool,
 }
 
 pub enum BuildMode {
@@ -34,11 +35,22 @@ impl Compiler {
             _source_path: source_path,
             build_mode: BuildMode::Release,
             statics: HashMap::new(),
+            no_debug: false,
         }
     }
 
     pub fn with_debug(mut self) -> Self {
         self.build_mode = BuildMode::Debug;
+        self
+    }
+
+    /// Enable anti-debugging protection in the compiled binary.
+    ///
+    /// When set, the generated binary will refuse to run under debuggers
+    /// (gdb, LLDB), tracers (strace), record-and-replay tools (rr), dynamic
+    /// analysis tools (Valgrind), and Windows debuggers (WinDbg).
+    pub fn with_no_debug(mut self) -> Self {
+        self.no_debug = true;
         self
     }
 
@@ -96,6 +108,14 @@ impl Compiler {
             .ok_or_else(|| CorvoError::io("Invalid crate root path".to_string()))?
             .replace('\\', "/");
 
+        // libc is required for platform-specific anti-debugging calls
+        // (ptrace on Linux/macOS, sysctl on macOS).
+        let libc_dep = if self.no_debug {
+            "libc = \"0.2\"\n"
+        } else {
+            ""
+        };
+
         let cargo_toml = format!(
             "[package]\n\
              name = \"corvo_compiled\"\n\
@@ -104,11 +124,12 @@ impl Compiler {
              \n\
              [dependencies]\n\
              corvo-lang = {{ path = \"{}\" }}\n\
+             {}\
              \n\
              [profile.release]\n\
              opt-level = 2\n\
              lto = false\n",
-            crate_root_str
+            crate_root_str, libc_dep
         );
 
         std::fs::write(build_dir.join("Cargo.toml"), cargo_toml)
@@ -134,7 +155,19 @@ impl Compiler {
         let key_literal = bytes_to_rust_array(&key);
 
         let mut main_rs = String::new();
+
+        // Inject the anti-debugging helper before main() so it is available
+        // when called as the very first statement.
+        if self.no_debug {
+            main_rs.push_str(&generate_anti_debug_fn());
+        }
+
         main_rs.push_str("fn main() {\n");
+
+        // Abort immediately if a debugger / tracer is detected.
+        if self.no_debug {
+            main_rs.push_str("    abort_if_debugged();\n");
+        }
 
         // Serialize and encrypt the statics so that static keys and string
         // values do not appear as readable strings in the compiled binary.
@@ -451,6 +484,133 @@ fn value_to_json_value(v: &Value) -> serde_json::Value {
 fn bytes_to_rust_array(bytes: &[u8]) -> String {
     let parts: Vec<String> = bytes.iter().map(|b| format!("{}u8", b)).collect();
     format!("[{}]", parts.join(", "))
+}
+
+/// Generate the source code for the `abort_if_debugged` function that is
+/// injected into compiled binaries when `--no-debug` is used.
+///
+/// The generated function terminates the process immediately if it detects any
+/// of the following tools:
+///
+/// * **strace** — intercepted via `ptrace(PTRACE_TRACEME)` on Linux
+/// * **gdb / LLDB** — intercepted via `ptrace(PTRACE_TRACEME)` on Linux and
+///   `ptrace(PT_DENY_ATTACH)` + `sysctl(KERN_PROC_PID)` on macOS
+/// * **rr** — intercepted via `ptrace(PTRACE_TRACEME)` on Linux plus the
+///   `RUNNING_UNDER_RR` environment variable set by the rr runtime
+/// * **Valgrind** — detected via `vgpreload` entries in `/proc/self/maps` on
+///   Linux and the `VALGRIND_OPTS` environment variable
+/// * **WinDbg** (and other Windows debuggers) — detected via
+///   `IsDebuggerPresent` and `CheckRemoteDebuggerPresent` on Windows
+fn generate_anti_debug_fn() -> String {
+    let mut code = String::new();
+
+    // ── Shared helper (all platforms) ────────────────────────────────────────
+    // Environment-variable checks for tools that advertise themselves:
+    //   • rr sets RUNNING_UNDER_RR during replay.
+    //   • Valgrind propagates VALGRIND_OPTS to the child process.
+    code.push_str("fn abort_if_debugged() {\n");
+    code.push_str("    if std::env::var_os(\"RUNNING_UNDER_RR\").is_some() {\n");
+    code.push_str("        std::process::exit(1);\n");
+    code.push_str("    }\n");
+    code.push_str("    if std::env::var_os(\"VALGRIND_OPTS\").is_some() {\n");
+    code.push_str("        std::process::exit(1);\n");
+    code.push_str("    }\n");
+
+    // ── Linux ─────────────────────────────────────────────────────────────────
+    // 1. ptrace(PTRACE_TRACEME): returns -1/EPERM when a tracer (gdb, strace,
+    //    rr, LLDB) is already attached, because only one tracer may be active
+    //    at a time and the tracer has already called ptrace on us.
+    // 2. /proc/self/status TracerPid: non-zero when any ptrace-based tracer
+    //    is attached, including after ptrace(PTRACE_TRACEME) above succeeds.
+    // 3. /proc/self/maps: Valgrind preloads its own shared libraries whose
+    //    paths contain "vgpreload"; scanning the memory map catches it even
+    //    when VALGRIND_OPTS is unset.
+    code.push_str("    #[cfg(target_os = \"linux\")]\n");
+    code.push_str("    {\n");
+    // Extract the ptrace call into a variable for readability.
+    code.push_str("        let ptrace_result = unsafe {\n");
+    code.push_str("            libc::ptrace(\n");
+    code.push_str("                libc::PTRACE_TRACEME,\n");
+    code.push_str("                0,\n");
+    code.push_str("                std::ptr::null_mut::<libc::c_void>(),\n");
+    code.push_str("                std::ptr::null_mut::<libc::c_void>(),\n");
+    code.push_str("            )\n");
+    code.push_str("        };\n");
+    code.push_str("        if ptrace_result != 0 {\n");
+    code.push_str("            std::process::exit(1);\n");
+    code.push_str("        }\n");
+    code.push_str("        if let Ok(status) = std::fs::read_to_string(\"/proc/self/status\") {\n");
+    code.push_str("            for line in status.lines() {\n");
+    code.push_str("                if let Some(rest) = line.strip_prefix(\"TracerPid:\") {\n");
+    // Use map(...).unwrap_or(false) to avoid silently treating parse errors
+    // as "no tracer": only a confirmed zero value passes the check.
+    code.push_str("                    if rest.trim().parse::<i64>().map(|pid| pid != 0).unwrap_or(false) {\n");
+    code.push_str("                        std::process::exit(1);\n");
+    code.push_str("                    }\n");
+    code.push_str("                    break;\n");
+    code.push_str("                }\n");
+    code.push_str("            }\n");
+    code.push_str("        }\n");
+    code.push_str("        if let Ok(maps) = std::fs::read_to_string(\"/proc/self/maps\") {\n");
+    code.push_str("            if maps.contains(\"vgpreload\") || maps.contains(\"valgrind\") {\n");
+    code.push_str("                std::process::exit(1);\n");
+    code.push_str("            }\n");
+    code.push_str("        }\n");
+    code.push_str("    }\n");
+
+    // ── macOS ─────────────────────────────────────────────────────────────────
+    // 1. ptrace(PT_DENY_ATTACH = 31): sends SIGSEGV to any already-attached
+    //    debugger and prevents future attachment by gdb, LLDB, Instruments, etc.
+    // 2. sysctl(KERN_PROC_PID): reads the kinfo_proc struct for this PID; the
+    //    P_TRACED flag (0x00000800) in kp_proc.p_flag is set whenever a
+    //    debugger or Valgrind is tracing the process.
+    code.push_str("    #[cfg(target_os = \"macos\")]\n");
+    code.push_str("    unsafe {\n");
+    code.push_str("        libc::ptrace(31 /* PT_DENY_ATTACH */, 0, std::ptr::null_mut(), 0);\n");
+    code.push_str("        let pid = libc::getpid();\n");
+    code.push_str("        let mut info = std::mem::MaybeUninit::<libc::kinfo_proc>::zeroed();\n");
+    code.push_str("        let mut size = std::mem::size_of::<libc::kinfo_proc>();\n");
+    // sysctl takes a *mut c_int for the mib parameter but does not modify the
+    // array contents; cast from an immutable reference to avoid a misleading
+    // `mut` binding on the array itself.
+    code.push_str("        let mib: [libc::c_int; 4] = [libc::CTL_KERN, libc::KERN_PROC, libc::KERN_PROC_PID, pid];\n");
+    code.push_str("        if libc::sysctl(\n");
+    code.push_str("            mib.as_ptr() as *mut libc::c_int, 4,\n");
+    code.push_str("            info.as_mut_ptr() as *mut libc::c_void, &mut size,\n");
+    code.push_str("            std::ptr::null_mut(), 0,\n");
+    code.push_str("        ) == 0 {\n");
+    code.push_str("            const P_TRACED: i32 = 0x00000800;\n");
+    code.push_str("            if (info.assume_init().kp_proc.p_flag & P_TRACED) != 0 {\n");
+    code.push_str("                std::process::exit(1);\n");
+    code.push_str("            }\n");
+    code.push_str("        }\n");
+    code.push_str("    }\n");
+
+    // ── Windows ───────────────────────────────────────────────────────────────
+    // IsDebuggerPresent detects WinDbg and any kernel-mode or user-mode
+    // debugger that has set the process debug flag.
+    // CheckRemoteDebuggerPresent catches remote debugging sessions.
+    // Both functions are exported by kernel32 and do not require any extra
+    // crate; they are declared inline via an extern block.
+    code.push_str("    #[cfg(target_os = \"windows\")]\n");
+    code.push_str("    unsafe {\n");
+    code.push_str("        extern \"system\" {\n");
+    code.push_str("            fn IsDebuggerPresent() -> u32;\n");
+    code.push_str("            fn CheckRemoteDebuggerPresent(hProcess: *mut (), pbDebuggerPresent: *mut i32) -> i32;\n");
+    code.push_str("            fn GetCurrentProcess() -> *mut ();\n");
+    code.push_str("        }\n");
+    code.push_str("        if IsDebuggerPresent() != 0 {\n");
+    code.push_str("            std::process::exit(1);\n");
+    code.push_str("        }\n");
+    code.push_str("        let mut remote: i32 = 0;\n");
+    code.push_str("        CheckRemoteDebuggerPresent(GetCurrentProcess(), &mut remote);\n");
+    code.push_str("        if remote != 0 {\n");
+    code.push_str("            std::process::exit(1);\n");
+    code.push_str("        }\n");
+    code.push_str("    }\n");
+
+    code.push_str("}\n");
+    code
 }
 
 /// Escape a string for use as a Rust string literal body.
@@ -917,5 +1077,174 @@ mod tests {
         // Decrypting must restore the original JSON.
         let decrypted = xor_encrypt(&encrypted, &key);
         assert_eq!(decrypted, json_bytes);
+    }
+
+    // --- --no-debug / anti-debugging tests ---
+
+    #[test]
+    fn test_generate_anti_debug_fn_contains_env_checks() {
+        let code = generate_anti_debug_fn();
+        assert!(
+            code.contains("RUNNING_UNDER_RR"),
+            "must check RUNNING_UNDER_RR env var for rr detection"
+        );
+        assert!(
+            code.contains("VALGRIND_OPTS"),
+            "must check VALGRIND_OPTS env var for Valgrind detection"
+        );
+    }
+
+    #[test]
+    fn test_generate_anti_debug_fn_linux_checks() {
+        let code = generate_anti_debug_fn();
+        assert!(
+            code.contains("PTRACE_TRACEME"),
+            "Linux: must call ptrace(PTRACE_TRACEME) to detect attached tracers"
+        );
+        assert!(
+            code.contains("TracerPid"),
+            "Linux: must read TracerPid from /proc/self/status"
+        );
+        assert!(
+            code.contains("vgpreload"),
+            "Linux: must scan /proc/self/maps for Valgrind preload libraries"
+        );
+    }
+
+    #[test]
+    fn test_generate_anti_debug_fn_macos_checks() {
+        let code = generate_anti_debug_fn();
+        assert!(
+            code.contains("PT_DENY_ATTACH"),
+            "macOS: must call ptrace(PT_DENY_ATTACH) to block debugger attachment"
+        );
+        assert!(
+            code.contains("P_TRACED"),
+            "macOS: must check P_TRACED flag via sysctl(KERN_PROC_PID)"
+        );
+    }
+
+    #[test]
+    fn test_generate_anti_debug_fn_windows_checks() {
+        let code = generate_anti_debug_fn();
+        assert!(
+            code.contains("IsDebuggerPresent"),
+            "Windows: must call IsDebuggerPresent to detect WinDbg"
+        );
+        assert!(
+            code.contains("CheckRemoteDebuggerPresent"),
+            "Windows: must call CheckRemoteDebuggerPresent for remote debuggers"
+        );
+    }
+
+    #[test]
+    fn test_generate_main_rs_with_no_debug_injects_guard() {
+        let compiler = Compiler {
+            source: "sys.echo(\"hi\")".to_string(),
+            source_without_prep: "sys.echo(\"hi\")".to_string(),
+            _source_path: PathBuf::from("test.corvo"),
+            build_mode: BuildMode::Release,
+            statics: HashMap::new(),
+            no_debug: true,
+        };
+
+        let build_dir = std::env::temp_dir().join("corvo_test_no_debug_gen");
+        let _ = std::fs::remove_dir_all(&build_dir);
+        std::fs::create_dir_all(build_dir.join("src")).unwrap();
+
+        compiler.generate_main_rs(&build_dir).unwrap();
+
+        let main_rs = std::fs::read_to_string(build_dir.join("src/main.rs")).unwrap();
+
+        assert!(
+            main_rs.contains("abort_if_debugged"),
+            "generated main.rs must define and call abort_if_debugged"
+        );
+        assert!(
+            main_rs.contains("RUNNING_UNDER_RR"),
+            "anti-debug guard must include rr env-var check"
+        );
+        assert!(
+            main_rs.contains("PTRACE_TRACEME"),
+            "anti-debug guard must include Linux ptrace check"
+        );
+        assert!(
+            main_rs.contains("IsDebuggerPresent"),
+            "anti-debug guard must include Windows debugger check"
+        );
+
+        let _ = std::fs::remove_dir_all(&build_dir);
+    }
+
+    #[test]
+    fn test_generate_main_rs_without_no_debug_has_no_guard() {
+        let compiler = Compiler::new("sys.echo(\"hi\")".to_string(), PathBuf::from("test.corvo"));
+
+        let build_dir = std::env::temp_dir().join("corvo_test_no_debug_absent");
+        let _ = std::fs::remove_dir_all(&build_dir);
+        std::fs::create_dir_all(build_dir.join("src")).unwrap();
+
+        compiler.generate_main_rs(&build_dir).unwrap();
+
+        let main_rs = std::fs::read_to_string(build_dir.join("src/main.rs")).unwrap();
+
+        assert!(
+            !main_rs.contains("abort_if_debugged"),
+            "without --no-debug the guard function must not be generated"
+        );
+
+        let _ = std::fs::remove_dir_all(&build_dir);
+    }
+
+    #[test]
+    fn test_generate_cargo_toml_with_no_debug_adds_libc() {
+        let compiler = Compiler {
+            source: "sys.echo(\"hi\")".to_string(),
+            source_without_prep: "sys.echo(\"hi\")".to_string(),
+            _source_path: PathBuf::from("test.corvo"),
+            build_mode: BuildMode::Release,
+            statics: HashMap::new(),
+            no_debug: true,
+        };
+
+        let build_dir = std::env::temp_dir().join("corvo_test_cargo_toml_no_debug");
+        let _ = std::fs::remove_dir_all(&build_dir);
+        std::fs::create_dir_all(&build_dir).unwrap();
+
+        // Use a dummy crate root path for the test.
+        let dummy_root = PathBuf::from("/tmp/corvo_dummy_root");
+        compiler
+            .generate_cargo_toml(&build_dir, &dummy_root)
+            .unwrap();
+
+        let cargo_toml = std::fs::read_to_string(build_dir.join("Cargo.toml")).unwrap();
+        assert!(
+            cargo_toml.contains("libc"),
+            "--no-debug Cargo.toml must include the libc dependency"
+        );
+
+        let _ = std::fs::remove_dir_all(&build_dir);
+    }
+
+    #[test]
+    fn test_generate_cargo_toml_without_no_debug_omits_libc() {
+        let compiler = Compiler::new("sys.echo(\"hi\")".to_string(), PathBuf::from("test.corvo"));
+
+        let build_dir = std::env::temp_dir().join("corvo_test_cargo_toml_normal");
+        let _ = std::fs::remove_dir_all(&build_dir);
+        std::fs::create_dir_all(&build_dir).unwrap();
+
+        let dummy_root = PathBuf::from("/tmp/corvo_dummy_root");
+        compiler
+            .generate_cargo_toml(&build_dir, &dummy_root)
+            .unwrap();
+
+        let cargo_toml = std::fs::read_to_string(build_dir.join("Cargo.toml")).unwrap();
+        assert!(
+            !cargo_toml.contains("libc"),
+            "without --no-debug the libc dependency must not appear in Cargo.toml"
+        );
+
+        let _ = std::fs::remove_dir_all(&build_dir);
     }
 }
