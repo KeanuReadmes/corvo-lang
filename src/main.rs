@@ -42,6 +42,12 @@ struct Args {
 
     #[structopt(long, help = "Use debug build mode (faster compile)")]
     debug: bool,
+
+    #[structopt(
+        long,
+        help = "Generate a binary that aborts when run under a debugger, tracer, or dynamic analysis tool (gdb, LLDB, strace, rr, WinDbg, Valgrind)"
+    )]
+    no_debug: bool,
 }
 
 fn main() {
@@ -73,7 +79,7 @@ fn main() {
 
     if let Some(file) = args.file {
         if args.compile {
-            compile_file(&file, args.output.as_deref(), args.debug);
+            compile_file(&file, args.output.as_deref(), args.debug, args.no_debug);
         } else if args.lint {
             lint_file(&file);
         } else if args.check {
@@ -107,7 +113,12 @@ fn run_file(file: &std::path::Path) {
     }
 }
 
-fn compile_file(file: &std::path::Path, output: Option<&std::path::Path>, debug: bool) {
+fn compile_file(
+    file: &std::path::Path,
+    output: Option<&std::path::Path>,
+    debug: bool,
+    no_debug: bool,
+) {
     let source = match std::fs::read_to_string(file) {
         Ok(s) => s,
         Err(e) => {
@@ -132,6 +143,9 @@ fn compile_file(file: &std::path::Path, output: Option<&std::path::Path>, debug:
     let mut compiler = corvo_lang::compiler::Compiler::new(source, file.to_path_buf());
     if debug {
         compiler = compiler.with_debug();
+    }
+    if no_debug {
+        compiler = compiler.with_no_debug();
     }
 
     eprintln!(
@@ -288,12 +302,14 @@ fn print_usage() {
     eprintln!("      --check          Check syntax without executing");
     eprintln!("      --lint           Analyse code for errors (like cargo clippy)");
     eprintln!("      --debug          Use debug build mode (faster compile)");
+    eprintln!("      --no-debug       Generate a binary that aborts under debuggers/tracers");
     eprintln!();
     eprintln!("Examples:");
     eprintln!("  corvo script.corvo               Run a file");
     eprintln!("  corvo --repl                     Start interactive REPL");
     eprintln!("  corvo --compile script.corvo     Compile to executable");
     eprintln!("  corvo --compile script.corvo -o myapp");
+    eprintln!("  corvo --compile --no-debug script.corvo  Compile with anti-debug protection");
     eprintln!("  corvo --eval 'sys.echo(\"hi\")'   Evaluate an expression");
     eprintln!("  corvo --lint script.corvo        Analyse code for issues");
 }
