@@ -1,6 +1,7 @@
 # Corvo
 
-**A scripting language that replaces Shell.**
+![corvo-logo](./corvo.jpg)
+**A scripting language designed to be ultra simple.**
 
 Corvo is a modern scripting language designed to be a direct alternative to Bash, Zsh, and Coreutils. It comes with a rich standard library for filesystem operations, HTTP requests, JSON/YAML parsing, cryptography, DNS, and subprocess management -- all built in, no imports needed.
 
@@ -24,7 +25,6 @@ Corvo deliberately omits three things most languages take for granted. This is n
 |---|---|
 | `if` / `else` / `elif` | `try { } fallback { }` with `assert_*` |
 | `def` / `fn` / `function` | Built-in library calls only |
-| `=` assignment | `var.set("name", value)` |
 
 The result is a language with zero ambiguity, no hidden control flow, and scripts that are trivial to read, audit, and maintain.
 
