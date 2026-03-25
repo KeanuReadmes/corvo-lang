@@ -231,8 +231,27 @@ fn lint_expr(expr: &Expr, out: &mut Vec<LintDiagnostic>) {
 
 /// All namespaces recognised by the standard library.
 const KNOWN_NAMESPACES: &[&str] = &[
-    "sys", "os", "math", "fs", "http", "dns", "crypto", "json", "yaml", "hcl", "csv", "xml", "env",
-    "llm", "string", "number", "list", "map", "var", "static",
+    "sys",
+    "os",
+    "math",
+    "fs",
+    "http",
+    "dns",
+    "crypto",
+    "json",
+    "yaml",
+    "hcl",
+    "csv",
+    "xml",
+    "env",
+    "llm",
+    "notifications",
+    "string",
+    "number",
+    "list",
+    "map",
+    "var",
+    "static",
 ];
 
 /// All functions recognised by the standard library and type system.
@@ -300,6 +319,18 @@ pub const KNOWN_FUNCTIONS: &[&str] = &[
     "llm.prompt",
     "llm.embed",
     "llm.chat",
+    // notifications
+    "notifications.smtp",
+    "notifications.slack",
+    "notifications.telegram",
+    "notifications.mattermost",
+    "notifications.gitter",
+    "notifications.messenger",
+    "notifications.discord",
+    "notifications.teams",
+    "notifications.x",
+    "notifications.os",
+    "notifications.irc",
     // string methods
     "string.concat",
     "string.replace",

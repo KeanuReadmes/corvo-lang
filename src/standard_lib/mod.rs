@@ -8,6 +8,7 @@ pub mod http;
 pub mod json;
 pub mod llm;
 pub mod math;
+pub mod notifications;
 pub mod os;
 pub mod sys;
 pub mod xml;
@@ -87,6 +88,18 @@ pub fn call(
         "llm.prompt" => llm::prompt(args, named_args),
         "llm.embed" => llm::embed(args, named_args),
         "llm.chat" => llm::chat(args, named_args),
+
+        "notifications.smtp" => notifications::smtp(args, named_args),
+        "notifications.slack" => notifications::slack(args, named_args),
+        "notifications.telegram" => notifications::telegram(args, named_args),
+        "notifications.mattermost" => notifications::mattermost(args, named_args),
+        "notifications.gitter" => notifications::gitter(args, named_args),
+        "notifications.messenger" => notifications::messenger(args, named_args),
+        "notifications.discord" => notifications::discord(args, named_args),
+        "notifications.teams" => notifications::teams(args, named_args),
+        "notifications.x" => notifications::x(args, named_args),
+        "notifications.os" => notifications::os_notify(args, named_args),
+        "notifications.irc" => notifications::irc(args, named_args),
 
         // Type methods
         s if s.starts_with("string.") => {
