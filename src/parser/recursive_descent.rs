@@ -69,17 +69,27 @@ impl Parser {
             | TokenType::AssertLt
             | TokenType::AssertMatch => self.parse_assert()?,
             TokenType::At => {
-                // @name = value → VarSet shortcut
-                // @name         → ExprStmt (VarGet shortcut)
-                let is_assignment = matches!(
+                // @name = value       → VarSet shortcut
+                // @name[index] = val  → VarIndexSet shortcut
+                // @name               → ExprStmt (VarGet shortcut)
+                let is_simple_assignment = matches!(
                     self.tokens.get(self.current + 1).map(|t| &t.token_type),
                     Some(TokenType::Identifier(_))
                 ) && matches!(
                     self.tokens.get(self.current + 2).map(|t| &t.token_type),
                     Some(TokenType::Equals)
                 );
-                if is_assignment {
+                let is_index_assignment = matches!(
+                    self.tokens.get(self.current + 1).map(|t| &t.token_type),
+                    Some(TokenType::Identifier(_))
+                ) && matches!(
+                    self.tokens.get(self.current + 2).map(|t| &t.token_type),
+                    Some(TokenType::LeftBracket)
+                );
+                if is_simple_assignment {
                     self.parse_at_var_set()?
+                } else if is_index_assignment {
+                    self.parse_at_index_set_or_expr()?
                 } else {
                     self.parse_expr_statement()?
                 }
@@ -229,6 +239,31 @@ impl Parser {
         self.consume(TokenType::Equals, "Expected '=' after variable name")?;
         let value = self.parse_expression()?;
         Ok(Stmt::VarSet { name, value })
+    }
+
+    fn parse_at_index_set_or_expr(&mut self) -> CorvoResult<Stmt> {
+        self.advance(); // consume '@'
+        let name = match &self.peek().token_type {
+            TokenType::Identifier(s) => s.clone(),
+            _ => return Err(self.error("Expected variable name after '@'")),
+        };
+        self.advance(); // consume identifier
+        self.consume(TokenType::LeftBracket, "Expected '[' after variable name")?;
+        let index = self.parse_expression()?;
+        self.consume(TokenType::RightBracket, "Expected ']' after index")?;
+
+        if self.match_token(TokenType::Equals) {
+            // @name[index] = value  →  VarIndexSet
+            let value = self.parse_expression()?;
+            Ok(Stmt::VarIndexSet { name, index, value })
+        } else {
+            // @name[index] used as an expression statement (read-only)
+            let access = Expr::IndexAccess {
+                target: Box::new(Expr::VarGet { name }),
+                index: Box::new(index),
+            };
+            Ok(Stmt::ExprStmt { expr: access })
+        }
     }
 
     fn parse_assert(&mut self) -> CorvoResult<Stmt> {

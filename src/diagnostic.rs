@@ -170,6 +170,10 @@ fn lint_stmt(stmt: &Stmt, out: &mut Vec<LintDiagnostic>) {
             }
         }
         Stmt::Terminate => {}
+        Stmt::VarIndexSet { index, value, .. } => {
+            lint_expr(index, out);
+            lint_expr(value, out);
+        }
     }
 }
 
@@ -369,6 +373,7 @@ pub const KNOWN_FUNCTIONS: &[&str] = &[
     "list.last",
     "list.is_empty",
     "list.contains",
+    "list.delete",
     "list.filter",
     "list.map",
     "list.reduce",

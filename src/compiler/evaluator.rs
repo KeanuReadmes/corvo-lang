@@ -76,6 +76,37 @@ impl Evaluator {
                 state.var_set(name.clone(), val);
                 Ok(())
             }
+            Stmt::VarIndexSet { name, index, value } => {
+                let current = state.var_get(name)?;
+                let index_val = self.eval_expr(index, state)?;
+                let new_val = self.eval_expr(value, state)?;
+                let updated = match (&current, &index_val) {
+                    (Value::Map(map), Value::String(key)) => {
+                        let mut new_map = map.clone();
+                        new_map.insert(key.clone(), new_val);
+                        Value::Map(new_map)
+                    }
+                    (Value::List(list), Value::Number(idx)) => {
+                        let idx = *idx as usize;
+                        if idx >= list.len() {
+                            return Err(CorvoError::runtime(format!(
+                                "Index {} out of bounds",
+                                idx
+                            )));
+                        }
+                        let mut new_list = list.clone();
+                        new_list[idx] = new_val;
+                        Value::List(new_list)
+                    }
+                    _ => {
+                        return Err(CorvoError::r#type(
+                            "Index assignment requires a map with a string key or a list with a number index",
+                        ))
+                    }
+                };
+                state.var_set(name.clone(), updated);
+                Ok(())
+            }
             Stmt::ExprStmt { expr } => {
                 self.eval_expr(expr, state)?;
                 Ok(())

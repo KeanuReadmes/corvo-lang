@@ -11,9 +11,10 @@ sys.echo("Is person empty: ${map.is_empty(var.get("person"))}")
 sys.echo("Is {} empty: ${map.is_empty({})}")
 
 sys.echo("")
-sys.echo("=== map.has_key ===")
+sys.echo("=== map.has_key / map.has ===")
 sys.echo("Has 'name': ${map.has_key(var.get("person"), "name")}")
 sys.echo("Has 'email': ${map.has_key(var.get("person"), "email")}")
+sys.echo("has alias: ${map.has(var.get("person"), "name")}")
 
 sys.echo("")
 sys.echo("=== map.get ===")
@@ -34,14 +35,26 @@ var.set("vals", map.values(var.get("person")))
 sys.echo("Values: ${list.join(var.get("vals"), ", ")}")
 
 sys.echo("")
+sys.echo("=== map.entries ===")
+var.set("entries", map.entries(var.get("person")))
+sys.echo("Entry count: ${list.len(var.get("entries"))}")
+
+sys.echo("")
 sys.echo("=== map.set ===")
 var.set("person", map.set(var.get("person"), "email", "alice@example.com"))
 sys.echo("After set 'email': ${map.get(var.get("person"), "email")}")
 
 sys.echo("")
-sys.echo("=== map.remove ===")
+sys.echo("=== @var[key] = val (index shorthand) ===")
+@person["city"] = "Osaka"
+sys.echo("city after shorthand set: ${@person["city"]}")
+
+sys.echo("")
+sys.echo("=== map.remove / map.delete ===")
 var.set("person", map.remove(var.get("person"), "city"))
 sys.echo("After remove 'city'. Has 'city': ${map.has_key(var.get("person"), "city")}")
+var.set("person", map.delete(var.get("person"), "email"))
+sys.echo("After delete 'email'. Has 'email': ${map.has_key(var.get("person"), "email")}")
 
 sys.echo("")
 sys.echo("=== map.merge ===")

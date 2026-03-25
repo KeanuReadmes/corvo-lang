@@ -340,6 +340,278 @@ fn test_map_literal_and_methods() {
     );
 }
 
+// --- Index-based shorthand assignment (@var["key"] = val, @var[idx] = val) ---
+
+#[test]
+fn test_at_map_index_set() {
+    let state = run_with_state(
+        r#"
+        var.set("person", {"name": "Alice", "city": "London"})
+        @person["city"] = "Tokyo"
+        var.set("city", @person["city"])
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("city").unwrap(),
+        corvo_lang::type_system::Value::String("Tokyo".to_string())
+    );
+}
+
+#[test]
+fn test_at_map_index_set_new_key() {
+    let state = run_with_state(
+        r#"
+        var.set("config", {"host": "localhost"})
+        @config["port"] = 8080
+        var.set("port", @config["port"])
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("port").unwrap(),
+        corvo_lang::type_system::Value::Number(8080.0)
+    );
+}
+
+#[test]
+fn test_at_list_index_set() {
+    let state = run_with_state(
+        r#"
+        var.set("nums", [10, 20, 30])
+        @nums[1] = 99
+        var.set("second", @nums[1])
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("second").unwrap(),
+        corvo_lang::type_system::Value::Number(99.0)
+    );
+}
+
+#[test]
+fn test_at_list_index_set_out_of_bounds() {
+    let result = run_with_state(
+        r#"
+        var.set("items", [1, 2, 3])
+        @items[10] = 99
+        "#,
+    );
+    assert!(result.is_err());
+    assert!(format!("{}", result.unwrap_err()).contains("out of bounds"));
+}
+
+#[test]
+fn test_at_index_read() {
+    let state = run_with_state(
+        r#"
+        var.set("data", {"x": 42})
+        var.set("val", @data["x"])
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("val").unwrap(),
+        corvo_lang::type_system::Value::Number(42.0)
+    );
+}
+
+// --- New list methods ---
+
+#[test]
+fn test_list_delete() {
+    let state = run_with_state(
+        r#"
+        var.set("items", ["a", "b", "c"])
+        var.set("items", list.delete(var.get("items"), 1))
+        var.set("count", list.len(var.get("items")))
+        var.set("first", list.get(var.get("items"), 0))
+        var.set("second", list.get(var.get("items"), 1))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("count").unwrap(),
+        corvo_lang::type_system::Value::Number(2.0)
+    );
+    assert_eq!(
+        state.var_get("first").unwrap(),
+        corvo_lang::type_system::Value::String("a".to_string())
+    );
+    assert_eq!(
+        state.var_get("second").unwrap(),
+        corvo_lang::type_system::Value::String("c".to_string())
+    );
+}
+
+#[test]
+fn test_list_sort() {
+    let state = run_with_state(
+        r#"
+        var.set("items", ["banana", "apple", "cherry"])
+        var.set("sorted", list.sort(var.get("items")))
+        var.set("first", list.get(var.get("sorted"), 0))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("first").unwrap(),
+        corvo_lang::type_system::Value::String("apple".to_string())
+    );
+}
+
+#[test]
+fn test_list_find() {
+    let state = run_with_state(
+        r#"
+        var.set("items", ["a", "b", "c"])
+        var.set("idx", list.find(var.get("items"), "b"))
+        var.set("missing", list.find(var.get("items"), "z"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("idx").unwrap(),
+        corvo_lang::type_system::Value::Number(1.0)
+    );
+    assert_eq!(
+        state.var_get("missing").unwrap(),
+        corvo_lang::type_system::Value::Number(-1.0)
+    );
+}
+
+#[test]
+fn test_list_slice() {
+    let state = run_with_state(
+        r#"
+        var.set("items", [1, 2, 3, 4, 5])
+        var.set("sliced", list.slice(var.get("items"), 1, 4))
+        var.set("count", list.len(var.get("sliced")))
+        var.set("first", list.get(var.get("sliced"), 0))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("count").unwrap(),
+        corvo_lang::type_system::Value::Number(3.0)
+    );
+    assert_eq!(
+        state.var_get("first").unwrap(),
+        corvo_lang::type_system::Value::Number(2.0)
+    );
+}
+
+#[test]
+fn test_list_unique() {
+    let state = run_with_state(
+        r#"
+        var.set("items", ["a", "b", "a", "c", "b"])
+        var.set("unique", list.unique(var.get("items")))
+        var.set("count", list.len(var.get("unique")))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("count").unwrap(),
+        corvo_lang::type_system::Value::Number(3.0)
+    );
+}
+
+#[test]
+fn test_list_flatten() {
+    let state = run_with_state(
+        r#"
+        var.set("nested", [[1, 2], [3, 4], [5]])
+        var.set("flat", list.flatten(var.get("nested")))
+        var.set("count", list.len(var.get("flat")))
+        var.set("first", list.get(var.get("flat"), 0))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("count").unwrap(),
+        corvo_lang::type_system::Value::Number(5.0)
+    );
+    assert_eq!(
+        state.var_get("first").unwrap(),
+        corvo_lang::type_system::Value::Number(1.0)
+    );
+}
+
+// --- New map methods ---
+
+#[test]
+fn test_map_delete() {
+    let state = run_with_state(
+        r#"
+        var.set("person", {"name": "Alice", "age": 30, "city": "Tokyo"})
+        var.set("person", map.delete(var.get("person"), "age"))
+        var.set("has_age", map.has_key(var.get("person"), "age"))
+        var.set("count", map.len(var.get("person")))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("has_age").unwrap(),
+        corvo_lang::type_system::Value::Boolean(false)
+    );
+    assert_eq!(
+        state.var_get("count").unwrap(),
+        corvo_lang::type_system::Value::Number(2.0)
+    );
+}
+
+#[test]
+fn test_map_has() {
+    let state = run_with_state(
+        r#"
+        var.set("data", {"key": "value"})
+        var.set("found", map.has(var.get("data"), "key"))
+        var.set("missing", map.has(var.get("data"), "other"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("found").unwrap(),
+        corvo_lang::type_system::Value::Boolean(true)
+    );
+    assert_eq!(
+        state.var_get("missing").unwrap(),
+        corvo_lang::type_system::Value::Boolean(false)
+    );
+}
+
+#[test]
+fn test_map_entries() {
+    let state = run_with_state(
+        r#"
+        var.set("data", {"b": 2, "a": 1})
+        var.set("entries", map.entries(var.get("data")))
+        var.set("count", list.len(var.get("entries")))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("count").unwrap(),
+        corvo_lang::type_system::Value::Number(2.0)
+    );
+    // entries should be sorted by key
+    let entries = state.var_get("entries").unwrap();
+    if let corvo_lang::type_system::Value::List(list) = entries {
+        if let corvo_lang::type_system::Value::Map(first) = &list[0] {
+            assert_eq!(
+                first.get("key").unwrap(),
+                &corvo_lang::type_system::Value::String("a".to_string())
+            );
+        } else {
+            panic!("Expected map entry");
+        }
+    } else {
+        panic!("Expected list");
+    }
+}
+
 #[test]
 fn test_static_vs_var_independence() {
     let state = run_with_state(

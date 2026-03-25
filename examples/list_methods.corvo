@@ -31,9 +31,24 @@ var.set("fruits", list.set(var.get("fruits"), 1, "blueberry"))
 sys.echo("After set index 1 to 'blueberry': ${list.join(var.get("fruits"), ", ")}")
 
 sys.echo("")
+sys.echo("=== @var[idx] = val (index shorthand) ===")
+@fruits[0] = "avocado"
+sys.echo("fruits[0] after shorthand set: ${@fruits[0]}")
+
+sys.echo("")
+sys.echo("=== list.delete ===")
+var.set("fruits", list.delete(var.get("fruits"), 0))
+sys.echo("After delete index 0: ${list.join(var.get("fruits"), ", ")}")
+
+sys.echo("")
 sys.echo("=== list.contains ===")
-sys.echo("Contains 'apple': ${list.contains(var.get("fruits"), "apple")}")
+sys.echo("Contains 'blueberry': ${list.contains(var.get("fruits"), "blueberry")}")
 sys.echo("Contains 'mango': ${list.contains(var.get("fruits"), "mango")}")
+
+sys.echo("")
+sys.echo("=== list.find ===")
+sys.echo("Index of 'blueberry': ${list.find(var.get("fruits"), "blueberry")}")
+sys.echo("Index of 'mango' (not found): ${list.find(var.get("fruits"), "mango")}")
 
 sys.echo("")
 sys.echo("=== list.is_empty ===")
@@ -41,9 +56,30 @@ sys.echo("Is fruits empty: ${list.is_empty(var.get("fruits"))}")
 sys.echo("Is [] empty: ${list.is_empty([])}")
 
 sys.echo("")
+sys.echo("=== list.sort ===")
+var.set("sorted", list.sort(var.get("fruits")))
+sys.echo("Sorted: ${list.join(var.get("sorted"), ", ")}")
+
+sys.echo("")
 sys.echo("=== list.reverse ===")
 var.set("reversed", list.reverse(var.get("fruits")))
 sys.echo("Reversed: ${list.join(var.get("reversed"), ", ")}")
+
+sys.echo("")
+sys.echo("=== list.slice ===")
+var.set("nums", [1, 2, 3, 4, 5])
+var.set("sliced", list.slice(var.get("nums"), 1, 4))
+sys.echo("Slice [1..4]: ${list.join(var.get("sliced"), ", ")}")
+
+sys.echo("")
+sys.echo("=== list.unique ===")
+var.set("dupes", ["a", "b", "a", "c", "b"])
+sys.echo("Unique: ${list.join(list.unique(var.get("dupes")), ", ")}")
+
+sys.echo("")
+sys.echo("=== list.flatten ===")
+var.set("nested", [[1, 2], [3, 4], [5]])
+sys.echo("Flattened: ${list.join(list.flatten(var.get("nested")), ", ")}")
 
 sys.echo("")
 sys.echo("=== list.join ===")
