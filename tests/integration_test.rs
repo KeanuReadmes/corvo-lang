@@ -1159,3 +1159,150 @@ fn test_env_parse_skips_comments() {
         corvo_lang::type_system::Value::String("v1".to_string())
     );
 }
+
+// ---------------------------------------------------------------------------
+// notifications module tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_notifications_smtp_requires_all_args() {
+    // Missing args should produce an error
+    let result = run_with_state(r#"notifications.smtp("smtp.example.com")"#);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_slack_requires_args() {
+    let result = run_with_state(r#"notifications.slack()"#);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_slack_requires_message() {
+    let result = run_with_state(r#"notifications.slack("https://hooks.slack.com/x")"#);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_telegram_requires_args() {
+    let result = run_with_state(r#"notifications.telegram("token")"#);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_mattermost_requires_args() {
+    let result = run_with_state(r#"notifications.mattermost()"#);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_gitter_requires_args() {
+    let result = run_with_state(r#"notifications.gitter("token")"#);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_messenger_requires_args() {
+    let result = run_with_state(r#"notifications.messenger("token")"#);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_discord_requires_args() {
+    let result = run_with_state(r#"notifications.discord()"#);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_teams_requires_args() {
+    let result = run_with_state(r#"notifications.teams()"#);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_x_requires_all_args() {
+    let result = run_with_state(r#"notifications.x("key", "secret")"#);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_os_requires_args() {
+    let result = run_with_state(r#"notifications.os()"#);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_os_returns_success_map() {
+    // notifications.os runs a best-effort system command; the result map must
+    // always contain a "success" key regardless of whether the platform has a
+    // notification daemon available.
+    let state = run_with_state(
+        r#"
+        var.set("res", notifications.os("Test", "Integration test notification"))
+        var.set("has_success", map.has_key(var.get("res"), "success"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("has_success").unwrap(),
+        corvo_lang::type_system::Value::Boolean(true)
+    );
+}
+
+#[test]
+fn test_notifications_smtp_bad_from_address() {
+    // An invalid from address should be rejected
+    let result = run_with_state(
+        r#"
+        notifications.smtp(
+            "smtp.example.com", 587,
+            "user", "pass",
+            "not-an-email",
+            "to@example.com",
+            "subject", "body"
+        )
+        "#,
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_smtp_bad_to_address() {
+    // An invalid to address should be rejected
+    let result = run_with_state(
+        r#"
+        notifications.smtp(
+            "smtp.example.com", 587,
+            "user", "pass",
+            "from@example.com",
+            "not-an-email",
+            "subject", "body"
+        )
+        "#,
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_lint_all_functions_known() {
+    use corvo_lang::diagnostic::KNOWN_FUNCTIONS;
+    let notification_fns = [
+        "notifications.smtp",
+        "notifications.slack",
+        "notifications.telegram",
+        "notifications.mattermost",
+        "notifications.gitter",
+        "notifications.messenger",
+        "notifications.discord",
+        "notifications.teams",
+        "notifications.x",
+        "notifications.os",
+    ];
+    for f in &notification_fns {
+        assert!(
+            KNOWN_FUNCTIONS.contains(f),
+            "{} missing from KNOWN_FUNCTIONS",
+            f
+        );
+    }
+}

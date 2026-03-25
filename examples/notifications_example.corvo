@@ -1,0 +1,132 @@
+# notifications_example.corvo — notifications.*
+# NOTE: All examples require valid credentials and network access.
+#       Each call is wrapped in try/fallback so the file runs cleanly offline
+#       or without real credentials.
+
+sys.echo("=== notifications.smtp ===")
+try {
+    var.set("smtp_result", notifications.smtp(
+        "smtp.example.com",
+        587,
+        "user@example.com",
+        "secret",
+        "user@example.com",
+        "recipient@example.com",
+        "Hello from Corvo",
+        "This message was sent by the Corvo notifications library."
+    ))
+    sys.echo("SMTP sent: ${map.get(var.get("smtp_result"), "success")}")
+} fallback {
+    sys.echo("(skipped — no SMTP server configured)")
+}
+
+sys.echo("")
+sys.echo("=== notifications.slack ===")
+try {
+    var.set("slack_result", notifications.slack(
+        "https://hooks.slack.com/services/YOUR/WEBHOOK/URL",
+        "Hello from Corvo!"
+    ))
+    sys.echo("Slack status: ${map.get(var.get("slack_result"), "status_code")}")
+} fallback {
+    sys.echo("(skipped — no Slack webhook configured)")
+}
+
+sys.echo("")
+sys.echo("=== notifications.telegram ===")
+try {
+    var.set("tg_result", notifications.telegram(
+        "123456:ABC-YOUR-BOT-TOKEN",
+        "-1001234567890",
+        "Hello from Corvo!"
+    ))
+    sys.echo("Telegram status: ${map.get(var.get("tg_result"), "status_code")}")
+} fallback {
+    sys.echo("(skipped — no Telegram bot configured)")
+}
+
+sys.echo("")
+sys.echo("=== notifications.mattermost ===")
+try {
+    var.set("mm_result", notifications.mattermost(
+        "https://mattermost.example.com/hooks/YOUR_HOOK_ID",
+        "Hello from Corvo!"
+    ))
+    sys.echo("Mattermost status: ${map.get(var.get("mm_result"), "status_code")}")
+} fallback {
+    sys.echo("(skipped — no Mattermost webhook configured)")
+}
+
+sys.echo("")
+sys.echo("=== notifications.gitter ===")
+try {
+    var.set("gitter_result", notifications.gitter(
+        "your-gitter-token",
+        "your-room-id",
+        "Hello from Corvo!"
+    ))
+    sys.echo("Gitter status: ${map.get(var.get("gitter_result"), "status_code")}")
+} fallback {
+    sys.echo("(skipped — no Gitter token configured)")
+}
+
+sys.echo("")
+sys.echo("=== notifications.messenger ===")
+try {
+    var.set("fb_result", notifications.messenger(
+        "your-page-access-token",
+        "recipient-psid",
+        "Hello from Corvo!"
+    ))
+    sys.echo("Messenger status: ${map.get(var.get("fb_result"), "status_code")}")
+} fallback {
+    sys.echo("(skipped — no Messenger token configured)")
+}
+
+sys.echo("")
+sys.echo("=== notifications.discord ===")
+try {
+    var.set("discord_result", notifications.discord(
+        "https://discord.com/api/webhooks/YOUR_ID/YOUR_TOKEN",
+        "Hello from Corvo!"
+    ))
+    sys.echo("Discord status: ${map.get(var.get("discord_result"), "status_code")}")
+} fallback {
+    sys.echo("(skipped — no Discord webhook configured)")
+}
+
+sys.echo("")
+sys.echo("=== notifications.teams ===")
+try {
+    var.set("teams_result", notifications.teams(
+        "https://outlook.office.com/webhook/YOUR_WEBHOOK_URL",
+        "Hello from Corvo!"
+    ))
+    sys.echo("Teams status: ${map.get(var.get("teams_result"), "status_code")}")
+} fallback {
+    sys.echo("(skipped — no Teams webhook configured)")
+}
+
+sys.echo("")
+sys.echo("=== notifications.x ===")
+try {
+    var.set("x_result", notifications.x(
+        "your-api-key",
+        "your-api-secret",
+        "your-access-token",
+        "your-access-token-secret",
+        "Hello from Corvo! #corvolang"
+    ))
+    sys.echo("X status: ${map.get(var.get("x_result"), "status_code")}")
+} fallback {
+    sys.echo("(skipped — no X/Twitter credentials configured)")
+}
+
+sys.echo("")
+sys.echo("=== notifications.os ===")
+try {
+    var.set("os_result", notifications.os("Corvo", "Hello from Corvo!"))
+    sys.echo("OS notification sent: ${map.get(var.get("os_result"), "success")}")
+} fallback {
+    sys.echo("(skipped — no desktop notification support available)")
+}
