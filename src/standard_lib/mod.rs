@@ -99,6 +99,7 @@ pub fn call(
         "notifications.teams" => notifications::teams(args, named_args),
         "notifications.x" => notifications::x(args, named_args),
         "notifications.os" => notifications::os_notify(args, named_args),
+        "notifications.irc" => notifications::irc(args, named_args),
 
         // Type methods
         s if s.starts_with("string.") => {

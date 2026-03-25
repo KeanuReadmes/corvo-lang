@@ -330,6 +330,7 @@ pub const KNOWN_FUNCTIONS: &[&str] = &[
     "notifications.teams",
     "notifications.x",
     "notifications.os",
+    "notifications.irc",
     // string methods
     "string.concat",
     "string.replace",

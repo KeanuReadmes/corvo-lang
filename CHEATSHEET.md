@@ -194,6 +194,7 @@ Functions are grouped by module. Parameter names in `[brackets]` are optional.
 | `notifications.teams` | `webhook_url: string, message: string` | `map{status_code, response_body}` | Post a message to a Microsoft Teams incoming webhook |
 | `notifications.x` | `api_key: string, api_secret: string, access_token: string, access_token_secret: string, message: string` | `map{status_code, response_body}` | Post a tweet via the Twitter/X API v2 (OAuth 1.0a) |
 | `notifications.os` | `title: string, message: string` | `map{success}` | Show a local desktop notification (Linux: `notify-send`, macOS: `osascript`, Windows: PowerShell toast) |
+| `notifications.irc` | `host: string, port: number, nickname: string, channel: string, message: string, [password: string]` | `map{success}` | Send a PRIVMSG to an IRC channel over plain TCP; `password` is optional (pass `""` to skip PASS) |
 
 **Example file:** [`examples/notifications_example.corvo`](examples/notifications_example.corvo)
 

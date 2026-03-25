@@ -130,3 +130,19 @@ try {
 } fallback {
     sys.echo("(skipped — no desktop notification support available)")
 }
+
+sys.echo("")
+sys.echo("=== notifications.irc ===")
+try {
+    var.set("irc_result", notifications.irc(
+        "irc.libera.chat",
+        6667,
+        "corvo-bot",
+        "#corvo-test",
+        "Hello from Corvo!",
+        ""
+    ))
+    sys.echo("IRC sent: ${map.get(var.get("irc_result"), "success")}")
+} fallback {
+    sys.echo("(skipped — no IRC server reachable)")
+}

@@ -1297,6 +1297,7 @@ fn test_notifications_lint_all_functions_known() {
         "notifications.teams",
         "notifications.x",
         "notifications.os",
+        "notifications.irc",
     ];
     for f in &notification_fns {
         assert!(
@@ -1305,4 +1306,42 @@ fn test_notifications_lint_all_functions_known() {
             f
         );
     }
+}
+
+#[test]
+fn test_notifications_irc_requires_host() {
+    let result = run_with_state(r#"notifications.irc()"#);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_irc_requires_port() {
+    let result = run_with_state(r#"notifications.irc("irc.example.com")"#);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_irc_requires_nickname() {
+    let result = run_with_state(r#"notifications.irc("irc.example.com", 6667)"#);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_irc_requires_channel() {
+    let result = run_with_state(r#"notifications.irc("irc.example.com", 6667, "nick")"#);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_irc_requires_message() {
+    let result = run_with_state(r##"notifications.irc("irc.example.com", 6667, "nick", "#test")"##);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_irc_unreachable_host_returns_error() {
+    // Port 1 on loopback is almost certainly not open, so connect fails immediately.
+    let result =
+        run_with_state(r##"notifications.irc("127.0.0.1", 1, "corvo-bot", "#test", "hello")"##);
+    assert!(result.is_err());
 }

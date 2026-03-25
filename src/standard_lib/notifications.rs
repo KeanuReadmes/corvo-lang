@@ -621,3 +621,132 @@ fn send_os_notification(title: &str, message: &str) -> bool {
         false
     }
 }
+
+// ---------------------------------------------------------------------------
+// IRC
+// ---------------------------------------------------------------------------
+
+/// Send a message to an IRC channel.
+///
+/// Connects to `host:port` over plain TCP, authenticates with an optional
+/// `password` (PASS command, pass `""` to skip), identifies as `nickname`,
+/// joins `channel`, sends the `message` as a PRIVMSG, and disconnects.
+///
+/// Args: host, port, nickname, channel, message, [password]
+/// Returns: map { success: bool }
+pub fn irc(args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResult<Value> {
+    use std::io::{BufRead, BufReader, Write};
+    use std::net::TcpStream;
+    use std::time::Duration;
+
+    let host = args
+        .first()
+        .and_then(|v| v.as_string())
+        .ok_or_else(|| CorvoError::invalid_argument("notifications.irc requires host as arg 1"))?;
+
+    let port =
+        args.get(1).and_then(|v| v.as_number()).ok_or_else(|| {
+            CorvoError::invalid_argument("notifications.irc requires port as arg 2")
+        })? as u16;
+
+    let nickname = args.get(2).and_then(|v| v.as_string()).ok_or_else(|| {
+        CorvoError::invalid_argument("notifications.irc requires nickname as arg 3")
+    })?;
+
+    let channel = args.get(3).and_then(|v| v.as_string()).ok_or_else(|| {
+        CorvoError::invalid_argument("notifications.irc requires channel as arg 4")
+    })?;
+
+    let message = args.get(4).and_then(|v| v.as_string()).ok_or_else(|| {
+        CorvoError::invalid_argument("notifications.irc requires message as arg 5")
+    })?;
+
+    // Optional server password (arg 6); empty string means no PASS command.
+    let password = args
+        .get(5)
+        .and_then(|v| v.as_string())
+        .cloned()
+        .unwrap_or_default();
+
+    let addr = format!("{}:{}", host, port);
+    // Resolve the address first so we can use connect_timeout (which requires
+    // a concrete SocketAddr rather than a hostname string).
+    let sock_addr = addr.parse::<std::net::SocketAddr>().or_else(|_| {
+        use std::net::ToSocketAddrs;
+        addr.to_socket_addrs()
+            .map_err(|e| CorvoError::network(e.to_string()))?
+            .next()
+            .ok_or_else(|| CorvoError::network(format!("could not resolve {}", addr)))
+    })?;
+    let stream = TcpStream::connect_timeout(&sock_addr, Duration::from_secs(10))
+        .map_err(|e| CorvoError::network(e.to_string()))?;
+    stream
+        .set_read_timeout(Some(Duration::from_secs(30)))
+        .map_err(|e| CorvoError::io(e.to_string()))?;
+    stream
+        .set_write_timeout(Some(Duration::from_secs(30)))
+        .map_err(|e| CorvoError::io(e.to_string()))?;
+
+    let mut writer = stream
+        .try_clone()
+        .map_err(|e| CorvoError::io(e.to_string()))?;
+    let reader = BufReader::new(stream);
+
+    // Helper: send a single IRC line (adds \r\n).
+    let send = |w: &mut dyn Write, line: &str| -> CorvoResult<()> {
+        w.write_all(format!("{}\r\n", line).as_bytes())
+            .map_err(|e| CorvoError::io(e.to_string()))
+    };
+
+    // Authenticate / register.
+    if !password.is_empty() {
+        send(&mut writer, &format!("PASS {}", password))?;
+    }
+    send(&mut writer, &format!("NICK {}", nickname))?;
+    send(&mut writer, &format!("USER {} 0 * :{}", nickname, nickname))?;
+
+    // Wait for the 001 (RPL_WELCOME) numeric to confirm registration,
+    // handling PING challenges along the way.
+    for line in reader.lines() {
+        let line = line.map_err(|e| CorvoError::io(e.to_string()))?;
+
+        // Respond to PING to keep the connection alive during registration.
+        if line.starts_with("PING") {
+            let token = line.trim_start_matches("PING").trim();
+            send(&mut writer, &format!("PONG {}", token))?;
+        }
+
+        // 001 == RPL_WELCOME — we are registered.
+        if line.split_whitespace().nth(1) == Some("001") {
+            break;
+        }
+
+        // 4xx / 5xx error numerics abort registration.
+        if let Some(code) = line.split_whitespace().nth(1) {
+            if code.starts_with('4') || code.starts_with('5') {
+                return Err(CorvoError::network(format!(
+                    "IRC server rejected registration: {}",
+                    line
+                )));
+            }
+        }
+    }
+
+    // Ensure channel starts with '#'.
+    let channel_name: std::borrow::Cow<str> = if channel.starts_with('#') {
+        std::borrow::Cow::Borrowed(channel.as_str())
+    } else {
+        std::borrow::Cow::Owned(format!("#{}", channel))
+    };
+
+    send(&mut writer, &format!("JOIN {}", channel_name))?;
+    send(
+        &mut writer,
+        &format!("PRIVMSG {} :{}", channel_name, message),
+    )?;
+    send(&mut writer, "QUIT :done")?;
+
+    let mut result = HashMap::new();
+    result.insert("success".to_string(), Value::Boolean(true));
+    Ok(Value::Map(result))
+}
