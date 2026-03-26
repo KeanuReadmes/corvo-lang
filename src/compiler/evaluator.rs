@@ -1,4 +1,4 @@
-use crate::ast::{AssertKind, Expr, Program, Stmt};
+use crate::ast::{AssertKind, Expr, MatchPattern, Program, Stmt};
 use crate::runtime::RuntimeState;
 use crate::standard_lib;
 use crate::type_system::Value;
@@ -217,6 +217,22 @@ impl Evaluator {
                 let target_val = self.eval_expr(target, state)?;
                 let index_val = self.eval_expr(index, state)?;
                 self.index_access(&target_val, &index_val)
+            }
+            Expr::Match { value, arms } => {
+                let matched = self.eval_expr(value, state)?;
+                for arm in arms {
+                    let is_match = match &arm.pattern {
+                        MatchPattern::Literal(lit) => matched == *lit,
+                        MatchPattern::Wildcard => true,
+                    };
+                    if is_match {
+                        return self.eval_expr(&arm.body, state);
+                    }
+                }
+                Err(CorvoError::runtime(format!(
+                    "No match arm matched the value: {}",
+                    matched
+                )))
             }
         }
     }

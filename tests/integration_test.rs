@@ -1617,3 +1617,152 @@ fn test_notifications_irc_unreachable_host_returns_error() {
         run_with_state(r##"notifications.irc("127.0.0.1", 1, "corvo-bot", "#test", "hello")"##);
     assert!(result.is_err());
 }
+
+// --- Match Expression Tests ---
+
+#[test]
+fn test_match_string_literal() {
+    let state = run_with_state(
+        r#"
+        var.set("file", "hosts")
+        var.set("result", match(var.get("file")) {
+            "" => "empty",
+            "hosts" => "hosts file",
+            _ => "not empty"
+        })
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("hosts file".to_string())
+    );
+}
+
+#[test]
+fn test_match_wildcard() {
+    let state = run_with_state(
+        r#"
+        var.set("file", "something")
+        var.set("result", match(var.get("file")) {
+            "" => "empty",
+            "hosts" => "hosts file",
+            _ => "not empty"
+        })
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("not empty".to_string())
+    );
+}
+
+#[test]
+fn test_match_empty_string() {
+    let state = run_with_state(
+        r#"
+        var.set("file", "")
+        var.set("result", match(var.get("file")) {
+            "" => "empty",
+            "hosts" => "hosts file",
+            _ => "not empty"
+        })
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("empty".to_string())
+    );
+}
+
+#[test]
+fn test_match_number_pattern() {
+    let state = run_with_state(
+        r#"
+        var.set("code", 200)
+        var.set("result", match(var.get("code")) {
+            200 => "OK",
+            404 => "Not Found",
+            _ => "Unknown"
+        })
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("OK".to_string())
+    );
+}
+
+#[test]
+fn test_match_boolean_pattern() {
+    let state = run_with_state(
+        r#"
+        var.set("flag", true)
+        var.set("result", match(var.get("flag")) {
+            true => "yes",
+            false => "no",
+            _ => "unknown"
+        })
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("yes".to_string())
+    );
+}
+
+#[test]
+fn test_match_at_shorthand_assignment() {
+    let state = run_with_state(
+        r#"
+        var.set("file", "hosts")
+        @result = match(@file) {
+            "" => "empty",
+            "hosts" => "hosts file",
+            _ => "not empty"
+        }
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("hosts file".to_string())
+    );
+}
+
+#[test]
+fn test_match_no_match_returns_error() {
+    let result = run_with_state(
+        r#"
+        var.set("x", "unknown")
+        var.set("result", match(var.get("x")) {
+            "a" => "letter a",
+            "b" => "letter b"
+        })
+        "#,
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_match_first_matching_arm_wins() {
+    let state = run_with_state(
+        r#"
+        var.set("x", "a")
+        var.set("result", match(var.get("x")) {
+            "a" => "first",
+            "a" => "second",
+            _ => "wildcard"
+        })
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("first".to_string())
+    );
+}

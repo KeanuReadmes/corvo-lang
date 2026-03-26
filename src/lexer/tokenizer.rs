@@ -323,6 +323,7 @@ impl<'a> Lexer<'a> {
                         "browse" => TokenType::Browse,
                         "terminate" => TokenType::Terminate,
                         "dont_panic" => TokenType::DontPanic,
+                        "match" => TokenType::Match,
                         "assert_eq" => TokenType::AssertEq,
                         "assert_neq" => TokenType::AssertNeq,
                         "assert_gt" => TokenType::AssertGt,
@@ -338,6 +339,16 @@ impl<'a> Lexer<'a> {
                 '@' => {
                     self.advance();
                     tokens.push(Token::new(TokenType::At, Span::new(expr_start, self.pos)));
+                }
+                '=' => {
+                    self.advance();
+                    let token_type = if self.peek() == '>' {
+                        self.advance();
+                        TokenType::FatArrow
+                    } else {
+                        TokenType::Equals
+                    };
+                    tokens.push(Token::new(token_type, Span::new(expr_start, self.pos)));
                 }
                 _ => {
                     return Err(CorvoError::lexing(format!(
@@ -399,6 +410,7 @@ impl<'a> Lexer<'a> {
             "browse" => TokenType::Browse,
             "terminate" => TokenType::Terminate,
             "dont_panic" => TokenType::DontPanic,
+            "match" => TokenType::Match,
             "assert_eq" => TokenType::AssertEq,
             "assert_neq" => TokenType::AssertNeq,
             "assert_gt" => TokenType::AssertGt,
@@ -415,7 +427,6 @@ impl<'a> Lexer<'a> {
     fn scan_operator(&mut self) -> CorvoResult<Token> {
         let start = self.pos;
         let ch = self.advance();
-        let end = self.pos;
 
         let token_type = match ch {
             '{' => TokenType::LeftBrace,
@@ -428,10 +439,18 @@ impl<'a> Lexer<'a> {
             '.' => TokenType::Dot,
             ':' => TokenType::Colon,
             '@' => TokenType::At,
-            '=' => TokenType::Equals,
+            '=' => {
+                if self.peek() == '>' {
+                    self.advance(); // consume '>'
+                    TokenType::FatArrow
+                } else {
+                    TokenType::Equals
+                }
+            }
             _ => TokenType::Illegal(ch.to_string()),
         };
 
+        let end = self.pos;
         Ok(Token::new(token_type, Span::new(start, end)))
     }
 

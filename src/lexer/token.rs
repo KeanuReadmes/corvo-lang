@@ -13,6 +13,7 @@ pub enum TokenType {
     Browse,
     Terminate,
     DontPanic,
+    Match,
     AssertEq,
     AssertNeq,
     AssertGt,
@@ -37,6 +38,7 @@ pub enum TokenType {
     Colon,
     At,
     Equals,
+    FatArrow,
 
     // Special
     StringInterpolation(Vec<Token>),
@@ -57,6 +59,7 @@ impl fmt::Display for TokenType {
             Self::Browse => write!(f, "browse"),
             Self::Terminate => write!(f, "terminate"),
             Self::DontPanic => write!(f, "dont_panic"),
+            Self::Match => write!(f, "match"),
             Self::AssertEq => write!(f, "assert_eq"),
             Self::AssertNeq => write!(f, "assert_neq"),
             Self::AssertGt => write!(f, "assert_gt"),
@@ -83,6 +86,7 @@ impl fmt::Display for TokenType {
             Self::Colon => write!(f, ":"),
             Self::At => write!(f, "@"),
             Self::Equals => write!(f, "="),
+            Self::FatArrow => write!(f, "=>"),
             Self::StringInterpolation(_) => write!(f, "string(...)"),
             Self::Comment(text) => write!(f, "#{}", text),
             Self::Eof => write!(f, "EOF"),

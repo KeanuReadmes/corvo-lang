@@ -225,6 +225,12 @@ fn lint_expr(expr: &Expr, out: &mut Vec<LintDiagnostic>) {
             lint_expr(target, out);
             lint_expr(index, out);
         }
+        Expr::Match { value, arms } => {
+            lint_expr(value, out);
+            for arm in arms {
+                lint_expr(&arm.body, out);
+            }
+        }
         Expr::Literal { .. } | Expr::VarGet { .. } | Expr::StaticGet { .. } => {}
     }
 }

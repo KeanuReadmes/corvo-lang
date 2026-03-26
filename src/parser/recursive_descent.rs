@@ -1,5 +1,6 @@
-use crate::ast::{AssertKind, Expr, FallbackBlock, Program, Stmt};
+use crate::ast::{AssertKind, Expr, FallbackBlock, MatchArm, MatchPattern, Program, Stmt};
 use crate::lexer::token::{Token, TokenType};
+use crate::type_system::Value;
 use crate::{CorvoError, CorvoResult};
 use std::collections::HashMap;
 
@@ -391,6 +392,10 @@ impl Parser {
                     _ => Err(self.error("Expected variable name after '@'")),
                 }
             }
+            TokenType::Match => {
+                self.advance(); // consume 'match'
+                self.parse_match_expr()
+            }
             _ => Err(self.error(format!("Unexpected token: {}", token.token_type))),
         }
     }
@@ -453,6 +458,69 @@ impl Parser {
         self.consume(TokenType::RightParen, "Expected ')' after name")?;
 
         Ok(Expr::StaticGet { name })
+    }
+
+    fn parse_match_expr(&mut self) -> CorvoResult<Expr> {
+        self.consume(TokenType::LeftParen, "Expected '(' after 'match'")?;
+        let value = self.parse_expression()?;
+        self.consume(TokenType::RightParen, "Expected ')' after match value")?;
+        self.consume(TokenType::LeftBrace, "Expected '{' after match header")?;
+
+        let mut arms = Vec::new();
+
+        while !self.check(TokenType::RightBrace) && !self.is_at_end() {
+            self.skip_comments();
+            if self.check(TokenType::RightBrace) || self.is_at_end() {
+                break;
+            }
+
+            let pattern = self.parse_match_pattern()?;
+            self.consume(TokenType::FatArrow, "Expected '=>' after match pattern")?;
+            let body = self.parse_expression()?;
+            // Optional trailing comma between arms
+            self.match_token(TokenType::Comma);
+
+            arms.push(MatchArm {
+                pattern,
+                body: Box::new(body),
+            });
+        }
+
+        self.consume(TokenType::RightBrace, "Expected '}' to close match block")?;
+
+        Ok(Expr::Match {
+            value: Box::new(value),
+            arms,
+        })
+    }
+
+    fn parse_match_pattern(&mut self) -> CorvoResult<MatchPattern> {
+        let token = self.peek().clone();
+        match &token.token_type {
+            TokenType::String(s) => {
+                let s = s.clone();
+                self.advance();
+                Ok(MatchPattern::Literal(Value::String(s)))
+            }
+            TokenType::Number(n) => {
+                let n = *n;
+                self.advance();
+                Ok(MatchPattern::Literal(Value::Number(n)))
+            }
+            TokenType::Boolean(b) => {
+                let b = *b;
+                self.advance();
+                Ok(MatchPattern::Literal(Value::Boolean(b)))
+            }
+            TokenType::Identifier(s) if s == "_" => {
+                self.advance();
+                Ok(MatchPattern::Wildcard)
+            }
+            _ => Err(self.error(format!(
+                "Expected a match pattern (string, number, boolean literal, or '_'), got: {}",
+                token.token_type
+            ))),
+        }
     }
 
     fn parse_list_literal(&mut self) -> CorvoResult<Expr> {

@@ -314,7 +314,14 @@ Used inside `try` blocks to drive conditional branching.
 ## Control Flow Quick Reference
 
 ```corvo
-# Conditional (if/else equivalent)
+# Match expression (if/else equivalent for value-based branching)
+@result = match(@value) {
+    "a" => "got a",
+    "b" => "got b",
+    _   => "something else"
+}
+
+# Conditional branching via try/fallback (for assertions and error handling)
 try {
     assert_eq(@value, "expected")
     sys.echo("matched")

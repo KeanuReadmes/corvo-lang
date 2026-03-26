@@ -3,7 +3,7 @@
 ## 1. AI Generation Directives
 When generating Corvo code, you **must** strictly adhere to the following language rules:
 * **NO USER-DEFINED FUNCTIONS:** Do not generate `def`, `fn`, `function`, or lambda expressions. All operations must use the built-in library calls.
-* **NO IF/ELSE STATEMENTS:** Do not generate `if`, `elif`, `else`, `switch`, or `match`. Control flow is strictly handled via `try { ... } fallback { ... }` combined with `assert_*` commands.
+* **NO IF/ELSE STATEMENTS:** Do not generate `if`, `elif`, `else`, or `switch`. For simple value-based branching, use the `match` expression. For error handling and complex conditional logic, use `try { ... } fallback { ... }` combined with `assert_*` commands.
 * **NO ASSIGNMENT OPERATORS:** Do not use `=` for assignment. State is strictly managed via `var.set()` and `static.set()` (the latter only inside a `prep` block).
 * **STRING INTERPOLATION:** Use `${}` for string interpolation (e.g., `sys.echo("Value: ${var.get("key")}")`).
 * **NAMED PARAMETERS:** Library functions support Python-like named parameters for clarity (e.g., `http.get(url: "https://...")`).
@@ -149,6 +149,50 @@ browse(@matrix, row_idx, row) {
     }
 }
 ```
+
+### 4.4 Match Expression (`match`)
+`match` is the primary substitute for `if/else` chains in Corvo. It evaluates an expression against a list of literal patterns and returns the value of the first matching arm. Use `_` as a catch-all wildcard.
+
+**Syntax:**
+```corvo
+match(<expr>) {
+    <pattern> => <value>,
+    <pattern> => <value>,
+    _ => <default_value>
+}
+```
+
+* Patterns must be string, number, or boolean literals, or `_` (wildcard).
+* Arms are evaluated in declaration order; the first match wins.
+* If no arm matches and there is no wildcard, a runtime error is raised.
+* `match` is an expression — it returns a value and can be used anywhere an expression is expected, including on the right-hand side of `@name =` or `var.set()`.
+
+```corvo
+# Assign a label based on a status code
+@label = match(@status_code) {
+    200 => "OK",
+    404 => "Not Found",
+    500 => "Internal Server Error",
+    _ => "Unknown"
+}
+
+# Choose a config file based on the environment
+@config_path = match(os.get_env("ENV", "dev")) {
+    "prod"    => "/etc/app/config.json",
+    "staging" => "/etc/app/staging.json",
+    _         => "./config.dev.json"
+}
+
+# Readable string-based branching (replaces if/else chains)
+@greeting = match(@lang) {
+    "en" => "Hello",
+    "es" => "Hola",
+    "fr" => "Bonjour",
+    _    => "Hi"
+}
+```
+
+**Example file:** [`examples/match.corvo`](examples/match.corvo)
 
 ## 5. Comprehensive Standard Library
 
