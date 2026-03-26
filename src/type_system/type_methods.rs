@@ -338,6 +338,21 @@ pub fn call_map_method(name: &str, args: &[Value]) -> CorvoResult<Value> {
     }
 }
 
+pub fn call_re_method(name: &str, args: &[Value]) -> CorvoResult<Value> {
+    let method = name.strip_prefix("re.").unwrap();
+    let named = std::collections::HashMap::new();
+    match method {
+        "match" => crate::standard_lib::re::is_match(args, &named),
+        "find" => crate::standard_lib::re::find(args, &named),
+        "find_all" => crate::standard_lib::re::find_all(args, &named),
+        "replace" => crate::standard_lib::re::replace(args, &named),
+        "replace_all" => crate::standard_lib::re::replace_all(args, &named),
+        "split" => crate::standard_lib::re::split(args, &named),
+        "new" => crate::standard_lib::re::new_regex(args, &named),
+        _ => Err(CorvoError::unknown_function(format!("re.{}", method))),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

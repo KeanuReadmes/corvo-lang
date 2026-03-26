@@ -71,6 +71,9 @@ fn value_to_json(value: &Value) -> CorvoResult<serde_json::Value> {
                 .collect::<CorvoResult<serde_json::Map<String, serde_json::Value>>>()?;
             Ok(serde_json::Value::Object(obj))
         }
+        Value::Regex(pattern, flags) => {
+            Ok(serde_json::Value::String(format!("/{}/{}", pattern, flags)))
+        }
     }
 }
 

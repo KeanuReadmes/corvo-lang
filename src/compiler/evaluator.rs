@@ -223,6 +223,15 @@ impl Evaluator {
                 for arm in arms {
                     let is_match = match &arm.pattern {
                         MatchPattern::Literal(lit) => matched == *lit,
+                        MatchPattern::Regex(pattern, flags) => {
+                            if let Value::String(text) = &matched {
+                                crate::standard_lib::re::build_regex(pattern, flags)
+                                    .map(|re| re.is_match(text))
+                                    .unwrap_or(false)
+                            } else {
+                                false
+                            }
+                        }
                         MatchPattern::Wildcard => true,
                     };
                     if is_match {
@@ -233,6 +242,40 @@ impl Evaluator {
                     "No match arm matched the value: {}",
                     matched
                 )))
+            }
+            Expr::MethodCall {
+                target,
+                method,
+                args,
+                named_args,
+            } => {
+                let target_val = self.eval_expr(target, state)?;
+                let ns = match &target_val {
+                    Value::Regex(_, _) => "re",
+                    Value::String(_) => "string",
+                    Value::Number(_) => "number",
+                    Value::List(_) => "list",
+                    Value::Map(_) => "map",
+                    other => {
+                        return Err(CorvoError::r#type(format!(
+                            "Cannot call method '{}' on type {}",
+                            method,
+                            other.r#type()
+                        )))
+                    }
+                };
+                let func_name = format!("{}.{}", ns, method);
+                let evaluated_args: Vec<Value> = args
+                    .iter()
+                    .map(|arg| self.eval_expr(arg, state))
+                    .collect::<CorvoResult<Vec<_>>>()?;
+                let evaluated_named: std::collections::HashMap<String, Value> = named_args
+                    .iter()
+                    .map(|(k, v)| Ok((k.clone(), self.eval_expr(v, state)?)))
+                    .collect::<CorvoResult<_>>()?;
+                let mut all_args = vec![target_val];
+                all_args.extend(evaluated_args);
+                standard_lib::call(&func_name, &all_args, &evaluated_named, state)
             }
         }
     }

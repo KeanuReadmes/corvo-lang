@@ -1,0 +1,112 @@
+# regex.corvo - Regex type examples
+
+sys.echo("=== Regex Literals ===")
+
+# Create a regex value using /pattern/flags literal syntax
+@digits = /[0-9]+/
+@digits_global = /[0-9]*/gi
+
+sys.echo("Regex value: ${@digits}")
+
+# --- re.match ---
+
+sys.echo("")
+sys.echo("=== re.match ===")
+
+var.set("result", re.match(@digits, "9283"))
+sys.echo("Matches digits in 9283: ${var.get("result")}")
+
+var.set("result", re.match(@digits, "hello"))
+sys.echo("Matches digits in hello: ${var.get("result")}")
+
+@hello_re = /hello/i
+var.set("result", re.match(@hello_re, "HELLO WORLD"))
+sys.echo("Case-insensitive match: ${var.get("result")}")
+
+# --- re.find ---
+
+sys.echo("")
+sys.echo("=== re.find ===")
+
+var.set("first", re.find(@digits, "abc123def456"))
+sys.echo("First number found: ${var.get("first")}")
+
+var.set("missing", re.find(@digits, "abcdef"))
+sys.echo("Not found returns null: ${var.get("missing")}")
+
+# --- re.find_all ---
+
+sys.echo("")
+sys.echo("=== re.find_all ===")
+
+var.set("matches", re.find_all(@digits, "abc123def456ghi789"))
+sys.echo("All numbers found: ${var.get("matches")}")
+
+# --- re.replace / re.replace_all ---
+
+sys.echo("")
+sys.echo("=== re.replace / re.replace_all ===")
+
+var.set("replaced", re.replace(@digits, "abc123def456", "NUM"))
+sys.echo("Replace first: ${var.get("replaced")}")
+
+var.set("replaced_all", re.replace_all(@digits, "abc123def456", "NUM"))
+sys.echo("Replace all: ${var.get("replaced_all")}")
+
+# --- re.split ---
+
+sys.echo("")
+sys.echo("=== re.split ===")
+
+@sep = /,\s*/
+var.set("parts", re.split(@sep, "apple, banana, cherry"))
+sys.echo("Split result: ${var.get("parts")}")
+
+# --- re.new ---
+
+sys.echo("")
+sys.echo("=== re.new ===")
+
+var.set("dyn_re", re.new("[a-z]+", "i"))
+var.set("found", re.find(var.get("dyn_re"), "Hello World"))
+sys.echo("Dynamic regex find: ${var.get("found")}")
+
+# --- Method call style ---
+
+sys.echo("")
+sys.echo("=== Method call style ===")
+
+@expression = /[0-9]+/gi
+var.set("matched", @expression.match("9283"))
+sys.echo("Method call match: ${var.get("matched")}")
+
+var.set("found2", @expression.find("abc42def"))
+sys.echo("Method call find: ${var.get("found2")}")
+
+# --- Regex patterns in match expressions ---
+
+sys.echo("")
+sys.echo("=== Regex in match expressions ===")
+
+@my_number = "9123"
+@result = match(@my_number) {
+    /[0-9]+/ => "matched number"
+    _ => "booo"
+}
+sys.echo("Match result: ${@result}")
+
+var.set("email", "user@example.com")
+var.set("category", match(var.get("email")) {
+    /[0-9]+/ => "number"
+    /[a-z]+@[a-z]+\.[a-z]+/ => "email"
+    _ => "other"
+})
+sys.echo("Email category: ${var.get("category")}")
+
+# --- Inline regex literal ---
+
+sys.echo("")
+sys.echo("=== Inline regex ===")
+
+var.set("ok", re.match(/[0-9]{4}-[0-9]{2}-[0-9]{2}/, "2026-03-26"))
+sys.echo("Date format valid: ${var.get("ok")}")

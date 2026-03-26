@@ -7,6 +7,7 @@ pub enum Type {
     Boolean,
     List,
     Map,
+    Regex,
     Null,
 }
 
@@ -22,6 +23,7 @@ impl Type {
             "boolean" => Some(Self::Boolean),
             "list" => Some(Self::List),
             "map" => Some(Self::Map),
+            "regex" => Some(Self::Regex),
             "null" => Some(Self::Null),
             _ => None,
         }
@@ -34,6 +36,7 @@ impl Type {
             Self::Boolean => "boolean",
             Self::List => "list",
             Self::Map => "map",
+            Self::Regex => "regex",
             Self::Null => "null",
         }
     }
