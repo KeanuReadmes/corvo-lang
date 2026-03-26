@@ -330,7 +330,38 @@ impl Parser {
             };
             return self.parse_postfix(indexed);
         }
+
+        if self.match_token(TokenType::Dot) {
+            let method = self.consume_method_name()?;
+            self.consume(TokenType::LeftParen, "Expected '(' after method name")?;
+            let (args, named_args) = self.parse_call_args()?;
+            self.consume(TokenType::RightParen, "Expected ')' after arguments")?;
+            let method_call = Expr::MethodCall {
+                target: Box::new(expr),
+                method,
+                args,
+                named_args,
+            };
+            return self.parse_postfix(method_call);
+        }
+
         Ok(expr)
+    }
+
+    /// Consume the next token as a method name. Identifiers and most keywords
+    /// are accepted so that names like `match` can be used as method names
+    /// (e.g. `@expression.match("...")`).
+    fn consume_method_name(&mut self) -> CorvoResult<String> {
+        let name = match &self.peek().token_type {
+            TokenType::Identifier(s) => s.clone(),
+            // Allow keywords that are valid method names
+            TokenType::Match => "match".to_string(),
+            tt => {
+                return Err(self.error(format!("Expected method name, got: {}", tt)));
+            }
+        };
+        self.advance();
+        Ok(name)
     }
 
     fn parse_primary(&mut self) -> CorvoResult<Expr> {
@@ -395,6 +426,14 @@ impl Parser {
             TokenType::Match => {
                 self.advance(); // consume 'match'
                 self.parse_match_expr()
+            }
+            TokenType::Regex(pattern, flags) => {
+                let pattern = pattern.clone();
+                let flags = flags.clone();
+                self.advance();
+                Ok(Expr::Literal {
+                    value: crate::type_system::Value::Regex(pattern, flags),
+                })
             }
             _ => Err(self.error(format!("Unexpected token: {}", token.token_type))),
         }
@@ -512,12 +551,18 @@ impl Parser {
                 self.advance();
                 Ok(MatchPattern::Literal(Value::Boolean(b)))
             }
+            TokenType::Regex(pattern, flags) => {
+                let pattern = pattern.clone();
+                let flags = flags.clone();
+                self.advance();
+                Ok(MatchPattern::Regex(pattern, flags))
+            }
             TokenType::Identifier(s) if s == "_" => {
                 self.advance();
                 Ok(MatchPattern::Wildcard)
             }
             _ => Err(self.error(format!(
-                "Expected a match pattern (string, number, boolean literal, or '_'), got: {}",
+                "Expected a match pattern (string, number, boolean, regex literal, or '_'), got: {}",
                 token.token_type
             ))),
         }
@@ -586,11 +631,7 @@ impl Parser {
     }
 
     fn parse_method_call(&mut self, obj: String) -> CorvoResult<Expr> {
-        let method = match self.peek().token_type.clone() {
-            TokenType::Identifier(s) => s,
-            _ => return Err(self.error("Expected method name")),
-        };
-        self.advance();
+        let method = self.consume_method_name()?;
 
         self.consume(TokenType::LeftParen, "Expected '(' after method")?;
 

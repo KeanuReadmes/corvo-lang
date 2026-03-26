@@ -10,6 +10,7 @@ pub mod llm;
 pub mod math;
 pub mod notifications;
 pub mod os;
+pub mod re;
 pub mod sys;
 pub mod xml;
 pub mod yaml;
@@ -110,6 +111,7 @@ pub fn call(
         }
         s if s.starts_with("list.") => crate::type_system::type_methods::call_list_method(s, args),
         s if s.starts_with("map.") => crate::type_system::type_methods::call_map_method(s, args),
+        s if s.starts_with("re.") => crate::type_system::type_methods::call_re_method(s, args),
 
         _ => Err(CorvoError::unknown_function(name)),
     }

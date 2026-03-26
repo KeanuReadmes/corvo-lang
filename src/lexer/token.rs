@@ -24,6 +24,7 @@ pub enum TokenType {
     String(String),
     Number(f64),
     Boolean(bool),
+    Regex(String, String), // pattern, flags
     Identifier(String),
 
     // Operators and delimiters
@@ -66,6 +67,7 @@ impl fmt::Display for TokenType {
             Self::AssertLt => write!(f, "assert_lt"),
             Self::AssertMatch => write!(f, "assert_match"),
             Self::String(s) => write!(f, "\"{}\"", s),
+            Self::Regex(pattern, flags) => write!(f, "/{}/{}", pattern, flags),
             Self::Number(n) => {
                 if n.fract() == 0.0 {
                     write!(f, "{}", *n as i64)

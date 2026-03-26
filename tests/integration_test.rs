@@ -1766,3 +1766,311 @@ fn test_match_first_matching_arm_wins() {
         corvo_lang::type_system::Value::String("first".to_string())
     );
 }
+
+// ---------------------------------------------------------------------------
+// Regex Tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_regex_literal_creates_value() {
+    let state = run_with_state(
+        r#"
+        @re = /[0-9]+/
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("re").unwrap(),
+        corvo_lang::type_system::Value::Regex("[0-9]+".to_string(), "".to_string())
+    );
+}
+
+#[test]
+fn test_regex_literal_with_flags() {
+    let state = run_with_state(
+        r#"
+        @re = /hello/gi
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("re").unwrap(),
+        corvo_lang::type_system::Value::Regex("hello".to_string(), "gi".to_string())
+    );
+}
+
+#[test]
+fn test_re_match_returns_true() {
+    let state = run_with_state(
+        r#"
+        @expression = /[0-9]+/
+        var.set("result", re.match(@expression, "9283"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::Boolean(true)
+    );
+}
+
+#[test]
+fn test_re_match_returns_false() {
+    let state = run_with_state(
+        r#"
+        @expression = /[0-9]+/
+        var.set("result", re.match(@expression, "hello"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::Boolean(false)
+    );
+}
+
+#[test]
+fn test_re_match_case_insensitive() {
+    let state = run_with_state(
+        r#"
+        @re = /hello/i
+        var.set("result", re.match(@re, "HELLO WORLD"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::Boolean(true)
+    );
+}
+
+#[test]
+fn test_re_find_returns_first_match() {
+    let state = run_with_state(
+        r#"
+        @re = /[0-9]+/
+        var.set("result", re.find(@re, "abc123def456"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("123".to_string())
+    );
+}
+
+#[test]
+fn test_re_find_returns_null_when_no_match() {
+    let state = run_with_state(
+        r#"
+        @re = /[0-9]+/
+        var.set("result", re.find(@re, "abcdef"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::Null
+    );
+}
+
+#[test]
+fn test_re_find_all_returns_all_matches() {
+    let state = run_with_state(
+        r#"
+        @re = /[0-9]+/
+        var.set("result", re.find_all(@re, "abc123def456ghi789"))
+        "#,
+    )
+    .unwrap();
+    match state.var_get("result").unwrap() {
+        corvo_lang::type_system::Value::List(items) => {
+            assert_eq!(items.len(), 3);
+            assert_eq!(
+                items[0],
+                corvo_lang::type_system::Value::String("123".to_string())
+            );
+            assert_eq!(
+                items[1],
+                corvo_lang::type_system::Value::String("456".to_string())
+            );
+            assert_eq!(
+                items[2],
+                corvo_lang::type_system::Value::String("789".to_string())
+            );
+        }
+        _ => panic!("Expected List"),
+    }
+}
+
+#[test]
+fn test_re_replace() {
+    let state = run_with_state(
+        r#"
+        @re = /[0-9]+/
+        var.set("result", re.replace(@re, "abc123def", "NUM"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("abcNUMdef".to_string())
+    );
+}
+
+#[test]
+fn test_re_replace_all() {
+    let state = run_with_state(
+        r#"
+        @re = /[0-9]+/
+        var.set("result", re.replace_all(@re, "abc123def456", "NUM"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("abcNUMdefNUM".to_string())
+    );
+}
+
+#[test]
+fn test_re_split() {
+    let state = run_with_state(
+        r#"
+        @re = /,\s*/
+        var.set("result", re.split(@re, "a, b, c"))
+        "#,
+    )
+    .unwrap();
+    match state.var_get("result").unwrap() {
+        corvo_lang::type_system::Value::List(items) => {
+            assert_eq!(items.len(), 3);
+            assert_eq!(
+                items[0],
+                corvo_lang::type_system::Value::String("a".to_string())
+            );
+            assert_eq!(
+                items[1],
+                corvo_lang::type_system::Value::String("b".to_string())
+            );
+            assert_eq!(
+                items[2],
+                corvo_lang::type_system::Value::String("c".to_string())
+            );
+        }
+        _ => panic!("Expected List"),
+    }
+}
+
+#[test]
+fn test_re_new_creates_regex_value() {
+    let state = run_with_state(
+        r#"
+        var.set("result", re.new("[0-9]+", "i"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::Regex("[0-9]+".to_string(), "i".to_string())
+    );
+}
+
+#[test]
+fn test_method_call_style_match() {
+    let state = run_with_state(
+        r#"
+        @expression = /[0-9]+/
+        var.set("result", @expression.match("9283"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::Boolean(true)
+    );
+}
+
+#[test]
+fn test_method_call_style_find() {
+    let state = run_with_state(
+        r#"
+        @re = /[0-9]+/
+        var.set("result", @re.find("abc123def"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("123".to_string())
+    );
+}
+
+#[test]
+fn test_match_expression_with_regex_pattern() {
+    let state = run_with_state(
+        r#"
+        @my_number = "9123"
+        var.set("result", match(@my_number) {
+            /[0-9]+/ => "matched"
+            _ => "booo"
+        })
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("matched".to_string())
+    );
+}
+
+#[test]
+fn test_match_expression_regex_no_match_falls_through_to_wildcard() {
+    let state = run_with_state(
+        r#"
+        var.set("text", "hello")
+        var.set("result", match(var.get("text")) {
+            /[0-9]+/ => "is number"
+            _ => "not a number"
+        })
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("not a number".to_string())
+    );
+}
+
+#[test]
+fn test_match_expression_multiple_regex_patterns() {
+    let state = run_with_state(
+        r#"
+        var.set("text", "hello@example.com")
+        var.set("result", match(var.get("text")) {
+            /[0-9]+/ => "number"
+            /[a-z]+@[a-z]+\.[a-z]+/ => "email"
+            _ => "other"
+        })
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("email".to_string())
+    );
+}
+
+#[test]
+fn test_inline_regex_in_re_match() {
+    let state = run_with_state(
+        r#"
+        var.set("result", re.match(/[0-9]+/, "abc123"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::Boolean(true)
+    );
+}

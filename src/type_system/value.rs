@@ -11,6 +11,7 @@ pub enum Value {
     Boolean(bool),
     List(Vec<Value>),
     Map(HashMap<String, Value>),
+    Regex(String, String), // pattern, flags
     #[default]
     Null,
 }
@@ -23,6 +24,7 @@ impl Value {
             Self::Boolean(_) => Type::Boolean,
             Self::List(_) => Type::List,
             Self::Map(_) => Type::Map,
+            Self::Regex(_, _) => Type::Regex,
             Self::Null => Type::Null,
         }
     }
@@ -62,6 +64,13 @@ impl Value {
         }
     }
 
+    pub fn as_regex(&self) -> Option<(&String, &String)> {
+        match self {
+            Self::Regex(pattern, flags) => Some((pattern, flags)),
+            _ => None,
+        }
+    }
+
     pub fn is_truthy(&self) -> bool {
         match self {
             Self::Boolean(b) => *b,
@@ -70,6 +79,7 @@ impl Value {
             Self::Number(n) => *n != 0.0,
             Self::List(l) => !l.is_empty(),
             Self::Map(m) => !m.is_empty(),
+            Self::Regex(pattern, _) => !pattern.is_empty(),
         }
     }
 }
@@ -95,6 +105,7 @@ impl fmt::Display for Value {
                     m.iter().map(|(k, v)| format!("\"{}\": {}", k, v)).collect();
                 write!(f, "{{{}}}", items.join(", "))
             }
+            Self::Regex(pattern, flags) => write!(f, "/{}/{}", pattern, flags),
             Self::Null => write!(f, "null"),
         }
     }

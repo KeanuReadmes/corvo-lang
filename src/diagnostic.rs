@@ -231,6 +231,20 @@ fn lint_expr(expr: &Expr, out: &mut Vec<LintDiagnostic>) {
                 lint_expr(&arm.body, out);
             }
         }
+        Expr::MethodCall {
+            target,
+            args,
+            named_args,
+            ..
+        } => {
+            lint_expr(target, out);
+            for a in args {
+                lint_expr(a, out);
+            }
+            for a in named_args.values() {
+                lint_expr(a, out);
+            }
+        }
         Expr::Literal { .. } | Expr::VarGet { .. } | Expr::StaticGet { .. } => {}
     }
 }
@@ -256,6 +270,7 @@ const KNOWN_NAMESPACES: &[&str] = &[
     "env",
     "llm",
     "notifications",
+    "re",
     "string",
     "number",
     "list",
@@ -341,6 +356,14 @@ pub const KNOWN_FUNCTIONS: &[&str] = &[
     "notifications.x",
     "notifications.os",
     "notifications.irc",
+    // regex methods
+    "re.match",
+    "re.find",
+    "re.find_all",
+    "re.replace",
+    "re.replace_all",
+    "re.split",
+    "re.new",
     // string methods
     "string.concat",
     "string.replace",

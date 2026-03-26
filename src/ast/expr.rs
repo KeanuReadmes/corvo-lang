@@ -4,6 +4,7 @@ use std::collections::HashMap;
 #[derive(Debug, Clone, PartialEq)]
 pub enum MatchPattern {
     Literal(crate::type_system::Value),
+    Regex(String, String), // pattern, flags
     Wildcard,
 }
 
@@ -39,6 +40,12 @@ pub enum Expr {
     Match {
         value: Box<Expr>,
         arms: Vec<MatchArm>,
+    },
+    MethodCall {
+        target: Box<Expr>,
+        method: String,
+        args: Vec<Expr>,
+        named_args: HashMap<String, Expr>,
     },
 }
 

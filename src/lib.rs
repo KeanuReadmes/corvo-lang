@@ -94,6 +94,19 @@ fn json_value_to_corvo_value(json: serde_json::Value) -> type_system::Value {
                         _ => {}
                     }
                 }
+                if let Some(serde_json::Value::Object(r)) = obj.get("__corvo_regex") {
+                    let pattern = r
+                        .get("pattern")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    let flags = r
+                        .get("flags")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    return type_system::Value::Regex(pattern, flags);
+                }
             }
             let map = obj
                 .into_iter()
