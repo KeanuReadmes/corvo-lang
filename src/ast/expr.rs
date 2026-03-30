@@ -37,6 +37,11 @@ pub enum Expr {
         target: Box<Expr>,
         index: Box<Expr>,
     },
+    SliceAccess {
+        target: Box<Expr>,
+        start: Option<Box<Expr>>,
+        end: Option<Box<Expr>>,
+    },
     Match {
         value: Box<Expr>,
         arms: Vec<MatchArm>,

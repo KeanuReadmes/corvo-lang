@@ -2148,3 +2148,207 @@ fn test_template_render_file_missing() {
     );
     assert!(result.is_err());
 }
+
+// --- Slicing Tests ---
+
+#[test]
+fn test_list_slice_start_end() {
+    let state = run_with_state(
+        r#"
+        var.set("nums", [10, 20, 30, 40, 50])
+        var.set("result", @nums[1:3])
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::List(vec![
+            corvo_lang::type_system::Value::Number(20.0),
+            corvo_lang::type_system::Value::Number(30.0),
+        ])
+    );
+}
+
+#[test]
+fn test_list_slice_from_start() {
+    let state = run_with_state(
+        r#"
+        var.set("nums", [10, 20, 30, 40, 50])
+        var.set("result", @nums[:2])
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::List(vec![
+            corvo_lang::type_system::Value::Number(10.0),
+            corvo_lang::type_system::Value::Number(20.0),
+        ])
+    );
+}
+
+#[test]
+fn test_list_slice_to_end() {
+    let state = run_with_state(
+        r#"
+        var.set("nums", [10, 20, 30, 40, 50])
+        var.set("result", @nums[3:])
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::List(vec![
+            corvo_lang::type_system::Value::Number(40.0),
+            corvo_lang::type_system::Value::Number(50.0),
+        ])
+    );
+}
+
+#[test]
+fn test_list_slice_all() {
+    let state = run_with_state(
+        r#"
+        var.set("nums", [10, 20, 30])
+        var.set("result", @nums[:])
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::List(vec![
+            corvo_lang::type_system::Value::Number(10.0),
+            corvo_lang::type_system::Value::Number(20.0),
+            corvo_lang::type_system::Value::Number(30.0),
+        ])
+    );
+}
+
+#[test]
+fn test_list_slice_negative_index_via_var() {
+    // Negative numbers must be stored in a variable (no unary-minus literal syntax).
+    let state = run_with_state(
+        r#"
+        var.set("nums", [10, 20, 30, 40, 50])
+        var.set("neg", math.sub(0, 2))
+        var.set("result", @nums[@neg:])
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::List(vec![
+            corvo_lang::type_system::Value::Number(40.0),
+            corvo_lang::type_system::Value::Number(50.0),
+        ])
+    );
+}
+
+#[test]
+fn test_string_slice_start_end() {
+    let state = run_with_state(
+        r#"
+        var.set("word", "Corvo")
+        var.set("result", @word[1:4])
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("orv".to_string())
+    );
+}
+
+#[test]
+fn test_string_slice_from_start() {
+    let state = run_with_state(
+        r#"
+        var.set("word", "Corvo")
+        var.set("result", @word[:3])
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("Cor".to_string())
+    );
+}
+
+#[test]
+fn test_string_slice_to_end() {
+    let state = run_with_state(
+        r#"
+        var.set("word", "Corvo")
+        var.set("result", @word[2:])
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("rvo".to_string())
+    );
+}
+
+#[test]
+fn test_string_slice_all() {
+    let state = run_with_state(
+        r#"
+        var.set("word", "hello")
+        var.set("result", @word[:])
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("hello".to_string())
+    );
+}
+
+#[test]
+fn test_string_slice_negative_index_via_var() {
+    // Negative numbers must be stored in a variable (no unary-minus literal syntax).
+    let state = run_with_state(
+        r#"
+        var.set("word", "Corvo")
+        var.set("neg", math.sub(0, 3))
+        var.set("result", @word[@neg:])
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("rvo".to_string())
+    );
+}
+
+#[test]
+fn test_slice_inline_on_literal() {
+    let state = run_with_state(
+        r#"
+        var.set("result", [1, 2, 3, 4, 5][1:3])
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::List(vec![
+            corvo_lang::type_system::Value::Number(2.0),
+            corvo_lang::type_system::Value::Number(3.0),
+        ])
+    );
+}
+
+#[test]
+fn test_slice_in_string_interpolation() {
+    let state = run_with_state(
+        r#"
+        var.set("word", "Corvo")
+        var.set("result", "${@word[0:3]}")
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("Cor".to_string())
+    );
+}

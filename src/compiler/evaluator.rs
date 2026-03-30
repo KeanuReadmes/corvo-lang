@@ -218,6 +218,18 @@ impl Evaluator {
                 let index_val = self.eval_expr(index, state)?;
                 self.index_access(&target_val, &index_val)
             }
+            Expr::SliceAccess { target, start, end } => {
+                let target_val = self.eval_expr(target, state)?;
+                let start_val = match start {
+                    Some(s) => Some(self.eval_expr(s, state)?),
+                    None => None,
+                };
+                let end_val = match end {
+                    Some(e) => Some(self.eval_expr(e, state)?),
+                    None => None,
+                };
+                self.slice_access(&target_val, start_val.as_ref(), end_val.as_ref())
+            }
             Expr::Match { value, arms } => {
                 let matched = self.eval_expr(value, state)?;
                 for arm in arms {
@@ -329,6 +341,57 @@ impl Evaluator {
                 .cloned()
                 .ok_or_else(|| CorvoError::runtime(format!("Key '{}' not found", key))),
             _ => Err(CorvoError::r#type("Cannot index into this type")),
+        }
+    }
+
+    fn resolve_slice_index(index: f64, length: usize) -> usize {
+        if index < 0.0 {
+            let offset = (-index) as usize;
+            length.saturating_sub(offset)
+        } else {
+            (index as usize).min(length)
+        }
+    }
+
+    fn slice_access(
+        &self,
+        target: &Value,
+        start: Option<&Value>,
+        end: Option<&Value>,
+    ) -> CorvoResult<Value> {
+        match target {
+            Value::List(list) => {
+                let len = list.len();
+                let start_idx = match start {
+                    Some(Value::Number(n)) => Self::resolve_slice_index(*n, len),
+                    None => 0,
+                    _ => return Err(CorvoError::r#type("List slice index must be a number")),
+                };
+                let end_idx = match end {
+                    Some(Value::Number(n)) => Self::resolve_slice_index(*n, len),
+                    None => len,
+                    _ => return Err(CorvoError::r#type("List slice index must be a number")),
+                };
+                let start_idx = start_idx.min(end_idx);
+                Ok(Value::List(list[start_idx..end_idx].to_vec()))
+            }
+            Value::String(s) => {
+                let chars: Vec<char> = s.chars().collect();
+                let len = chars.len();
+                let start_idx = match start {
+                    Some(Value::Number(n)) => Self::resolve_slice_index(*n, len),
+                    None => 0,
+                    _ => return Err(CorvoError::r#type("String slice index must be a number")),
+                };
+                let end_idx = match end {
+                    Some(Value::Number(n)) => Self::resolve_slice_index(*n, len),
+                    None => len,
+                    _ => return Err(CorvoError::r#type("String slice index must be a number")),
+                };
+                let start_idx = start_idx.min(end_idx);
+                Ok(Value::String(chars[start_idx..end_idx].iter().collect()))
+            }
+            _ => Err(CorvoError::r#type("Cannot slice this type")),
         }
     }
 

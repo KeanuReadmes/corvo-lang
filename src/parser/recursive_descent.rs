@@ -250,18 +250,57 @@ impl Parser {
         };
         self.advance(); // consume identifier
         self.consume(TokenType::LeftBracket, "Expected '[' after variable name")?;
-        let index = self.parse_expression()?;
+
+        // Detect slice syntax: [:end] or [:]
+        if self.check(TokenType::Colon) {
+            self.advance(); // consume ':'
+            let end = if self.check(TokenType::RightBracket) {
+                None
+            } else {
+                Some(Box::new(self.parse_expression()?))
+            };
+            self.consume(TokenType::RightBracket, "Expected ']' after slice")?;
+            let access = Expr::SliceAccess {
+                target: Box::new(Expr::VarGet { name }),
+                start: None,
+                end,
+            };
+            return Ok(Stmt::ExprStmt { expr: access });
+        }
+
+        let index_or_start = self.parse_expression()?;
+
+        if self.match_token(TokenType::Colon) {
+            // [start:end] or [start:]
+            let end = if self.check(TokenType::RightBracket) {
+                None
+            } else {
+                Some(Box::new(self.parse_expression()?))
+            };
+            self.consume(TokenType::RightBracket, "Expected ']' after slice")?;
+            let access = Expr::SliceAccess {
+                target: Box::new(Expr::VarGet { name }),
+                start: Some(Box::new(index_or_start)),
+                end,
+            };
+            return Ok(Stmt::ExprStmt { expr: access });
+        }
+
         self.consume(TokenType::RightBracket, "Expected ']' after index")?;
 
         if self.match_token(TokenType::Equals) {
             // @name[index] = value  →  VarIndexSet
             let value = self.parse_expression()?;
-            Ok(Stmt::VarIndexSet { name, index, value })
+            Ok(Stmt::VarIndexSet {
+                name,
+                index: index_or_start,
+                value,
+            })
         } else {
             // @name[index] used as an expression statement (read-only)
             let access = Expr::IndexAccess {
                 target: Box::new(Expr::VarGet { name }),
-                index: Box::new(index),
+                index: Box::new(index_or_start),
             };
             Ok(Stmt::ExprStmt { expr: access })
         }
@@ -322,11 +361,46 @@ impl Parser {
 
     fn parse_postfix(&mut self, expr: Expr) -> CorvoResult<Expr> {
         if self.match_token(TokenType::LeftBracket) {
-            let index = self.parse_expression()?;
+            // Detect slice syntax: [:end], [:], [start:end], [start:]
+            if self.check(TokenType::Colon) {
+                self.advance(); // consume ':'
+                let end = if self.check(TokenType::RightBracket) {
+                    None
+                } else {
+                    Some(Box::new(self.parse_expression()?))
+                };
+                self.consume(TokenType::RightBracket, "Expected ']' after slice")?;
+                let sliced = Expr::SliceAccess {
+                    target: Box::new(expr),
+                    start: None,
+                    end,
+                };
+                return self.parse_postfix(sliced);
+            }
+
+            let index_or_start = self.parse_expression()?;
+
+            if self.match_token(TokenType::Colon) {
+                // [start:end] or [start:]
+                let end = if self.check(TokenType::RightBracket) {
+                    None
+                } else {
+                    Some(Box::new(self.parse_expression()?))
+                };
+                self.consume(TokenType::RightBracket, "Expected ']' after slice")?;
+                let sliced = Expr::SliceAccess {
+                    target: Box::new(expr),
+                    start: Some(Box::new(index_or_start)),
+                    end,
+                };
+                return self.parse_postfix(sliced);
+            }
+
+            // Regular index access [index]
             self.consume(TokenType::RightBracket, "Expected ']' after index")?;
             let indexed = Expr::IndexAccess {
                 target: Box::new(expr),
-                index: Box::new(index),
+                index: Box::new(index_or_start),
             };
             return self.parse_postfix(indexed);
         }

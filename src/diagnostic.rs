@@ -225,6 +225,15 @@ fn lint_expr(expr: &Expr, out: &mut Vec<LintDiagnostic>) {
             lint_expr(target, out);
             lint_expr(index, out);
         }
+        Expr::SliceAccess { target, start, end } => {
+            lint_expr(target, out);
+            if let Some(s) = start {
+                lint_expr(s, out);
+            }
+            if let Some(e) = end {
+                lint_expr(e, out);
+            }
+        }
         Expr::Match { value, arms } => {
             lint_expr(value, out);
             for arm in arms {
