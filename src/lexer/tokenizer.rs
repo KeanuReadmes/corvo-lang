@@ -323,6 +323,7 @@ impl<'a> Lexer<'a> {
                         "browse" => TokenType::Browse,
                         "terminate" => TokenType::Terminate,
                         "dont_panic" => TokenType::DontPanic,
+                        "match" => TokenType::Match,
                         "assert_eq" => TokenType::AssertEq,
                         "assert_neq" => TokenType::AssertNeq,
                         "assert_gt" => TokenType::AssertGt,
@@ -338,6 +339,23 @@ impl<'a> Lexer<'a> {
                 '@' => {
                     self.advance();
                     tokens.push(Token::new(TokenType::At, Span::new(expr_start, self.pos)));
+                }
+                '=' => {
+                    self.advance();
+                    let token_type = if self.peek() == '>' {
+                        self.advance();
+                        TokenType::FatArrow
+                    } else {
+                        TokenType::Equals
+                    };
+                    tokens.push(Token::new(token_type, Span::new(expr_start, self.pos)));
+                }
+                '/' => {
+                    // Regex literal inside interpolation
+                    self.start = self.pos; // mark start of regex for error spans
+                    self.advance(); // consume '/'
+                    let tok = self.scan_regex()?;
+                    tokens.push(tok);
                 }
                 _ => {
                     return Err(CorvoError::lexing(format!(
@@ -358,6 +376,47 @@ impl<'a> Lexer<'a> {
         tokens.push(Token::new(TokenType::Eof, Span::point(self.pos)));
 
         Ok(tokens)
+    }
+
+    fn scan_regex(&mut self) -> CorvoResult<Token> {
+        // The opening '/' has already been consumed by the caller.
+        // self.start holds the position of the '/' for error spans.
+        let start = self.start;
+        let mut pattern = String::new();
+
+        while !self.is_at_end() && self.peek() != '/' {
+            let ch = self.peek();
+            if ch == '\\' {
+                pattern.push(self.advance()); // consume '\'
+                if !self.is_at_end() {
+                    pattern.push(self.advance()); // consume escaped char
+                }
+            } else if ch == '\n' {
+                return Err(CorvoError::lexing("Unterminated regex literal")
+                    .with_span(Span::new(start, self.pos)));
+            } else {
+                pattern.push(self.advance());
+            }
+        }
+
+        if self.is_at_end() {
+            return Err(CorvoError::lexing("Unterminated regex literal")
+                .with_span(Span::new(start, self.pos)));
+        }
+
+        self.advance(); // consume closing '/'
+
+        // Scan optional flags (letters only)
+        let mut flags = String::new();
+        while !self.is_at_end() && self.peek().is_ascii_alphabetic() {
+            flags.push(self.advance());
+        }
+
+        let end = self.pos;
+        Ok(Token::new(
+            TokenType::Regex(pattern, flags),
+            Span::new(start, end),
+        ))
     }
 
     fn scan_number(&mut self) -> CorvoResult<Token> {
@@ -399,6 +458,7 @@ impl<'a> Lexer<'a> {
             "browse" => TokenType::Browse,
             "terminate" => TokenType::Terminate,
             "dont_panic" => TokenType::DontPanic,
+            "match" => TokenType::Match,
             "assert_eq" => TokenType::AssertEq,
             "assert_neq" => TokenType::AssertNeq,
             "assert_gt" => TokenType::AssertGt,
@@ -415,7 +475,6 @@ impl<'a> Lexer<'a> {
     fn scan_operator(&mut self) -> CorvoResult<Token> {
         let start = self.pos;
         let ch = self.advance();
-        let end = self.pos;
 
         let token_type = match ch {
             '{' => TokenType::LeftBrace,
@@ -428,10 +487,22 @@ impl<'a> Lexer<'a> {
             '.' => TokenType::Dot,
             ':' => TokenType::Colon,
             '@' => TokenType::At,
-            '=' => TokenType::Equals,
+            '=' => {
+                if self.peek() == '>' {
+                    self.advance(); // consume '>'
+                    TokenType::FatArrow
+                } else {
+                    TokenType::Equals
+                }
+            }
+            '/' => {
+                // Regex literal: /pattern/flags
+                return self.scan_regex();
+            }
             _ => TokenType::Illegal(ch.to_string()),
         };
 
+        let end = self.pos;
         Ok(Token::new(token_type, Span::new(start, end)))
     }
 

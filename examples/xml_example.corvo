@@ -1,21 +1,21 @@
 # xml_example.corvo - xml.parse
 
 sys.echo("=== xml.parse ===")
-var.set("xml_str", "<person><name>Alice</name><age>30</age><city>Tokyo</city></person>")
-var.set("data", xml.parse(var.get("xml_str")))
+@xml_str = "<person><name>Alice</name><age>30</age><city>Tokyo</city></person>"
+@data = xml.parse(@xml_str)
 
 # Each child element is a map with a "$text" key for its text content
-sys.echo("Top-level keys: ${list.join(map.keys(var.get("data")), ", ")}")
+sys.echo("Top-level keys: ${list.join(map.keys(@data), ", ")}")
 
-var.set("name_val", map.get(map.get(var.get("data"), "name"), "$text"))
-var.set("age_val",  map.get(map.get(var.get("data"), "age"),  "$text"))
-var.set("city_val", map.get(map.get(var.get("data"), "city"), "$text"))
+@name_val = map.get(map.get(@data, "name"), "$text")
+@age_val  = map.get(map.get(@data, "age"),  "$text")
+@city_val = map.get(map.get(@data, "city"), "$text")
 
-sys.echo("name: ${var.get("name_val")}")
-sys.echo("age:  ${var.get("age_val")}")
-sys.echo("city: ${var.get("city_val")}")
+sys.echo("name: ${@name_val}")
+sys.echo("age:  ${@age_val}")
+sys.echo("city: ${@city_val}")
 
 # Inspect the full structure as JSON
 sys.echo("")
 sys.echo("Full structure (JSON):")
-sys.echo(json.stringify(var.get("data")))
+sys.echo(json.stringify(@data))

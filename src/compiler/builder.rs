@@ -477,6 +477,9 @@ fn value_to_json_value(v: &Value) -> serde_json::Value {
                 .collect();
             serde_json::Value::Object(obj)
         }
+        Value::Regex(pattern, flags) => {
+            serde_json::json!({"__corvo_regex": {"pattern": pattern, "flags": flags}})
+        }
     }
 }
 
@@ -679,6 +682,11 @@ fn value_to_rust_code(value: &Value) -> String {
                 entries.join(", ")
             )
         }
+        Value::Regex(pattern, flags) => format!(
+            "corvo_lang::type_system::Value::Regex(\"{}\".to_string(), \"{}\".to_string())",
+            escape_for_rust(pattern),
+            flags
+        ),
     }
 }
 

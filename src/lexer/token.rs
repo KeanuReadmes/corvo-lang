@@ -13,6 +13,7 @@ pub enum TokenType {
     Browse,
     Terminate,
     DontPanic,
+    Match,
     AssertEq,
     AssertNeq,
     AssertGt,
@@ -23,6 +24,7 @@ pub enum TokenType {
     String(String),
     Number(f64),
     Boolean(bool),
+    Regex(String, String), // pattern, flags
     Identifier(String),
 
     // Operators and delimiters
@@ -37,6 +39,7 @@ pub enum TokenType {
     Colon,
     At,
     Equals,
+    FatArrow,
 
     // Special
     StringInterpolation(Vec<Token>),
@@ -57,12 +60,14 @@ impl fmt::Display for TokenType {
             Self::Browse => write!(f, "browse"),
             Self::Terminate => write!(f, "terminate"),
             Self::DontPanic => write!(f, "dont_panic"),
+            Self::Match => write!(f, "match"),
             Self::AssertEq => write!(f, "assert_eq"),
             Self::AssertNeq => write!(f, "assert_neq"),
             Self::AssertGt => write!(f, "assert_gt"),
             Self::AssertLt => write!(f, "assert_lt"),
             Self::AssertMatch => write!(f, "assert_match"),
             Self::String(s) => write!(f, "\"{}\"", s),
+            Self::Regex(pattern, flags) => write!(f, "/{}/{}", pattern, flags),
             Self::Number(n) => {
                 if n.fract() == 0.0 {
                     write!(f, "{}", *n as i64)
@@ -83,6 +88,7 @@ impl fmt::Display for TokenType {
             Self::Colon => write!(f, ":"),
             Self::At => write!(f, "@"),
             Self::Equals => write!(f, "="),
+            Self::FatArrow => write!(f, "=>"),
             Self::StringInterpolation(_) => write!(f, "string(...)"),
             Self::Comment(text) => write!(f, "#{}", text),
             Self::Eof => write!(f, "EOF"),

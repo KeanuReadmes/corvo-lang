@@ -1,0 +1,31 @@
+# match expression: assign a value based on the matched value
+
+@file = "hosts"
+
+@description = match(@file) {
+    "" => "empty",
+    "hosts" => "hosts file",
+    _ => "not empty"
+}
+
+sys.echo(@description)
+
+# match with @shorthand syntax
+@status = match(@file) {
+    "hosts" => "found",
+    _ => "not found"
+}
+
+sys.echo(@status)
+
+# match with number patterns
+@code = 200
+
+@message = match(@code) {
+    200 => "OK",
+    404 => "Not Found",
+    500 => "Internal Server Error",
+    _ => "Unknown"
+}
+
+sys.echo(@message)

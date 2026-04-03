@@ -23,7 +23,7 @@ Corvo deliberately omits three things most languages take for granted. This is n
 
 | What's gone | What replaces it |
 |---|---|
-| `if` / `else` / `elif` | `try { } fallback { }` with `assert_*` |
+| `if` / `else` / `elif` | `match(expr) { pat => val, _ => default }` for value branching; `try { } fallback { }` with `assert_*` for error handling |
 | `def` / `fn` / `function` | Built-in library calls only |
 
 The result is a language with zero ambiguity, no hidden control flow, and scripts that are trivial to read, audit, and maintain.
@@ -65,6 +65,34 @@ try {
 } fallback {
     var.set("name", "anonymous")
 }
+```
+
+### Match: the if/else replacement for value branching
+
+The `match` expression assigns a value based on a matched literal, replacing `if/else` chains and `switch` statements cleanly.
+
+```corvo
+# Replace a long if/else chain with a readable match
+@label = match(os.get_env("ENV", "dev")) {
+    "prod"    => "Production",
+    "staging" => "Staging",
+    _         => "Development"
+}
+sys.echo("Environment: ${@label}")
+```
+
+```corvo
+# HTTP status code to human-readable message
+var.set("code", 404)
+@message = match(@code) {
+    200 => "OK",
+    201 => "Created",
+    400 => "Bad Request",
+    404 => "Not Found",
+    500 => "Internal Server Error",
+    _   => "Unknown Status"
+}
+sys.echo("Status: ${@message}")
 ```
 
 ### Compile to a standalone binary
@@ -743,7 +771,7 @@ Corvo's constraints are intentional:
 
 1. **No user-defined functions** forces scripts to be flat, linear, and easy to follow from top to bottom. There is no indirection, no recursion, no call stack to trace.
 
-2. **No if/else** eliminates a class of bugs: dangling else, missing branches, complex conditionals. `try/fallback` with assertions covers every case where you need conditional behavior, and it forces you to handle errors at the same time.
+2. **No if/else** eliminates a class of bugs: dangling else, missing branches, complex conditionals. `match` handles value-based branching as a clean expression returning a value, while `try/fallback` with assertions handles error-driven branching and complex conditions — both force you to be explicit about every case.
 
 3. **No assignment operator** makes mutation explicit. `var.set("name", value)` is deliberately verbose so that state changes are obvious and searchable.
 

@@ -1,5 +1,6 @@
-use crate::ast::{AssertKind, Expr, FallbackBlock, Program, Stmt};
+use crate::ast::{AssertKind, Expr, FallbackBlock, MatchArm, MatchPattern, Program, Stmt};
 use crate::lexer::token::{Token, TokenType};
+use crate::type_system::Value;
 use crate::{CorvoError, CorvoResult};
 use std::collections::HashMap;
 
@@ -69,17 +70,27 @@ impl Parser {
             | TokenType::AssertLt
             | TokenType::AssertMatch => self.parse_assert()?,
             TokenType::At => {
-                // @name = value → VarSet shortcut
-                // @name         → ExprStmt (VarGet shortcut)
-                let is_assignment = matches!(
+                // @name = value       → VarSet shortcut
+                // @name[index] = val  → VarIndexSet shortcut
+                // @name               → ExprStmt (VarGet shortcut)
+                let is_simple_assignment = matches!(
                     self.tokens.get(self.current + 1).map(|t| &t.token_type),
                     Some(TokenType::Identifier(_))
                 ) && matches!(
                     self.tokens.get(self.current + 2).map(|t| &t.token_type),
                     Some(TokenType::Equals)
                 );
-                if is_assignment {
+                let is_index_assignment = matches!(
+                    self.tokens.get(self.current + 1).map(|t| &t.token_type),
+                    Some(TokenType::Identifier(_))
+                ) && matches!(
+                    self.tokens.get(self.current + 2).map(|t| &t.token_type),
+                    Some(TokenType::LeftBracket)
+                );
+                if is_simple_assignment {
                     self.parse_at_var_set()?
+                } else if is_index_assignment {
+                    self.parse_at_index_set_or_expr()?
                 } else {
                     self.parse_expr_statement()?
                 }
@@ -231,6 +242,70 @@ impl Parser {
         Ok(Stmt::VarSet { name, value })
     }
 
+    fn parse_at_index_set_or_expr(&mut self) -> CorvoResult<Stmt> {
+        self.advance(); // consume '@'
+        let name = match &self.peek().token_type {
+            TokenType::Identifier(s) => s.clone(),
+            _ => return Err(self.error("Expected variable name after '@'")),
+        };
+        self.advance(); // consume identifier
+        self.consume(TokenType::LeftBracket, "Expected '[' after variable name")?;
+
+        // Detect slice syntax: [:end] or [:]
+        if self.check(TokenType::Colon) {
+            self.advance(); // consume ':'
+            let end = if self.check(TokenType::RightBracket) {
+                None
+            } else {
+                Some(Box::new(self.parse_expression()?))
+            };
+            self.consume(TokenType::RightBracket, "Expected ']' after slice")?;
+            let access = Expr::SliceAccess {
+                target: Box::new(Expr::VarGet { name }),
+                start: None,
+                end,
+            };
+            return Ok(Stmt::ExprStmt { expr: access });
+        }
+
+        let index_or_start = self.parse_expression()?;
+
+        if self.match_token(TokenType::Colon) {
+            // [start:end] or [start:]
+            let end = if self.check(TokenType::RightBracket) {
+                None
+            } else {
+                Some(Box::new(self.parse_expression()?))
+            };
+            self.consume(TokenType::RightBracket, "Expected ']' after slice")?;
+            let access = Expr::SliceAccess {
+                target: Box::new(Expr::VarGet { name }),
+                start: Some(Box::new(index_or_start)),
+                end,
+            };
+            return Ok(Stmt::ExprStmt { expr: access });
+        }
+
+        self.consume(TokenType::RightBracket, "Expected ']' after index")?;
+
+        if self.match_token(TokenType::Equals) {
+            // @name[index] = value  →  VarIndexSet
+            let value = self.parse_expression()?;
+            Ok(Stmt::VarIndexSet {
+                name,
+                index: index_or_start,
+                value,
+            })
+        } else {
+            // @name[index] used as an expression statement (read-only)
+            let access = Expr::IndexAccess {
+                target: Box::new(Expr::VarGet { name }),
+                index: Box::new(index_or_start),
+            };
+            Ok(Stmt::ExprStmt { expr: access })
+        }
+    }
+
     fn parse_assert(&mut self) -> CorvoResult<Stmt> {
         let kind = match self.peek().token_type {
             TokenType::AssertEq => AssertKind::Eq,
@@ -286,15 +361,81 @@ impl Parser {
 
     fn parse_postfix(&mut self, expr: Expr) -> CorvoResult<Expr> {
         if self.match_token(TokenType::LeftBracket) {
-            let index = self.parse_expression()?;
+            // Detect slice syntax: [:end], [:], [start:end], [start:]
+            if self.check(TokenType::Colon) {
+                self.advance(); // consume ':'
+                let end = if self.check(TokenType::RightBracket) {
+                    None
+                } else {
+                    Some(Box::new(self.parse_expression()?))
+                };
+                self.consume(TokenType::RightBracket, "Expected ']' after slice")?;
+                let sliced = Expr::SliceAccess {
+                    target: Box::new(expr),
+                    start: None,
+                    end,
+                };
+                return self.parse_postfix(sliced);
+            }
+
+            let index_or_start = self.parse_expression()?;
+
+            if self.match_token(TokenType::Colon) {
+                // [start:end] or [start:]
+                let end = if self.check(TokenType::RightBracket) {
+                    None
+                } else {
+                    Some(Box::new(self.parse_expression()?))
+                };
+                self.consume(TokenType::RightBracket, "Expected ']' after slice")?;
+                let sliced = Expr::SliceAccess {
+                    target: Box::new(expr),
+                    start: Some(Box::new(index_or_start)),
+                    end,
+                };
+                return self.parse_postfix(sliced);
+            }
+
+            // Regular index access [index]
             self.consume(TokenType::RightBracket, "Expected ']' after index")?;
             let indexed = Expr::IndexAccess {
                 target: Box::new(expr),
-                index: Box::new(index),
+                index: Box::new(index_or_start),
             };
             return self.parse_postfix(indexed);
         }
+
+        if self.match_token(TokenType::Dot) {
+            let method = self.consume_method_name()?;
+            self.consume(TokenType::LeftParen, "Expected '(' after method name")?;
+            let (args, named_args) = self.parse_call_args()?;
+            self.consume(TokenType::RightParen, "Expected ')' after arguments")?;
+            let method_call = Expr::MethodCall {
+                target: Box::new(expr),
+                method,
+                args,
+                named_args,
+            };
+            return self.parse_postfix(method_call);
+        }
+
         Ok(expr)
+    }
+
+    /// Consume the next token as a method name. Identifiers and most keywords
+    /// are accepted so that names like `match` can be used as method names
+    /// (e.g. `@expression.match("...")`).
+    fn consume_method_name(&mut self) -> CorvoResult<String> {
+        let name = match &self.peek().token_type {
+            TokenType::Identifier(s) => s.clone(),
+            // Allow keywords that are valid method names
+            TokenType::Match => "match".to_string(),
+            tt => {
+                return Err(self.error(format!("Expected method name, got: {}", tt)));
+            }
+        };
+        self.advance();
+        Ok(name)
     }
 
     fn parse_primary(&mut self) -> CorvoResult<Expr> {
@@ -355,6 +496,18 @@ impl Parser {
                     }
                     _ => Err(self.error("Expected variable name after '@'")),
                 }
+            }
+            TokenType::Match => {
+                self.advance(); // consume 'match'
+                self.parse_match_expr()
+            }
+            TokenType::Regex(pattern, flags) => {
+                let pattern = pattern.clone();
+                let flags = flags.clone();
+                self.advance();
+                Ok(Expr::Literal {
+                    value: crate::type_system::Value::Regex(pattern, flags),
+                })
             }
             _ => Err(self.error(format!("Unexpected token: {}", token.token_type))),
         }
@@ -420,6 +573,75 @@ impl Parser {
         Ok(Expr::StaticGet { name })
     }
 
+    fn parse_match_expr(&mut self) -> CorvoResult<Expr> {
+        self.consume(TokenType::LeftParen, "Expected '(' after 'match'")?;
+        let value = self.parse_expression()?;
+        self.consume(TokenType::RightParen, "Expected ')' after match value")?;
+        self.consume(TokenType::LeftBrace, "Expected '{' after match header")?;
+
+        let mut arms = Vec::new();
+
+        while !self.check(TokenType::RightBrace) && !self.is_at_end() {
+            self.skip_comments();
+            if self.check(TokenType::RightBrace) || self.is_at_end() {
+                break;
+            }
+
+            let pattern = self.parse_match_pattern()?;
+            self.consume(TokenType::FatArrow, "Expected '=>' after match pattern")?;
+            let body = self.parse_expression()?;
+            // Optional trailing comma between arms
+            self.match_token(TokenType::Comma);
+
+            arms.push(MatchArm {
+                pattern,
+                body: Box::new(body),
+            });
+        }
+
+        self.consume(TokenType::RightBrace, "Expected '}' to close match block")?;
+
+        Ok(Expr::Match {
+            value: Box::new(value),
+            arms,
+        })
+    }
+
+    fn parse_match_pattern(&mut self) -> CorvoResult<MatchPattern> {
+        let token = self.peek().clone();
+        match &token.token_type {
+            TokenType::String(s) => {
+                let s = s.clone();
+                self.advance();
+                Ok(MatchPattern::Literal(Value::String(s)))
+            }
+            TokenType::Number(n) => {
+                let n = *n;
+                self.advance();
+                Ok(MatchPattern::Literal(Value::Number(n)))
+            }
+            TokenType::Boolean(b) => {
+                let b = *b;
+                self.advance();
+                Ok(MatchPattern::Literal(Value::Boolean(b)))
+            }
+            TokenType::Regex(pattern, flags) => {
+                let pattern = pattern.clone();
+                let flags = flags.clone();
+                self.advance();
+                Ok(MatchPattern::Regex(pattern, flags))
+            }
+            TokenType::Identifier(s) if s == "_" => {
+                self.advance();
+                Ok(MatchPattern::Wildcard)
+            }
+            _ => Err(self.error(format!(
+                "Expected a match pattern (string, number, boolean, regex literal, or '_'), got: {}",
+                token.token_type
+            ))),
+        }
+    }
+
     fn parse_list_literal(&mut self) -> CorvoResult<Expr> {
         self.advance(); // consume '['
 
@@ -483,11 +705,7 @@ impl Parser {
     }
 
     fn parse_method_call(&mut self, obj: String) -> CorvoResult<Expr> {
-        let method = match self.peek().token_type.clone() {
-            TokenType::Identifier(s) => s,
-            _ => return Err(self.error("Expected method name")),
-        };
-        self.advance();
+        let method = self.consume_method_name()?;
 
         self.consume(TokenType::LeftParen, "Expected '(' after method")?;
 

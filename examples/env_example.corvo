@@ -1,26 +1,26 @@
 # env_example.corvo - env.parse for .env file format
 
 sys.echo("=== env.parse ===")
-var.set("dotenv", "DB_HOST=localhost\nDB_PORT=5432\nDB_NAME=myapp\nDB_USER=admin\nDB_PASS=secret\n")
-var.set("config", env.parse(var.get("dotenv")))
+@dotenv = "DB_HOST=localhost\nDB_PORT=5432\nDB_NAME=myapp\nDB_USER=admin\nDB_PASS=secret\n"
+@config = env.parse(@dotenv)
 
-sys.echo("DB_HOST: ${map.get(var.get("config"), "DB_HOST")}")
-sys.echo("DB_PORT: ${map.get(var.get("config"), "DB_PORT")}")
-sys.echo("DB_NAME: ${map.get(var.get("config"), "DB_NAME")}")
+sys.echo("DB_HOST: ${map.get(@config, "DB_HOST")}")
+sys.echo("DB_PORT: ${map.get(@config, "DB_PORT")}")
+sys.echo("DB_NAME: ${map.get(@config, "DB_NAME")}")
 
 # Comments and blank lines are ignored
 sys.echo("")
 sys.echo("=== env.parse with comments and quoted values ===")
-var.set("dotenv2", "# Application settings\nAPP_NAME=\"My Corvo App\"\nAPP_ENV='production'\nAPP_PORT=8080\n\n# Database\nDB_URL=postgres://localhost/mydb\n")
-var.set("cfg", env.parse(var.get("dotenv2")))
+@dotenv2 = "# Application settings\nAPP_NAME=\"My Corvo App\"\nAPP_ENV='production'\nAPP_PORT=8080\n\n# Database\nDB_URL=postgres://localhost/mydb\n"
+@cfg = env.parse(@dotenv2)
 
-sys.echo("APP_NAME: ${map.get(var.get("cfg"), "APP_NAME")}")
-sys.echo("APP_ENV:  ${map.get(var.get("cfg"), "APP_ENV")}")
-sys.echo("APP_PORT: ${map.get(var.get("cfg"), "APP_PORT")}")
-sys.echo("DB_URL:   ${map.get(var.get("cfg"), "DB_URL")}")
+sys.echo("APP_NAME: ${map.get(@cfg, "APP_NAME")}")
+sys.echo("APP_ENV:  ${map.get(@cfg, "APP_ENV")}")
+sys.echo("APP_PORT: ${map.get(@cfg, "APP_PORT")}")
+sys.echo("DB_URL:   ${map.get(@cfg, "DB_URL")}")
 
 # Reading a real .env file from disk
-# var.set("raw", fs.read(".env"))
-# var.set("env_map", env.parse(var.get("raw")))
+# @raw = fs.read(".env")
+# @env_map = env.parse(@raw)
 sys.echo("")
-sys.echo("(To parse a real .env file: var.set(\"raw\", fs.read(\".env\")) then env.parse(var.get(\"raw\")))")
+sys.echo("(To parse a real .env file: @raw = fs.read(\".env\") then env.parse(@raw))")

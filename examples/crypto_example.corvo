@@ -3,61 +3,61 @@
 sys.echo("=== Crypto Example ===")
 
 # Hashing strings
-var.set("data", "Hello, Corvo!")
-sys.echo("Data: ${var.get("data")}")
-sys.echo("MD5: ${crypto.hash("md5", var.get("data"))}")
-sys.echo("SHA-256: ${crypto.hash("sha256", var.get("data"))}")
-sys.echo("SHA-512: ${crypto.hash("sha512", var.get("data"))}")
+@data = "Hello, Corvo!"
+sys.echo("Data: ${@data}")
+sys.echo("MD5: ${crypto.hash("md5", @data)}")
+sys.echo("SHA-256: ${crypto.hash("sha256", @data)}")
+sys.echo("SHA-512: ${crypto.hash("sha512", @data)}")
 
 # Hashing a file's contents
 sys.echo("")
 sys.echo("=== File Hashing ===")
-var.set("file_path", "/tmp/corvo_hash_demo.txt")
-fs.write(var.get("file_path"), "Hello, Corvo!")
-sys.echo("File: ${var.get("file_path")}")
-sys.echo("MD5:    ${crypto.hash_file("md5", var.get("file_path"))}")
-sys.echo("SHA-256: ${crypto.hash_file("sha256", var.get("file_path"))}")
-sys.echo("SHA-512: ${crypto.hash_file("sha512", var.get("file_path"))}")
+@file_path = "/tmp/corvo_hash_demo.txt"
+fs.write(@file_path, "Hello, Corvo!")
+sys.echo("File: ${@file_path}")
+sys.echo("MD5:    ${crypto.hash_file("md5", @file_path)}")
+sys.echo("SHA-256: ${crypto.hash_file("sha256", @file_path)}")
+sys.echo("SHA-512: ${crypto.hash_file("sha512", @file_path)}")
 
 # Checksum (SHA-256) of a file
 sys.echo("")
 sys.echo("=== File Checksum ===")
-var.set("checksum", crypto.checksum(var.get("file_path")))
-sys.echo("SHA-256 checksum: ${var.get("checksum")}")
+@checksum = crypto.checksum(@file_path)
+sys.echo("SHA-256 checksum: ${@checksum}")
 
 # Verify that hash_file("sha256") and checksum produce the same result
 try {
-    assert_eq(crypto.hash_file("sha256", var.get("file_path")), var.get("checksum"))
+    assert_eq(crypto.hash_file("sha256", @file_path), @checksum)
     sys.echo("Checksum consistency: VERIFIED")
 } fallback {
     sys.echo("Checksum consistency: MISMATCH")
 }
 
-fs.delete(var.get("file_path"))
+fs.delete(@file_path)
 
 # UUID generation
 sys.echo("")
 sys.echo("=== UUID Generation ===")
-var.set("id1", crypto.uuid())
-var.set("id2", crypto.uuid())
-sys.echo("UUID 1: ${var.get("id1")}")
-sys.echo("UUID 2: ${var.get("id2")}")
+@id1 = crypto.uuid()
+@id2 = crypto.uuid()
+sys.echo("UUID 1: ${@id1}")
+sys.echo("UUID 2: ${@id2}")
 
 # Encrypt and decrypt
 sys.echo("")
 sys.echo("=== Encrypt/Decrypt ===")
-var.set("secret", "my secret message")
-var.set("key", "encryption_key_123")
-sys.echo("Original: ${var.get("secret")}")
+@secret = "my secret message"
+@key = "encryption_key_123"
+sys.echo("Original: ${@secret}")
 
-var.set("encrypted", crypto.encrypt(var.get("key"), var.get("secret")))
-sys.echo("Encrypted: ${var.get("encrypted")}")
+@encrypted = crypto.encrypt(@key, @secret)
+sys.echo("Encrypted: ${@encrypted}")
 
-var.set("decrypted", crypto.decrypt(var.get("key"), var.get("encrypted")))
-sys.echo("Decrypted: ${var.get("decrypted")}")
+@decrypted = crypto.decrypt(@key, @encrypted)
+sys.echo("Decrypted: ${@decrypted}")
 
 try {
-    assert_eq(var.get("secret"), var.get("decrypted"))
+    assert_eq(@secret, @decrypted)
     sys.echo("Roundtrip: SUCCESS")
 } fallback {
     sys.echo("Roundtrip: FAILED")

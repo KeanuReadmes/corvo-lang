@@ -177,6 +177,60 @@ pub fn call_list_method(name: &str, args: &[Value]) -> CorvoResult<Value> {
             Ok(Value::String(parts.join(delimiter)))
         }
         "new" => Ok(Value::List(Vec::new())),
+        "delete" => {
+            let index = args.get(1).and_then(|v| v.as_number()).ok_or_else(|| {
+                CorvoError::runtime("list.delete requires an index argument".to_string())
+            })? as usize;
+            if index >= target.len() {
+                return Err(CorvoError::runtime("Index out of bounds".to_string()));
+            }
+            let mut new_list = target.clone();
+            new_list.remove(index);
+            Ok(Value::List(new_list))
+        }
+        "sort" => {
+            let mut new_list = target.clone();
+            new_list.sort_by_key(|a| a.to_string());
+            Ok(Value::List(new_list))
+        }
+        "find" => {
+            let item = args.get(1).cloned().unwrap_or(Value::Null);
+            let index = target.iter().position(|v| v == &item);
+            Ok(index
+                .map(|i| Value::Number(i as f64))
+                .unwrap_or(Value::Number(-1.0)))
+        }
+        "slice" => {
+            let start = args.get(1).and_then(|v| v.as_number()).unwrap_or(0.0) as usize;
+            let end = args
+                .get(2)
+                .and_then(|v| v.as_number())
+                .map(|n| n as usize)
+                .unwrap_or(target.len());
+            let end = end.min(target.len());
+            let start = start.min(end);
+            Ok(Value::List(target[start..end].to_vec()))
+        }
+        "unique" => {
+            let mut seen = std::collections::HashSet::new();
+            let new_list: Vec<Value> = target
+                .iter()
+                .filter(|v| seen.insert(v.to_string()))
+                .cloned()
+                .collect();
+            Ok(Value::List(new_list))
+        }
+        "flatten" => {
+            let mut new_list = Vec::new();
+            for item in &target {
+                if let Value::List(inner) = item {
+                    new_list.extend(inner.iter().cloned());
+                } else {
+                    new_list.push(item.clone());
+                }
+            }
+            Ok(Value::List(new_list))
+        }
         _ => Err(CorvoError::unknown_function(format!("list.{}", method))),
     }
 }
@@ -226,7 +280,7 @@ pub fn call_map_method(name: &str, args: &[Value]) -> CorvoResult<Value> {
             new_map.insert(key, value);
             Ok(Value::Map(new_map))
         }
-        "remove" => {
+        "remove" | "delete" => {
             let key = args
                 .get(1)
                 .and_then(|v| v.as_string())
@@ -246,8 +300,56 @@ pub fn call_map_method(name: &str, args: &[Value]) -> CorvoResult<Value> {
             new_map.extend(other);
             Ok(Value::Map(new_map))
         }
+        "has" => {
+            let key = args
+                .get(1)
+                .and_then(|v| v.as_string())
+                .map(|s| s.as_str())
+                .unwrap_or("");
+            Ok(Value::Boolean(target.contains_key(key)))
+        }
+        "entries" => {
+            let mut entries: Vec<Value> = target
+                .iter()
+                .map(|(k, v)| {
+                    let mut entry = std::collections::HashMap::new();
+                    entry.insert("key".to_string(), Value::String(k.clone()));
+                    entry.insert("value".to_string(), v.clone());
+                    Value::Map(entry)
+                })
+                .collect();
+            entries.sort_by(|a, b| {
+                let ka = if let Value::Map(m) = a {
+                    m.get("key").map(|v| v.to_string()).unwrap_or_default()
+                } else {
+                    String::new()
+                };
+                let kb = if let Value::Map(m) = b {
+                    m.get("key").map(|v| v.to_string()).unwrap_or_default()
+                } else {
+                    String::new()
+                };
+                ka.cmp(&kb)
+            });
+            Ok(Value::List(entries))
+        }
         "new" => Ok(Value::Map(std::collections::HashMap::new())),
         _ => Err(CorvoError::unknown_function(format!("map.{}", method))),
+    }
+}
+
+pub fn call_re_method(name: &str, args: &[Value]) -> CorvoResult<Value> {
+    let method = name.strip_prefix("re.").unwrap();
+    let named = std::collections::HashMap::new();
+    match method {
+        "match" => crate::standard_lib::re::is_match(args, &named),
+        "find" => crate::standard_lib::re::find(args, &named),
+        "find_all" => crate::standard_lib::re::find_all(args, &named),
+        "replace" => crate::standard_lib::re::replace(args, &named),
+        "replace_all" => crate::standard_lib::re::replace_all(args, &named),
+        "split" => crate::standard_lib::re::split(args, &named),
+        "new" => crate::standard_lib::re::new_regex(args, &named),
+        _ => Err(CorvoError::unknown_function(format!("re.{}", method))),
     }
 }
 

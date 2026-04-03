@@ -3,20 +3,20 @@
 sys.echo("=== JSON Example ===")
 
 # Parse JSON string
-var.set("json_str", "{\"name\": \"Corvo\", \"version\": \"0.1.0\", \"features\": [\"lexer\", \"parser\", \"evaluator\"]}")
-var.set("data", json.parse(var.get("json_str")))
+@json_str = "{\"name\": \"Corvo\", \"version\": \"0.1.0\", \"features\": [\"lexer\", \"parser\", \"evaluator\"]}"
+@data = json.parse(@json_str)
 
-sys.echo("Name: ${map.get(var.get("data"), "name")}")
-sys.echo("Version: ${map.get(var.get("data"), "version")}")
+sys.echo("Name: ${map.get(@data, "name")}")
+sys.echo("Version: ${map.get(@data, "version")}")
 
 # Access nested list
-var.set("features", map.get(var.get("data"), "features"))
-sys.echo("Features: ${list.join(var.get("features"), ", ")}")
-sys.echo("Feature count: ${list.len(var.get("features"))}")
+@features = map.get(@data, "features")
+sys.echo("Features: ${list.join(@features, ", ")}")
+sys.echo("Feature count: ${list.len(@features)}")
 
 # Add data and re-serialize
-var.set("data", map.set(var.get("data"), "language", "Rust"))
-var.set("output", json.stringify(var.get("data")))
+@data = map.set(@data, "language", "Rust")
+@output = json.stringify(@data)
 sys.echo("")
 sys.echo("Re-serialized:")
-sys.echo(var.get("output"))
+sys.echo(@output)

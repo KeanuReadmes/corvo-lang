@@ -1,39 +1,39 @@
 # number_methods.corvo - All number.* type methods
 
 sys.echo("=== number.to_string ===")
-var.set("n", 42)
-var.set("as_str", number.to_string(var.get("n")))
-sys.echo("42 as string: '${var.get("as_str")}'")
-sys.echo("Type check — concat works: ${string.concat("value=", var.get("as_str"))}")
+@n = 42
+@as_str = number.to_string(@n)
+sys.echo("42 as string: '${@as_str}'")
+sys.echo("Type check — concat works: ${string.concat("value=", @as_str)}")
 
 sys.echo("")
 sys.echo("=== number.parse ===")
-var.set("parsed", number.parse(0, "3.14"))
-sys.echo("Parsed '3.14': ${var.get("parsed")}")
+@parsed = number.parse(0, "3.14")
+sys.echo("Parsed '3.14': ${@parsed}")
 
 try {
-    var.set("bad_parse", number.parse(0, "not-a-number"))
+    @bad_parse = number.parse(0, "not-a-number")
 } fallback {
     sys.echo("number.parse of 'not-a-number' raised an error (caught)")
 }
 
 sys.echo("")
 sys.echo("=== number.abs ===")
-var.set("neg", math.sub(0, 7))
-sys.echo("abs(-7): ${number.abs(var.get("neg"))}")
+@neg = math.sub(0, 7)
+sys.echo("abs(-7): ${number.abs(@neg)}")
 sys.echo("abs(7):  ${number.abs(7)}")
 
 sys.echo("")
 sys.echo("=== number.floor ===")
-var.set("neg_small", math.sub(0, 3.1))
+@neg_small = math.sub(0, 3.1)
 sys.echo("floor(3.9): ${number.floor(3.9)}")
-sys.echo("floor(-3.1): ${number.floor(var.get("neg_small"))}")
+sys.echo("floor(-3.1): ${number.floor(@neg_small)}")
 
 sys.echo("")
 sys.echo("=== number.ceil ===")
-var.set("neg_large", math.sub(0, 3.9))
+@neg_large = math.sub(0, 3.9)
 sys.echo("ceil(3.1): ${number.ceil(3.1)}")
-sys.echo("ceil(-3.9): ${number.ceil(var.get("neg_large"))}")
+sys.echo("ceil(-3.9): ${number.ceil(@neg_large)}")
 
 sys.echo("")
 sys.echo("=== number.round ===")
@@ -46,7 +46,7 @@ sys.echo("sqrt(9):  ${number.sqrt(9)}")
 sys.echo("sqrt(2):  ${number.sqrt(2)}")
 
 try {
-    var.set("bad_sqrt", number.sqrt(math.sub(0, 1)))
+    @bad_sqrt = number.sqrt(math.sub(0, 1))
 } fallback {
     sys.echo("sqrt(-1) raises an error (caught)")
 }

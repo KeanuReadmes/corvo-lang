@@ -1,58 +1,58 @@
 # string_methods.corvo - All string.* type methods
 
-var.set("s", "Hello, World!")
+@s = "Hello, World!"
 
 sys.echo("=== string.concat ===")
-var.set("joined", string.concat("Hello, ", "Corvo!"))
-sys.echo(var.get("joined"))
+@joined = string.concat("Hello, ", "Corvo!")
+sys.echo(@joined)
 
 sys.echo("")
 sys.echo("=== string.len ===")
-sys.echo("Length of '${var.get("s")}': ${string.len(var.get("s"))}")
+sys.echo("Length of '${@s}': ${string.len(@s)}")
 
 sys.echo("")
 sys.echo("=== string.to_upper ===")
-sys.echo(string.to_upper(var.get("s")))
+sys.echo(string.to_upper(@s))
 
 sys.echo("")
 sys.echo("=== string.to_lower ===")
-sys.echo(string.to_lower(var.get("s")))
+sys.echo(string.to_lower(@s))
 
 sys.echo("")
 sys.echo("=== string.trim ===")
-var.set("padded", "   spaces around   ")
-sys.echo("Before trim: '${var.get("padded")}'")
-sys.echo("After trim:  '${string.trim(var.get("padded"))}'")
+@padded = "   spaces around   "
+sys.echo("Before trim: '${@padded}'")
+sys.echo("After trim:  '${string.trim(@padded)}'")
 
 sys.echo("")
 sys.echo("=== string.replace ===")
-var.set("replaced", string.replace(var.get("s"), "World", "Corvo"))
-sys.echo(var.get("replaced"))
+@replaced = string.replace(@s, "World", "Corvo")
+sys.echo(@replaced)
 
 sys.echo("")
 sys.echo("=== string.split ===")
-var.set("csv_line", "one,two,three,four")
-var.set("parts", string.split(var.get("csv_line"), ","))
-sys.echo("Split '${var.get("csv_line")}' by ',': ${list.join(var.get("parts"), " | ")}")
+@csv_line = "one,two,three,four"
+@parts = string.split(@csv_line, ",")
+sys.echo("Split '${@csv_line}' by ',': ${list.join(@parts, " | ")}")
 
 sys.echo("")
 sys.echo("=== string.contains ===")
-sys.echo("Contains 'World': ${string.contains(var.get("s"), "World")}")
-sys.echo("Contains 'Python': ${string.contains(var.get("s"), "Python")}")
+sys.echo("Contains 'World': ${string.contains(@s, "World")}")
+sys.echo("Contains 'Python': ${string.contains(@s, "Python")}")
 
 sys.echo("")
 sys.echo("=== string.starts_with ===")
-sys.echo("Starts with 'Hello': ${string.starts_with(var.get("s"), "Hello")}")
-sys.echo("Starts with 'World': ${string.starts_with(var.get("s"), "World")}")
+sys.echo("Starts with 'Hello': ${string.starts_with(@s, "Hello")}")
+sys.echo("Starts with 'World': ${string.starts_with(@s, "World")}")
 
 sys.echo("")
 sys.echo("=== string.ends_with ===")
-sys.echo("Ends with '!': ${string.ends_with(var.get("s"), "!")}")
-sys.echo("Ends with 'Hello': ${string.ends_with(var.get("s"), "Hello")}")
+sys.echo("Ends with '!': ${string.ends_with(@s, "!")}")
+sys.echo("Ends with 'Hello': ${string.ends_with(@s, "Hello")}")
 
 sys.echo("")
 sys.echo("=== string.reverse ===")
-sys.echo("Reversed: ${string.reverse(var.get("s"))}")
+sys.echo("Reversed: ${string.reverse(@s)}")
 
 sys.echo("")
 sys.echo("=== string.is_empty ===")

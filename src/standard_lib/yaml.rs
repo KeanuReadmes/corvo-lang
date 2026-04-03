@@ -87,5 +87,8 @@ fn value_to_yaml_value(value: &Value) -> CorvoResult<serde_yaml::Value> {
             }
             Ok(serde_yaml::Value::Mapping(result))
         }
+        Value::Regex(pattern, flags) => {
+            Ok(serde_yaml::Value::String(format!("/{}/{}", pattern, flags)))
+        }
     }
 }

@@ -4,29 +4,29 @@
 
 sys.echo("=== llm.model ===")
 # Returns a "provider:model" identifier string
-var.set("model_id", llm.model("gpt-4o", "openai"))
-sys.echo("Model ID: ${var.get("model_id")}")
+@model_id = llm.model("gpt-4o", "openai")
+sys.echo("Model ID: ${@model_id}")
 
-var.set("local_model", llm.model("llama3", "ollama"))
-sys.echo("Local model: ${var.get("local_model")}")
+@local_model = llm.model("llama3", "ollama")
+sys.echo("Local model: ${@local_model}")
 
 sys.echo("")
 sys.echo("=== llm.prompt ===")
 # Sends a prompt to a model and returns the text response
-var.set("response", llm.prompt(var.get("model_id"), "What is the capital of France?"))
-sys.echo("Response: ${var.get("response")}")
+@response = llm.prompt(@model_id, "What is the capital of France?")
+sys.echo("Response: ${@response}")
 
 sys.echo("")
 sys.echo("=== llm.embed ===")
 # Returns a list of numbers (embedding vector) for the given text
-var.set("embedding", llm.embed(var.get("model_id"), "Hello, world!"))
-sys.echo("Embedding dimensions: ${list.len(var.get("embedding"))}")
-sys.echo("First value: ${list.get(var.get("embedding"), 0)}")
+@embedding = llm.embed(@model_id, "Hello, world!")
+sys.echo("Embedding dimensions: ${list.len(@embedding)}")
+sys.echo("First value: ${list.get(@embedding, 0)}")
 
 sys.echo("")
 sys.echo("=== llm.chat ===")
 # Multi-turn chat: provide a session ID, model, and list of message maps
-var.set("messages", [{"role": "user", "content": "Tell me a joke."}])
-var.set("reply", llm.chat("session-1", var.get("model_id"), var.get("messages")))
-sys.echo("Role: ${map.get(var.get("reply"), "role")}")
-sys.echo("Content: ${map.get(var.get("reply"), "content")}")
+@messages = [{"role": "user", "content": "Tell me a joke."}]
+@reply = llm.chat("session-1", @model_id, @messages)
+sys.echo("Role: ${map.get(@reply, "role")}")
+sys.echo("Content: ${map.get(@reply, "content")}")

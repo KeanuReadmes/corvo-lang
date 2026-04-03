@@ -11,9 +11,9 @@ sys.echo("Language: ${@language}")
 # The key and value bindings declared in browse(expr, key, val) are accessed
 # inside the block with the @ prefix: @key, @val (same as var.get).
 
-var.set("fruits", ["apple", "banana", "cherry"])
+@fruits = ["apple", "banana", "cherry"]
 
-browse(var.get("fruits"), idx, fruit) {
+browse(@fruits, idx, fruit) {
     sys.echo("${@idx}: ${@fruit}")
 }
 # Prints:
@@ -35,9 +35,9 @@ browse(@scores, name, score) {
 
 # --- terminate to exit early ---
 
-var.set("numbers", [10, 20, 30, 40, 50])
+@numbers = [10, 20, 30, 40, 50]
 
-browse(var.get("numbers"), i, n) {
+browse(@numbers, i, n) {
     sys.echo(@n)
     try {
         assert_eq(@n, 30)
@@ -49,9 +49,9 @@ browse(var.get("numbers"), i, n) {
 # --- nested browse ---
 # Pass a browse-bound value as the iterable for an inner browse using @name.
 
-var.set("matrix", [[1, 2, 3], [4, 5, 6]])
+@matrix = [[1, 2, 3], [4, 5, 6]]
 
-browse(var.get("matrix"), row_idx, row) {
+browse(@matrix, row_idx, row) {
     browse(@row, col_idx, cell) {
         sys.echo("[${@row_idx}][${@col_idx}] = ${@cell}")
     }
@@ -62,12 +62,12 @@ browse(var.get("matrix"), row_idx, row) {
 
 # --- practical: sum all values in a map ---
 
-var.set("prices", {"apple": 1, "banana": 2, "cherry": 3})
-var.set("total", 0)
+@prices = {"apple": 1, "banana": 2, "cherry": 3}
+@total = 0
 
-browse(var.get("prices"), item, price) {
-    var.set("total", math.add(var.get("total"), @price))
+browse(@prices, item, price) {
+    @total = math.add(@total, @price)
 }
 
-sys.echo("Total: ${var.get("total")}")
+sys.echo("Total: ${@total}")
 # Total: 6

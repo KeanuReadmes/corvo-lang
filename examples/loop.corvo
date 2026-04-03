@@ -1,13 +1,13 @@
 # loop.corvo - Loop with try/fallback
 
 # Count from 1 to 5
-var.set("counter", 0)
+@counter = 0
 sys.echo("Counting from 1 to 5:")
 loop {
-    var.set("counter", math.add(var.get("counter"), 1))
-    sys.echo("  ${var.get("counter")}")
+    @counter = math.add(@counter, 1)
+    sys.echo("  ${@counter}")
     try {
-        assert_eq(var.get("counter"), 5)
+        assert_eq(@counter, 5)
         terminate
     } fallback {
     }
@@ -18,15 +18,15 @@ sys.echo("Done!")
 # Accumulator pattern
 sys.echo("")
 sys.echo("Sum of 1 to 100:")
-var.set("sum", 0)
-var.set("i", 1)
+@sum = 0
+@i = 1
 loop {
-    var.set("sum", math.add(var.get("sum"), var.get("i")))
-    var.set("i", math.add(var.get("i"), 1))
+    @sum = math.add(@sum, @i)
+    @i = math.add(@i, 1)
     try {
-        assert_eq(var.get("i"), 101)
+        assert_eq(@i, 101)
         terminate
     } fallback {
     }
 }
-sys.echo("Result: ${var.get("sum")}")
+sys.echo("Result: ${@sum}")

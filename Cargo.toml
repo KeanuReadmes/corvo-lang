@@ -42,6 +42,9 @@ base64 = "0.21"
 dns-lookup = "2.0"
 hostname = "0.4"
 structopt = "0.3"
+lettre = { version = "0.11", default-features = false, features = ["smtp-transport", "builder", "native-tls"] }
+sha1 = "0.10"
+handlebars = "6.4.0"
 
 [dependencies.rustyline]
 version = "12.0"

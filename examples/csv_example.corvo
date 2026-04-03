@@ -1,13 +1,13 @@
 # csv_example.corvo - csv.parse
 
 sys.echo("=== csv.parse ===")
-var.set("csv_data", "name,age,city\nAlice,30,Tokyo\nBob,25,London\nCarol,35,New York\n")
-var.set("rows", csv.parse(var.get("csv_data")))
-sys.echo("Parsed ${list.len(var.get("rows"))} data rows (headers are consumed automatically)")
+@csv_data = "name,age,city\nAlice,30,Tokyo\nBob,25,London\nCarol,35,New York\n"
+@rows = csv.parse(@csv_data)
+sys.echo("Parsed ${list.len(@rows)} data rows (headers are consumed automatically)")
 
-browse(var.get("rows"), idx, row) {
-    var.set("name", list.get(@row, 0))
-    var.set("age", list.get(@row, 1))
-    var.set("city", list.get(@row, 2))
-    sys.echo("Row ${@idx}: name=${var.get("name")}, age=${var.get("age")}, city=${var.get("city")}")
+browse(@rows, idx, row) {
+    @name = list.get(@row, 0)
+    @age = list.get(@row, 1)
+    @city = list.get(@row, 2)
+    sys.echo("Row ${@idx}: name=${@name}, age=${@age}, city=${@city}")
 }

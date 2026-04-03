@@ -15,36 +15,36 @@ prep {
     static.set("API_BASE",    os.get_env("API_BASE",    "https://api.example.com"))
 
     # 2. Load local JSON config file (with inline default fallback)
-    var.set("config_raw", "{}")
+    @config_raw = "{}"
     try {
-        var.set("config_raw", fs.read("config.json"))
+        @config_raw = fs.read("config.json")
     } fallback {
-        var.set("config_raw", "{\"timeout\": 30, \"max_connections\": 10, \"retry_delay\": 5}")
+        @config_raw = "{\"timeout\": 30, \"max_connections\": 10, \"retry_delay\": 5}"
     }
-    var.set("cfg", json.parse(var.get("config_raw")))
-    static.set("TIMEOUT",         map.get(var.get("cfg"), "timeout",         30))
-    static.set("MAX_CONNECTIONS", map.get(var.get("cfg"), "max_connections", 10))
-    static.set("RETRY_DELAY",     map.get(var.get("cfg"), "retry_delay",     5))
+    @cfg = json.parse(@config_raw)
+    static.set("TIMEOUT",         map.get(@cfg, "timeout",         30))
+    static.set("MAX_CONNECTIONS", map.get(@cfg, "max_connections", 10))
+    static.set("RETRY_DELAY",     map.get(@cfg, "retry_delay",     5))
 
     # 3. Fetch remote feature flags — graceful offline fallback
-    var.set("flags", {"dark_mode": false, "new_dashboard": false, "beta_api": false})
+    @flags = {"dark_mode": false, "new_dashboard": false, "beta_api": false}
     try {
-        var.set("ff_res", http.get(string.concat(os.get_env("API_BASE", "https://api.example.com"), "/feature-flags")))
+        @ff_res = http.get(string.concat(os.get_env("API_BASE", "https://api.example.com"), "/feature-flags"))
         try {
-            assert_eq(map.get(var.get("ff_res"), "status_code"), 200)
-            var.set("flags", json.parse(map.get(var.get("ff_res"), "response_body")))
+            assert_eq(map.get(@ff_res, "status_code"), 200)
+            @flags = json.parse(map.get(@ff_res, "response_body"))
         } fallback {}
     } fallback {}
-    static.set("FEATURE_FLAGS", var.get("flags"))
+    static.set("FEATURE_FLAGS", @flags)
 
     # 4. Compute a build stamp from OS info
-    var.set("info", os.info())
-    var.set("stamp", string.concat(
+    @info = os.info()
+    @stamp = string.concat(
         os.get_env("APP_VERSION", "1.0.0"),
-        string.concat("-", map.get(var.get("info"), "os"))
-    ))
-    var.set("stamp", string.concat(var.get("stamp"), string.concat("-", map.get(var.get("info"), "arch"))))
-    static.set("BUILD_STAMP", var.get("stamp"))
+        string.concat("-", map.get(@info, "os"))
+    )
+    @stamp = string.concat(@stamp, string.concat("-", map.get(@info, "arch")))
+    static.set("BUILD_STAMP", @stamp)
 }
 
 # Runtime code uses the baked-in constants
@@ -62,24 +62,24 @@ sys.echo("Retry delay     : ${static.get("RETRY_DELAY")}s")
 
 sys.echo("")
 sys.echo("=== Feature Flags (fetched in prep, baked in) ===")
-var.set("flags", static.get("FEATURE_FLAGS"))
-sys.echo("dark_mode      : ${map.get(var.get("flags"), "dark_mode",      false)}")
-sys.echo("new_dashboard  : ${map.get(var.get("flags"), "new_dashboard",  false)}")
-sys.echo("beta_api       : ${map.get(var.get("flags"), "beta_api",       false)}")
+@flags = static.get("FEATURE_FLAGS")
+sys.echo("dark_mode      : ${map.get(@flags, "dark_mode",      false)}")
+sys.echo("new_dashboard  : ${map.get(@flags, "new_dashboard",  false)}")
+sys.echo("beta_api       : ${map.get(@flags, "beta_api",       false)}")
 
 # Feature-flag-driven behaviour
 
 sys.echo("")
 sys.echo("=== Applying Feature Flags ===")
 try {
-    assert_eq(map.get(var.get("flags"), "dark_mode", false), true)
+    assert_eq(map.get(@flags, "dark_mode", false), true)
     sys.echo("UI: dark mode enabled")
 } fallback {
     sys.echo("UI: light mode (default)")
 }
 
 try {
-    assert_eq(map.get(var.get("flags"), "beta_api", false), true)
+    assert_eq(map.get(@flags, "beta_api", false), true)
     sys.echo("API: using beta endpoints")
 } fallback {
     sys.echo("API: using stable endpoints")
@@ -89,31 +89,31 @@ try {
 
 sys.echo("")
 sys.echo("=== Simulated Connection Retry (delay: ${static.get("RETRY_DELAY")}s) ===")
-var.set("max_retries", 3)
-var.set("attempt", 0)
-var.set("connected", false)
+@max_retries = 3
+@attempt = 0
+@connected = false
 
 loop {
-    var.set("attempt", math.add(var.get("attempt"), 1))
-    sys.echo("Attempt ${var.get("attempt")}/${var.get("max_retries")}: connecting...")
+    @attempt = math.add(@attempt, 1)
+    sys.echo("Attempt ${@attempt}/${@max_retries}: connecting...")
 
     try {
-        assert_eq(var.get("attempt"), 3)
-        var.set("connected", true)
+        assert_eq(@attempt, 3)
+        @connected = true
         sys.echo("Connected!")
         terminate
     } fallback {}
 
     try {
-        assert_eq(var.get("attempt"), var.get("max_retries"))
+        assert_eq(@attempt, @max_retries)
         sys.echo("All retries exhausted.")
         terminate
     } fallback {}
 }
 
 try {
-    assert_eq(var.get("connected"), true)
+    assert_eq(@connected, true)
     sys.echo("Session established successfully.")
 } fallback {
-    sys.echo("Failed to connect after ${var.get("max_retries")} attempts.")
+    sys.echo("Failed to connect after ${@max_retries} attempts.")
 }

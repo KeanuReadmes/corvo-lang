@@ -1,81 +1,81 @@
 # fs_example.corvo - All fs.* (file system) functions
 
-var.set("tmp", "/tmp/corvo_fs_demo")
+@tmp = "/tmp/corvo_fs_demo"
 
 # fs.mkdir - create a directory (try/fallback handles the case where it already exists)
 sys.echo("=== fs.mkdir ===")
 try {
-    fs.mkdir(var.get("tmp"))
+    fs.mkdir(@tmp)
 } fallback {}
-sys.echo("Directory ready: ${var.get("tmp")}")
+sys.echo("Directory ready: ${@tmp}")
 
 # fs.exists - check whether a path exists
 sys.echo("")
 sys.echo("=== fs.exists ===")
-sys.echo("Directory exists: ${fs.exists(var.get("tmp"))}")
+sys.echo("Directory exists: ${fs.exists(@tmp)}")
 sys.echo("Nonexistent exists: ${fs.exists("/tmp/no_such_path_xyz")}")
 
 # fs.write - write content to a file (creates or overwrites)
 sys.echo("")
 sys.echo("=== fs.write ===")
-var.set("file", string.concat(var.get("tmp"), "/hello.txt"))
-fs.write(var.get("file"), "Hello, Corvo!\n")
-sys.echo("Wrote to: ${var.get("file")}")
+@file = string.concat(@tmp, "/hello.txt")
+fs.write(@file, "Hello, Corvo!\n")
+sys.echo("Wrote to: ${@file}")
 
 # fs.read - read file contents as a string
 sys.echo("")
 sys.echo("=== fs.read ===")
-var.set("contents", fs.read(var.get("file")))
-sys.echo("Read: ${var.get("contents")}")
+@contents = fs.read(@file)
+sys.echo("Read: ${@contents}")
 
 # fs.append - append content to a file
 sys.echo("")
 sys.echo("=== fs.append ===")
-fs.append(var.get("file"), "Second line\n")
-var.set("contents2", fs.read(var.get("file")))
+fs.append(@file, "Second line\n")
+@contents2 = fs.read(@file)
 sys.echo("After append:")
-sys.echo(var.get("contents2"))
+sys.echo(@contents2)
 
 # fs.stat - get metadata about a file or directory
 sys.echo("")
 sys.echo("=== fs.stat ===")
-var.set("info", fs.stat(var.get("file")))
-sys.echo("is_dir: ${map.get(var.get("info"), "is_dir")}")
-sys.echo("size (bytes): ${map.get(var.get("info"), "size")}")
-sys.echo("permissions: ${map.get(var.get("info"), "permissions")}")
-sys.echo("modified_at: ${map.get(var.get("info"), "modified_at")}")
+@info = fs.stat(@file)
+sys.echo("is_dir: ${map.get(@info, "is_dir")}")
+sys.echo("size (bytes): ${map.get(@info, "size")}")
+sys.echo("permissions: ${map.get(@info, "permissions")}")
+sys.echo("modified_at: ${map.get(@info, "modified_at")}")
 
 # fs.copy - copy a file to a new path
 sys.echo("")
 sys.echo("=== fs.copy ===")
-var.set("copy_path", string.concat(var.get("tmp"), "/hello_copy.txt"))
-fs.copy(var.get("file"), var.get("copy_path"))
-sys.echo("Copied to: ${var.get("copy_path")}")
-sys.echo("Copy exists: ${fs.exists(var.get("copy_path"))}")
+@copy_path = string.concat(@tmp, "/hello_copy.txt")
+fs.copy(@file, @copy_path)
+sys.echo("Copied to: ${@copy_path}")
+sys.echo("Copy exists: ${fs.exists(@copy_path)}")
 
 # fs.move - move (rename) a file
 sys.echo("")
 sys.echo("=== fs.move ===")
-var.set("moved_path", string.concat(var.get("tmp"), "/hello_moved.txt"))
-fs.move(var.get("copy_path"), var.get("moved_path"))
-sys.echo("Moved to: ${var.get("moved_path")}")
-sys.echo("Original gone: ${fs.exists(var.get("copy_path"))}")
-sys.echo("Moved exists: ${fs.exists(var.get("moved_path"))}")
+@moved_path = string.concat(@tmp, "/hello_moved.txt")
+fs.move(@copy_path, @moved_path)
+sys.echo("Moved to: ${@moved_path}")
+sys.echo("Original gone: ${fs.exists(@copy_path)}")
+sys.echo("Moved exists: ${fs.exists(@moved_path)}")
 
 # fs.list_dir - list entries in a directory
 sys.echo("")
 sys.echo("=== fs.list_dir ===")
-var.set("entries", fs.list_dir(var.get("tmp")))
+@entries = fs.list_dir(@tmp)
 sys.echo("Directory entries:")
-browse(var.get("entries"), idx, entry) {
+browse(@entries, idx, entry) {
     sys.echo("  ${@entry}")
 }
 
 # fs.delete - delete a file or directory
 sys.echo("")
 sys.echo("=== fs.delete ===")
-fs.delete(var.get("file"))
-sys.echo("Deleted file. Still exists: ${fs.exists(var.get("file"))}")
-fs.delete(var.get("moved_path"))
-fs.delete(var.get("tmp"))
-sys.echo("Deleted directory. Still exists: ${fs.exists(var.get("tmp"))}")
+fs.delete(@file)
+sys.echo("Deleted file. Still exists: ${fs.exists(@file)}")
+fs.delete(@moved_path)
+fs.delete(@tmp)
+sys.echo("Deleted directory. Still exists: ${fs.exists(@tmp)}")

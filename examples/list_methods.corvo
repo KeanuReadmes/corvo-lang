@@ -1,51 +1,87 @@
 # list_methods.corvo - All list.* type methods
 
-var.set("fruits", ["apple", "banana", "cherry"])
+@fruits = ["apple", "banana", "cherry"]
 
 sys.echo("=== list.len ===")
-sys.echo("Length: ${list.len(var.get("fruits"))}")
+sys.echo("Length: ${list.len(@fruits)}")
 
 sys.echo("")
 sys.echo("=== list.get ===")
-sys.echo("Index 0: ${list.get(var.get("fruits"), 0)}")
-sys.echo("Index 2: ${list.get(var.get("fruits"), 2)}")
+sys.echo("Index 0: ${list.get(@fruits, 0)}")
+sys.echo("Index 2: ${list.get(@fruits, 2)}")
 
 sys.echo("")
 sys.echo("=== list.first / list.last ===")
-sys.echo("First: ${list.first(var.get("fruits"))}")
-sys.echo("Last:  ${list.last(var.get("fruits"))}")
+sys.echo("First: ${list.first(@fruits)}")
+sys.echo("Last:  ${list.last(@fruits)}")
 
 sys.echo("")
 sys.echo("=== list.push ===")
-var.set("fruits", list.push(var.get("fruits"), "date"))
-sys.echo("After push: ${list.join(var.get("fruits"), ", ")}")
+@fruits = list.push(@fruits, "date")
+sys.echo("After push: ${list.join(@fruits, ", ")}")
 
 sys.echo("")
 sys.echo("=== list.pop ===")
-var.set("fruits", list.pop(var.get("fruits")))
-sys.echo("After pop: ${list.join(var.get("fruits"), ", ")}")
+@fruits = list.pop(@fruits)
+sys.echo("After pop: ${list.join(@fruits, ", ")}")
 
 sys.echo("")
 sys.echo("=== list.set ===")
-var.set("fruits", list.set(var.get("fruits"), 1, "blueberry"))
-sys.echo("After set index 1 to 'blueberry': ${list.join(var.get("fruits"), ", ")}")
+@fruits = list.set(@fruits, 1, "blueberry")
+sys.echo("After set index 1 to 'blueberry': ${list.join(@fruits, ", ")}")
+
+sys.echo("")
+sys.echo("=== @var[idx] = val (index shorthand) ===")
+@fruits[0] = "avocado"
+sys.echo("fruits[0] after shorthand set: ${@fruits[0]}")
+
+sys.echo("")
+sys.echo("=== list.delete ===")
+@fruits = list.delete(@fruits, 0)
+sys.echo("After delete index 0: ${list.join(@fruits, ", ")}")
 
 sys.echo("")
 sys.echo("=== list.contains ===")
-sys.echo("Contains 'apple': ${list.contains(var.get("fruits"), "apple")}")
-sys.echo("Contains 'mango': ${list.contains(var.get("fruits"), "mango")}")
+sys.echo("Contains 'blueberry': ${list.contains(@fruits, "blueberry")}")
+sys.echo("Contains 'mango': ${list.contains(@fruits, "mango")}")
+
+sys.echo("")
+sys.echo("=== list.find ===")
+sys.echo("Index of 'blueberry': ${list.find(@fruits, "blueberry")}")
+sys.echo("Index of 'mango' (not found): ${list.find(@fruits, "mango")}")
 
 sys.echo("")
 sys.echo("=== list.is_empty ===")
-sys.echo("Is fruits empty: ${list.is_empty(var.get("fruits"))}")
+sys.echo("Is fruits empty: ${list.is_empty(@fruits)}")
 sys.echo("Is [] empty: ${list.is_empty([])}")
 
 sys.echo("")
+sys.echo("=== list.sort ===")
+@sorted = list.sort(@fruits)
+sys.echo("Sorted: ${list.join(@sorted, ", ")}")
+
+sys.echo("")
 sys.echo("=== list.reverse ===")
-var.set("reversed", list.reverse(var.get("fruits")))
-sys.echo("Reversed: ${list.join(var.get("reversed"), ", ")}")
+@reversed = list.reverse(@fruits)
+sys.echo("Reversed: ${list.join(@reversed, ", ")}")
+
+sys.echo("")
+sys.echo("=== list.slice ===")
+@nums = [1, 2, 3, 4, 5]
+@sliced = list.slice(@nums, 1, 4)
+sys.echo("Slice [1..4]: ${list.join(@sliced, ", ")}")
+
+sys.echo("")
+sys.echo("=== list.unique ===")
+@dupes = ["a", "b", "a", "c", "b"]
+sys.echo("Unique: ${list.join(list.unique(@dupes), ", ")}")
+
+sys.echo("")
+sys.echo("=== list.flatten ===")
+@nested = [[1, 2], [3, 4], [5]]
+sys.echo("Flattened: ${list.join(list.flatten(@nested), ", ")}")
 
 sys.echo("")
 sys.echo("=== list.join ===")
-var.set("nums", [1, 2, 3, 4, 5])
-sys.echo("Joined with '-': ${list.join(var.get("nums"), "-")}")
+@nums = [1, 2, 3, 4, 5]
+sys.echo("Joined with '-': ${list.join(@nums, "-")}")

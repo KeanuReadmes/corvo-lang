@@ -18,6 +18,11 @@ pub enum Stmt {
         name: String,
         value: Expr,
     },
+    VarIndexSet {
+        name: String,
+        index: Expr,
+        value: Expr,
+    },
     ExprStmt {
         expr: Expr,
     },

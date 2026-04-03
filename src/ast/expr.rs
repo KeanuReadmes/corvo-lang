@@ -2,6 +2,19 @@ use crate::span::Span;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum MatchPattern {
+    Literal(crate::type_system::Value),
+    Regex(String, String), // pattern, flags
+    Wildcard,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MatchArm {
+    pub pattern: MatchPattern,
+    pub body: Box<Expr>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     Literal {
         value: crate::type_system::Value,
@@ -23,6 +36,21 @@ pub enum Expr {
     IndexAccess {
         target: Box<Expr>,
         index: Box<Expr>,
+    },
+    SliceAccess {
+        target: Box<Expr>,
+        start: Option<Box<Expr>>,
+        end: Option<Box<Expr>>,
+    },
+    Match {
+        value: Box<Expr>,
+        arms: Vec<MatchArm>,
+    },
+    MethodCall {
+        target: Box<Expr>,
+        method: String,
+        args: Vec<Expr>,
+        named_args: HashMap<String, Expr>,
     },
 }
 

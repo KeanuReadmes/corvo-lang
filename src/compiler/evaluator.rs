@@ -1,4 +1,4 @@
-use crate::ast::{AssertKind, Expr, Program, Stmt};
+use crate::ast::{AssertKind, Expr, MatchPattern, Program, Stmt};
 use crate::runtime::RuntimeState;
 use crate::standard_lib;
 use crate::type_system::Value;
@@ -74,6 +74,37 @@ impl Evaluator {
             Stmt::VarSet { name, value } => {
                 let val = self.eval_expr(value, state)?;
                 state.var_set(name.clone(), val);
+                Ok(())
+            }
+            Stmt::VarIndexSet { name, index, value } => {
+                let current = state.var_get(name)?;
+                let index_val = self.eval_expr(index, state)?;
+                let new_val = self.eval_expr(value, state)?;
+                let updated = match (&current, &index_val) {
+                    (Value::Map(map), Value::String(key)) => {
+                        let mut new_map = map.clone();
+                        new_map.insert(key.clone(), new_val);
+                        Value::Map(new_map)
+                    }
+                    (Value::List(list), Value::Number(idx)) => {
+                        let idx = *idx as usize;
+                        if idx >= list.len() {
+                            return Err(CorvoError::runtime(format!(
+                                "Index {} out of bounds",
+                                idx
+                            )));
+                        }
+                        let mut new_list = list.clone();
+                        new_list[idx] = new_val;
+                        Value::List(new_list)
+                    }
+                    _ => {
+                        return Err(CorvoError::r#type(
+                            "Index assignment requires a map with a string key or a list with a number index",
+                        ))
+                    }
+                };
+                state.var_set(name.clone(), updated);
                 Ok(())
             }
             Stmt::ExprStmt { expr } => {
@@ -187,6 +218,77 @@ impl Evaluator {
                 let index_val = self.eval_expr(index, state)?;
                 self.index_access(&target_val, &index_val)
             }
+            Expr::SliceAccess { target, start, end } => {
+                let target_val = self.eval_expr(target, state)?;
+                let start_val = match start {
+                    Some(s) => Some(self.eval_expr(s, state)?),
+                    None => None,
+                };
+                let end_val = match end {
+                    Some(e) => Some(self.eval_expr(e, state)?),
+                    None => None,
+                };
+                self.slice_access(&target_val, start_val.as_ref(), end_val.as_ref())
+            }
+            Expr::Match { value, arms } => {
+                let matched = self.eval_expr(value, state)?;
+                for arm in arms {
+                    let is_match = match &arm.pattern {
+                        MatchPattern::Literal(lit) => matched == *lit,
+                        MatchPattern::Regex(pattern, flags) => {
+                            if let Value::String(text) = &matched {
+                                crate::standard_lib::re::build_regex(pattern, flags)
+                                    .map(|re| re.is_match(text))
+                                    .unwrap_or(false)
+                            } else {
+                                false
+                            }
+                        }
+                        MatchPattern::Wildcard => true,
+                    };
+                    if is_match {
+                        return self.eval_expr(&arm.body, state);
+                    }
+                }
+                Err(CorvoError::runtime(format!(
+                    "No match arm matched the value: {}",
+                    matched
+                )))
+            }
+            Expr::MethodCall {
+                target,
+                method,
+                args,
+                named_args,
+            } => {
+                let target_val = self.eval_expr(target, state)?;
+                let ns = match &target_val {
+                    Value::Regex(_, _) => "re",
+                    Value::String(_) => "string",
+                    Value::Number(_) => "number",
+                    Value::List(_) => "list",
+                    Value::Map(_) => "map",
+                    other => {
+                        return Err(CorvoError::r#type(format!(
+                            "Cannot call method '{}' on type {}",
+                            method,
+                            other.r#type()
+                        )))
+                    }
+                };
+                let func_name = format!("{}.{}", ns, method);
+                let evaluated_args: Vec<Value> = args
+                    .iter()
+                    .map(|arg| self.eval_expr(arg, state))
+                    .collect::<CorvoResult<Vec<_>>>()?;
+                let evaluated_named: std::collections::HashMap<String, Value> = named_args
+                    .iter()
+                    .map(|(k, v)| Ok((k.clone(), self.eval_expr(v, state)?)))
+                    .collect::<CorvoResult<_>>()?;
+                let mut all_args = vec![target_val];
+                all_args.extend(evaluated_args);
+                standard_lib::call(&func_name, &all_args, &evaluated_named, state)
+            }
         }
     }
 
@@ -239,6 +341,57 @@ impl Evaluator {
                 .cloned()
                 .ok_or_else(|| CorvoError::runtime(format!("Key '{}' not found", key))),
             _ => Err(CorvoError::r#type("Cannot index into this type")),
+        }
+    }
+
+    fn resolve_slice_index(index: f64, length: usize) -> usize {
+        if index < 0.0 {
+            let offset = (-index) as usize;
+            length.saturating_sub(offset)
+        } else {
+            (index as usize).min(length)
+        }
+    }
+
+    fn slice_access(
+        &self,
+        target: &Value,
+        start: Option<&Value>,
+        end: Option<&Value>,
+    ) -> CorvoResult<Value> {
+        match target {
+            Value::List(list) => {
+                let len = list.len();
+                let start_idx = match start {
+                    Some(Value::Number(n)) => Self::resolve_slice_index(*n, len),
+                    None => 0,
+                    _ => return Err(CorvoError::r#type("List slice index must be a number")),
+                };
+                let end_idx = match end {
+                    Some(Value::Number(n)) => Self::resolve_slice_index(*n, len),
+                    None => len,
+                    _ => return Err(CorvoError::r#type("List slice index must be a number")),
+                };
+                let start_idx = start_idx.min(end_idx);
+                Ok(Value::List(list[start_idx..end_idx].to_vec()))
+            }
+            Value::String(s) => {
+                let chars: Vec<char> = s.chars().collect();
+                let len = chars.len();
+                let start_idx = match start {
+                    Some(Value::Number(n)) => Self::resolve_slice_index(*n, len),
+                    None => 0,
+                    _ => return Err(CorvoError::r#type("String slice index must be a number")),
+                };
+                let end_idx = match end {
+                    Some(Value::Number(n)) => Self::resolve_slice_index(*n, len),
+                    None => len,
+                    _ => return Err(CorvoError::r#type("String slice index must be a number")),
+                };
+                let start_idx = start_idx.min(end_idx);
+                Ok(Value::String(chars[start_idx..end_idx].iter().collect()))
+            }
+            _ => Err(CorvoError::r#type("Cannot slice this type")),
         }
     }
 

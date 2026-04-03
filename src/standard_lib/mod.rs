@@ -8,8 +8,11 @@ pub mod http;
 pub mod json;
 pub mod llm;
 pub mod math;
+pub mod notifications;
 pub mod os;
+pub mod re;
 pub mod sys;
+pub mod template;
 pub mod xml;
 pub mod yaml;
 
@@ -83,10 +86,25 @@ pub fn call(
 
         "env.parse" => env::parse_value(args, named_args),
 
+        "template.render" => template::render(args, named_args),
+        "template.render_file" => template::render_file(args, named_args),
+
         "llm.model" => llm::model(args, named_args),
         "llm.prompt" => llm::prompt(args, named_args),
         "llm.embed" => llm::embed(args, named_args),
         "llm.chat" => llm::chat(args, named_args),
+
+        "notifications.smtp" => notifications::smtp(args, named_args),
+        "notifications.slack" => notifications::slack(args, named_args),
+        "notifications.telegram" => notifications::telegram(args, named_args),
+        "notifications.mattermost" => notifications::mattermost(args, named_args),
+        "notifications.gitter" => notifications::gitter(args, named_args),
+        "notifications.messenger" => notifications::messenger(args, named_args),
+        "notifications.discord" => notifications::discord(args, named_args),
+        "notifications.teams" => notifications::teams(args, named_args),
+        "notifications.x" => notifications::x(args, named_args),
+        "notifications.os" => notifications::os_notify(args, named_args),
+        "notifications.irc" => notifications::irc(args, named_args),
 
         // Type methods
         s if s.starts_with("string.") => {
@@ -97,6 +115,7 @@ pub fn call(
         }
         s if s.starts_with("list.") => crate::type_system::type_methods::call_list_method(s, args),
         s if s.starts_with("map.") => crate::type_system::type_methods::call_map_method(s, args),
+        s if s.starts_with("re.") => crate::type_system::type_methods::call_re_method(s, args),
 
         _ => Err(CorvoError::unknown_function(name)),
     }

@@ -340,6 +340,278 @@ fn test_map_literal_and_methods() {
     );
 }
 
+// --- Index-based shorthand assignment (@var["key"] = val, @var[idx] = val) ---
+
+#[test]
+fn test_at_map_index_set() {
+    let state = run_with_state(
+        r#"
+        var.set("person", {"name": "Alice", "city": "London"})
+        @person["city"] = "Tokyo"
+        var.set("city", @person["city"])
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("city").unwrap(),
+        corvo_lang::type_system::Value::String("Tokyo".to_string())
+    );
+}
+
+#[test]
+fn test_at_map_index_set_new_key() {
+    let state = run_with_state(
+        r#"
+        var.set("config", {"host": "localhost"})
+        @config["port"] = 8080
+        var.set("port", @config["port"])
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("port").unwrap(),
+        corvo_lang::type_system::Value::Number(8080.0)
+    );
+}
+
+#[test]
+fn test_at_list_index_set() {
+    let state = run_with_state(
+        r#"
+        var.set("nums", [10, 20, 30])
+        @nums[1] = 99
+        var.set("second", @nums[1])
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("second").unwrap(),
+        corvo_lang::type_system::Value::Number(99.0)
+    );
+}
+
+#[test]
+fn test_at_list_index_set_out_of_bounds() {
+    let result = run_with_state(
+        r#"
+        var.set("items", [1, 2, 3])
+        @items[10] = 99
+        "#,
+    );
+    assert!(result.is_err());
+    assert!(format!("{}", result.unwrap_err()).contains("out of bounds"));
+}
+
+#[test]
+fn test_at_index_read() {
+    let state = run_with_state(
+        r#"
+        var.set("data", {"x": 42})
+        var.set("val", @data["x"])
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("val").unwrap(),
+        corvo_lang::type_system::Value::Number(42.0)
+    );
+}
+
+// --- New list methods ---
+
+#[test]
+fn test_list_delete() {
+    let state = run_with_state(
+        r#"
+        var.set("items", ["a", "b", "c"])
+        var.set("items", list.delete(var.get("items"), 1))
+        var.set("count", list.len(var.get("items")))
+        var.set("first", list.get(var.get("items"), 0))
+        var.set("second", list.get(var.get("items"), 1))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("count").unwrap(),
+        corvo_lang::type_system::Value::Number(2.0)
+    );
+    assert_eq!(
+        state.var_get("first").unwrap(),
+        corvo_lang::type_system::Value::String("a".to_string())
+    );
+    assert_eq!(
+        state.var_get("second").unwrap(),
+        corvo_lang::type_system::Value::String("c".to_string())
+    );
+}
+
+#[test]
+fn test_list_sort() {
+    let state = run_with_state(
+        r#"
+        var.set("items", ["banana", "apple", "cherry"])
+        var.set("sorted", list.sort(var.get("items")))
+        var.set("first", list.get(var.get("sorted"), 0))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("first").unwrap(),
+        corvo_lang::type_system::Value::String("apple".to_string())
+    );
+}
+
+#[test]
+fn test_list_find() {
+    let state = run_with_state(
+        r#"
+        var.set("items", ["a", "b", "c"])
+        var.set("idx", list.find(var.get("items"), "b"))
+        var.set("missing", list.find(var.get("items"), "z"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("idx").unwrap(),
+        corvo_lang::type_system::Value::Number(1.0)
+    );
+    assert_eq!(
+        state.var_get("missing").unwrap(),
+        corvo_lang::type_system::Value::Number(-1.0)
+    );
+}
+
+#[test]
+fn test_list_slice() {
+    let state = run_with_state(
+        r#"
+        var.set("items", [1, 2, 3, 4, 5])
+        var.set("sliced", list.slice(var.get("items"), 1, 4))
+        var.set("count", list.len(var.get("sliced")))
+        var.set("first", list.get(var.get("sliced"), 0))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("count").unwrap(),
+        corvo_lang::type_system::Value::Number(3.0)
+    );
+    assert_eq!(
+        state.var_get("first").unwrap(),
+        corvo_lang::type_system::Value::Number(2.0)
+    );
+}
+
+#[test]
+fn test_list_unique() {
+    let state = run_with_state(
+        r#"
+        var.set("items", ["a", "b", "a", "c", "b"])
+        var.set("unique", list.unique(var.get("items")))
+        var.set("count", list.len(var.get("unique")))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("count").unwrap(),
+        corvo_lang::type_system::Value::Number(3.0)
+    );
+}
+
+#[test]
+fn test_list_flatten() {
+    let state = run_with_state(
+        r#"
+        var.set("nested", [[1, 2], [3, 4], [5]])
+        var.set("flat", list.flatten(var.get("nested")))
+        var.set("count", list.len(var.get("flat")))
+        var.set("first", list.get(var.get("flat"), 0))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("count").unwrap(),
+        corvo_lang::type_system::Value::Number(5.0)
+    );
+    assert_eq!(
+        state.var_get("first").unwrap(),
+        corvo_lang::type_system::Value::Number(1.0)
+    );
+}
+
+// --- New map methods ---
+
+#[test]
+fn test_map_delete() {
+    let state = run_with_state(
+        r#"
+        var.set("person", {"name": "Alice", "age": 30, "city": "Tokyo"})
+        var.set("person", map.delete(var.get("person"), "age"))
+        var.set("has_age", map.has_key(var.get("person"), "age"))
+        var.set("count", map.len(var.get("person")))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("has_age").unwrap(),
+        corvo_lang::type_system::Value::Boolean(false)
+    );
+    assert_eq!(
+        state.var_get("count").unwrap(),
+        corvo_lang::type_system::Value::Number(2.0)
+    );
+}
+
+#[test]
+fn test_map_has() {
+    let state = run_with_state(
+        r#"
+        var.set("data", {"key": "value"})
+        var.set("found", map.has(var.get("data"), "key"))
+        var.set("missing", map.has(var.get("data"), "other"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("found").unwrap(),
+        corvo_lang::type_system::Value::Boolean(true)
+    );
+    assert_eq!(
+        state.var_get("missing").unwrap(),
+        corvo_lang::type_system::Value::Boolean(false)
+    );
+}
+
+#[test]
+fn test_map_entries() {
+    let state = run_with_state(
+        r#"
+        var.set("data", {"b": 2, "a": 1})
+        var.set("entries", map.entries(var.get("data")))
+        var.set("count", list.len(var.get("entries")))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("count").unwrap(),
+        corvo_lang::type_system::Value::Number(2.0)
+    );
+    // entries should be sorted by key
+    let entries = state.var_get("entries").unwrap();
+    if let corvo_lang::type_system::Value::List(list) = entries {
+        if let corvo_lang::type_system::Value::Map(first) = &list[0] {
+            assert_eq!(
+                first.get("key").unwrap(),
+                &corvo_lang::type_system::Value::String("a".to_string())
+            );
+        } else {
+            panic!("Expected map entry");
+        }
+    } else {
+        panic!("Expected list");
+    }
+}
+
 #[test]
 fn test_static_vs_var_independence() {
     let state = run_with_state(
@@ -1157,5 +1429,926 @@ fn test_env_parse_skips_comments() {
     assert_eq!(
         state.var_get("tag").unwrap(),
         corvo_lang::type_system::Value::String("v1".to_string())
+    );
+}
+
+// ---------------------------------------------------------------------------
+// notifications module tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_notifications_smtp_requires_all_args() {
+    // Missing args should produce an error
+    let result = run_with_state(r#"notifications.smtp("smtp.example.com")"#);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_slack_requires_args() {
+    let result = run_with_state(r#"notifications.slack()"#);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_slack_requires_message() {
+    let result = run_with_state(r#"notifications.slack("https://hooks.slack.com/x")"#);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_telegram_requires_args() {
+    let result = run_with_state(r#"notifications.telegram("token")"#);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_mattermost_requires_args() {
+    let result = run_with_state(r#"notifications.mattermost()"#);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_gitter_requires_args() {
+    let result = run_with_state(r#"notifications.gitter("token")"#);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_messenger_requires_args() {
+    let result = run_with_state(r#"notifications.messenger("token")"#);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_discord_requires_args() {
+    let result = run_with_state(r#"notifications.discord()"#);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_teams_requires_args() {
+    let result = run_with_state(r#"notifications.teams()"#);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_x_requires_all_args() {
+    let result = run_with_state(r#"notifications.x("key", "secret")"#);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_os_requires_args() {
+    let result = run_with_state(r#"notifications.os()"#);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_os_returns_success_map() {
+    // notifications.os runs a best-effort system command; the result map must
+    // always contain a "success" key regardless of whether the platform has a
+    // notification daemon available.
+    let state = run_with_state(
+        r#"
+        var.set("res", notifications.os("Test", "Integration test notification"))
+        var.set("has_success", map.has_key(var.get("res"), "success"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("has_success").unwrap(),
+        corvo_lang::type_system::Value::Boolean(true)
+    );
+}
+
+#[test]
+fn test_notifications_smtp_bad_from_address() {
+    // An invalid from address should be rejected
+    let result = run_with_state(
+        r#"
+        notifications.smtp(
+            "smtp.example.com", 587,
+            "user", "pass",
+            "not-an-email",
+            "to@example.com",
+            "subject", "body"
+        )
+        "#,
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_smtp_bad_to_address() {
+    // An invalid to address should be rejected
+    let result = run_with_state(
+        r#"
+        notifications.smtp(
+            "smtp.example.com", 587,
+            "user", "pass",
+            "from@example.com",
+            "not-an-email",
+            "subject", "body"
+        )
+        "#,
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_lint_all_functions_known() {
+    use corvo_lang::diagnostic::KNOWN_FUNCTIONS;
+    let notification_fns = [
+        "notifications.smtp",
+        "notifications.slack",
+        "notifications.telegram",
+        "notifications.mattermost",
+        "notifications.gitter",
+        "notifications.messenger",
+        "notifications.discord",
+        "notifications.teams",
+        "notifications.x",
+        "notifications.os",
+        "notifications.irc",
+    ];
+    for f in &notification_fns {
+        assert!(
+            KNOWN_FUNCTIONS.contains(f),
+            "{} missing from KNOWN_FUNCTIONS",
+            f
+        );
+    }
+}
+
+#[test]
+fn test_notifications_irc_requires_host() {
+    let result = run_with_state(r#"notifications.irc()"#);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_irc_requires_port() {
+    let result = run_with_state(r#"notifications.irc("irc.example.com")"#);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_irc_requires_nickname() {
+    let result = run_with_state(r#"notifications.irc("irc.example.com", 6667)"#);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_irc_requires_channel() {
+    let result = run_with_state(r#"notifications.irc("irc.example.com", 6667, "nick")"#);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_irc_requires_message() {
+    let result = run_with_state(r##"notifications.irc("irc.example.com", 6667, "nick", "#test")"##);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_notifications_irc_unreachable_host_returns_error() {
+    // Port 1 on loopback is almost certainly not open, so connect fails immediately.
+    let result =
+        run_with_state(r##"notifications.irc("127.0.0.1", 1, "corvo-bot", "#test", "hello")"##);
+    assert!(result.is_err());
+}
+
+// --- Match Expression Tests ---
+
+#[test]
+fn test_match_string_literal() {
+    let state = run_with_state(
+        r#"
+        var.set("file", "hosts")
+        var.set("result", match(var.get("file")) {
+            "" => "empty",
+            "hosts" => "hosts file",
+            _ => "not empty"
+        })
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("hosts file".to_string())
+    );
+}
+
+#[test]
+fn test_match_wildcard() {
+    let state = run_with_state(
+        r#"
+        var.set("file", "something")
+        var.set("result", match(var.get("file")) {
+            "" => "empty",
+            "hosts" => "hosts file",
+            _ => "not empty"
+        })
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("not empty".to_string())
+    );
+}
+
+#[test]
+fn test_match_empty_string() {
+    let state = run_with_state(
+        r#"
+        var.set("file", "")
+        var.set("result", match(var.get("file")) {
+            "" => "empty",
+            "hosts" => "hosts file",
+            _ => "not empty"
+        })
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("empty".to_string())
+    );
+}
+
+#[test]
+fn test_match_number_pattern() {
+    let state = run_with_state(
+        r#"
+        var.set("code", 200)
+        var.set("result", match(var.get("code")) {
+            200 => "OK",
+            404 => "Not Found",
+            _ => "Unknown"
+        })
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("OK".to_string())
+    );
+}
+
+#[test]
+fn test_match_boolean_pattern() {
+    let state = run_with_state(
+        r#"
+        var.set("flag", true)
+        var.set("result", match(var.get("flag")) {
+            true => "yes",
+            false => "no",
+            _ => "unknown"
+        })
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("yes".to_string())
+    );
+}
+
+#[test]
+fn test_match_at_shorthand_assignment() {
+    let state = run_with_state(
+        r#"
+        var.set("file", "hosts")
+        @result = match(@file) {
+            "" => "empty",
+            "hosts" => "hosts file",
+            _ => "not empty"
+        }
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("hosts file".to_string())
+    );
+}
+
+#[test]
+fn test_match_no_match_returns_error() {
+    let result = run_with_state(
+        r#"
+        var.set("x", "unknown")
+        var.set("result", match(var.get("x")) {
+            "a" => "letter a",
+            "b" => "letter b"
+        })
+        "#,
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_match_first_matching_arm_wins() {
+    let state = run_with_state(
+        r#"
+        var.set("x", "a")
+        var.set("result", match(var.get("x")) {
+            "a" => "first",
+            "a" => "second",
+            _ => "wildcard"
+        })
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("first".to_string())
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Regex Tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_regex_literal_creates_value() {
+    let state = run_with_state(
+        r#"
+        @re = /[0-9]+/
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("re").unwrap(),
+        corvo_lang::type_system::Value::Regex("[0-9]+".to_string(), "".to_string())
+    );
+}
+
+#[test]
+fn test_regex_literal_with_flags() {
+    let state = run_with_state(
+        r#"
+        @re = /hello/gi
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("re").unwrap(),
+        corvo_lang::type_system::Value::Regex("hello".to_string(), "gi".to_string())
+    );
+}
+
+#[test]
+fn test_re_match_returns_true() {
+    let state = run_with_state(
+        r#"
+        @expression = /[0-9]+/
+        var.set("result", re.match(@expression, "9283"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::Boolean(true)
+    );
+}
+
+#[test]
+fn test_re_match_returns_false() {
+    let state = run_with_state(
+        r#"
+        @expression = /[0-9]+/
+        var.set("result", re.match(@expression, "hello"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::Boolean(false)
+    );
+}
+
+#[test]
+fn test_re_match_case_insensitive() {
+    let state = run_with_state(
+        r#"
+        @re = /hello/i
+        var.set("result", re.match(@re, "HELLO WORLD"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::Boolean(true)
+    );
+}
+
+#[test]
+fn test_re_find_returns_first_match() {
+    let state = run_with_state(
+        r#"
+        @re = /[0-9]+/
+        var.set("result", re.find(@re, "abc123def456"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("123".to_string())
+    );
+}
+
+#[test]
+fn test_re_find_returns_null_when_no_match() {
+    let state = run_with_state(
+        r#"
+        @re = /[0-9]+/
+        var.set("result", re.find(@re, "abcdef"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::Null
+    );
+}
+
+#[test]
+fn test_re_find_all_returns_all_matches() {
+    let state = run_with_state(
+        r#"
+        @re = /[0-9]+/
+        var.set("result", re.find_all(@re, "abc123def456ghi789"))
+        "#,
+    )
+    .unwrap();
+    match state.var_get("result").unwrap() {
+        corvo_lang::type_system::Value::List(items) => {
+            assert_eq!(items.len(), 3);
+            assert_eq!(
+                items[0],
+                corvo_lang::type_system::Value::String("123".to_string())
+            );
+            assert_eq!(
+                items[1],
+                corvo_lang::type_system::Value::String("456".to_string())
+            );
+            assert_eq!(
+                items[2],
+                corvo_lang::type_system::Value::String("789".to_string())
+            );
+        }
+        _ => panic!("Expected List"),
+    }
+}
+
+#[test]
+fn test_re_replace() {
+    let state = run_with_state(
+        r#"
+        @re = /[0-9]+/
+        var.set("result", re.replace(@re, "abc123def", "NUM"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("abcNUMdef".to_string())
+    );
+}
+
+#[test]
+fn test_re_replace_all() {
+    let state = run_with_state(
+        r#"
+        @re = /[0-9]+/
+        var.set("result", re.replace_all(@re, "abc123def456", "NUM"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("abcNUMdefNUM".to_string())
+    );
+}
+
+#[test]
+fn test_re_split() {
+    let state = run_with_state(
+        r#"
+        @re = /,\s*/
+        var.set("result", re.split(@re, "a, b, c"))
+        "#,
+    )
+    .unwrap();
+    match state.var_get("result").unwrap() {
+        corvo_lang::type_system::Value::List(items) => {
+            assert_eq!(items.len(), 3);
+            assert_eq!(
+                items[0],
+                corvo_lang::type_system::Value::String("a".to_string())
+            );
+            assert_eq!(
+                items[1],
+                corvo_lang::type_system::Value::String("b".to_string())
+            );
+            assert_eq!(
+                items[2],
+                corvo_lang::type_system::Value::String("c".to_string())
+            );
+        }
+        _ => panic!("Expected List"),
+    }
+}
+
+#[test]
+fn test_re_new_creates_regex_value() {
+    let state = run_with_state(
+        r#"
+        var.set("result", re.new("[0-9]+", "i"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::Regex("[0-9]+".to_string(), "i".to_string())
+    );
+}
+
+#[test]
+fn test_method_call_style_match() {
+    let state = run_with_state(
+        r#"
+        @expression = /[0-9]+/
+        var.set("result", @expression.match("9283"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::Boolean(true)
+    );
+}
+
+#[test]
+fn test_method_call_style_find() {
+    let state = run_with_state(
+        r#"
+        @re = /[0-9]+/
+        var.set("result", @re.find("abc123def"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("123".to_string())
+    );
+}
+
+#[test]
+fn test_match_expression_with_regex_pattern() {
+    let state = run_with_state(
+        r#"
+        @my_number = "9123"
+        var.set("result", match(@my_number) {
+            /[0-9]+/ => "matched"
+            _ => "booo"
+        })
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("matched".to_string())
+    );
+}
+
+#[test]
+fn test_match_expression_regex_no_match_falls_through_to_wildcard() {
+    let state = run_with_state(
+        r#"
+        var.set("text", "hello")
+        var.set("result", match(var.get("text")) {
+            /[0-9]+/ => "is number"
+            _ => "not a number"
+        })
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("not a number".to_string())
+    );
+}
+
+#[test]
+fn test_match_expression_multiple_regex_patterns() {
+    let state = run_with_state(
+        r#"
+        var.set("text", "hello@example.com")
+        var.set("result", match(var.get("text")) {
+            /[0-9]+/ => "number"
+            /[a-z]+@[a-z]+\.[a-z]+/ => "email"
+            _ => "other"
+        })
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("email".to_string())
+    );
+}
+
+#[test]
+fn test_inline_regex_in_re_match() {
+    let state = run_with_state(
+        r#"
+        var.set("result", re.match(/[0-9]+/, "abc123"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::Boolean(true)
+    );
+}
+
+#[test]
+fn test_template_render_basic() {
+    let state = run_with_state(
+        r#"
+        var.set("data", map.new())
+        var.set("data", map.set(var.get("data"), "name", "Corvo"))
+        var.set("result", template.render("Hello, {{name}}!", var.get("data")))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("Hello, Corvo!".to_string())
+    );
+}
+
+#[test]
+fn test_template_render_multiple_vars() {
+    let state = run_with_state(
+        r#"
+        var.set("data", map.new())
+        var.set("data", map.set(var.get("data"), "lang", "Rust"))
+        var.set("data", map.set(var.get("data"), "version", "0.1.0"))
+        var.set("result", template.render("{{lang}} v{{version}}", var.get("data")))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("Rust v0.1.0".to_string())
+    );
+}
+
+#[test]
+fn test_template_render_missing_key_empty() {
+    let state = run_with_state(
+        r#"
+        var.set("data", map.new())
+        var.set("result", template.render("Hello, {{missing}}!", var.get("data")))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("Hello, !".to_string())
+    );
+}
+
+#[test]
+fn test_template_render_no_placeholders() {
+    let state = run_with_state(
+        r#"
+        var.set("data", map.new())
+        var.set("result", template.render("static text", var.get("data")))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("static text".to_string())
+    );
+}
+
+#[test]
+fn test_template_render_file_missing() {
+    let result = run_with_state(
+        r#"
+        var.set("data", map.new())
+        var.set("result", template.render_file("/nonexistent/template.hbs", var.get("data")))
+        "#,
+    );
+    assert!(result.is_err());
+}
+
+// --- Slicing Tests ---
+
+#[test]
+fn test_list_slice_start_end() {
+    let state = run_with_state(
+        r#"
+        var.set("nums", [10, 20, 30, 40, 50])
+        var.set("result", @nums[1:3])
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::List(vec![
+            corvo_lang::type_system::Value::Number(20.0),
+            corvo_lang::type_system::Value::Number(30.0),
+        ])
+    );
+}
+
+#[test]
+fn test_list_slice_from_start() {
+    let state = run_with_state(
+        r#"
+        var.set("nums", [10, 20, 30, 40, 50])
+        var.set("result", @nums[:2])
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::List(vec![
+            corvo_lang::type_system::Value::Number(10.0),
+            corvo_lang::type_system::Value::Number(20.0),
+        ])
+    );
+}
+
+#[test]
+fn test_list_slice_to_end() {
+    let state = run_with_state(
+        r#"
+        var.set("nums", [10, 20, 30, 40, 50])
+        var.set("result", @nums[3:])
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::List(vec![
+            corvo_lang::type_system::Value::Number(40.0),
+            corvo_lang::type_system::Value::Number(50.0),
+        ])
+    );
+}
+
+#[test]
+fn test_list_slice_all() {
+    let state = run_with_state(
+        r#"
+        var.set("nums", [10, 20, 30])
+        var.set("result", @nums[:])
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::List(vec![
+            corvo_lang::type_system::Value::Number(10.0),
+            corvo_lang::type_system::Value::Number(20.0),
+            corvo_lang::type_system::Value::Number(30.0),
+        ])
+    );
+}
+
+#[test]
+fn test_list_slice_negative_index_via_var() {
+    // Negative numbers must be stored in a variable (no unary-minus literal syntax).
+    let state = run_with_state(
+        r#"
+        var.set("nums", [10, 20, 30, 40, 50])
+        var.set("neg", math.sub(0, 2))
+        var.set("result", @nums[@neg:])
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::List(vec![
+            corvo_lang::type_system::Value::Number(40.0),
+            corvo_lang::type_system::Value::Number(50.0),
+        ])
+    );
+}
+
+#[test]
+fn test_string_slice_start_end() {
+    let state = run_with_state(
+        r#"
+        var.set("word", "Corvo")
+        var.set("result", @word[1:4])
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("orv".to_string())
+    );
+}
+
+#[test]
+fn test_string_slice_from_start() {
+    let state = run_with_state(
+        r#"
+        var.set("word", "Corvo")
+        var.set("result", @word[:3])
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("Cor".to_string())
+    );
+}
+
+#[test]
+fn test_string_slice_to_end() {
+    let state = run_with_state(
+        r#"
+        var.set("word", "Corvo")
+        var.set("result", @word[2:])
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("rvo".to_string())
+    );
+}
+
+#[test]
+fn test_string_slice_all() {
+    let state = run_with_state(
+        r#"
+        var.set("word", "hello")
+        var.set("result", @word[:])
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("hello".to_string())
+    );
+}
+
+#[test]
+fn test_string_slice_negative_index_via_var() {
+    // Negative numbers must be stored in a variable (no unary-minus literal syntax).
+    let state = run_with_state(
+        r#"
+        var.set("word", "Corvo")
+        var.set("neg", math.sub(0, 3))
+        var.set("result", @word[@neg:])
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("rvo".to_string())
+    );
+}
+
+#[test]
+fn test_slice_inline_on_literal() {
+    let state = run_with_state(
+        r#"
+        var.set("result", [1, 2, 3, 4, 5][1:3])
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::List(vec![
+            corvo_lang::type_system::Value::Number(2.0),
+            corvo_lang::type_system::Value::Number(3.0),
+        ])
+    );
+}
+
+#[test]
+fn test_slice_in_string_interpolation() {
+    let state = run_with_state(
+        r#"
+        var.set("word", "Corvo")
+        var.set("result", "${@word[0:3]}")
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("result").unwrap(),
+        corvo_lang::type_system::Value::String("Cor".to_string())
     );
 }

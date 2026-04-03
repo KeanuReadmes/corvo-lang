@@ -1,17 +1,17 @@
 # variables.corvo - Working with variables
-var.set("x", 10)
-var.set("y", 20)
-var.set("sum", math.add(var.get("x"), var.get("y")))
-sys.echo("${var.get("x")} + ${var.get("y")} = ${var.get("sum")}")
+@x = 10
+@y = 20
+@sum = math.add(@x, @y)
+sys.echo("${@x} + ${@y} = ${@sum}")
 
-var.set("product", math.mul(var.get("x"), var.get("y")))
-sys.echo("${var.get("x")} * ${var.get("y")} = ${var.get("product")}")
+@product = math.mul(@x, @y)
+sys.echo("${@x} * ${@y} = ${@product}")
 
-var.set("ratio", math.div(var.get("y"), var.get("x")))
-sys.echo("${var.get("y")} / ${var.get("x")} = ${var.get("ratio")}")
+@ratio = math.div(@y, @x)
+sys.echo("${@y} / ${@x} = ${@ratio}")
 
 # String operations
-var.set("greeting", string.concat("Hello, ", "World"))
-sys.echo(var.get("greeting"))
-sys.echo("Uppercase: ${string.to_upper(var.get("greeting"))}")
-sys.echo("Length: ${string.len(var.get("greeting"))}")
+@greeting = string.concat("Hello, ", "World")
+sys.echo(@greeting)
+sys.echo("Uppercase: ${string.to_upper(@greeting)}")
+sys.echo("Length: ${string.len(@greeting)}")

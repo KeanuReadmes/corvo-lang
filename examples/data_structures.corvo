@@ -2,22 +2,22 @@
 
 # Working with lists
 sys.echo("=== Lists ===")
-var.set("fruits", ["apple", "banana", "cherry"])
-sys.echo("Fruits: ${list.join(var.get("fruits"), ", ")}")
-sys.echo("Count: ${list.len(var.get("fruits"))}")
-sys.echo("First: ${list.get(var.get("fruits"), 0)}")
+@fruits = ["apple", "banana", "cherry"]
+sys.echo("Fruits: ${list.join(@fruits, ", ")}")
+sys.echo("Count: ${list.len(@fruits)}")
+sys.echo("First: ${list.get(@fruits, 0)}")
 
-var.set("fruits", list.push(var.get("fruits"), "date"))
-sys.echo("After push: ${list.join(var.get("fruits"), ", ")}")
+@fruits = list.push(@fruits, "date")
+sys.echo("After push: ${list.join(@fruits, ", ")}")
 
 # Working with maps
 sys.echo("")
 sys.echo("=== Maps ===")
-var.set("person", {"name": "Alice", "age": 30, "city": "Tokyo"})
-sys.echo("Name: ${map.get(var.get("person"), "name")}")
-sys.echo("Age: ${map.get(var.get("person"), "age")}")
-sys.echo("Has email: ${map.has_key(var.get("person"), "email")}")
+@person = {"name": "Alice", "age": 30, "city": "Tokyo"}
+sys.echo("Name: ${map.get(@person, "name")}")
+sys.echo("Age: ${map.get(@person, "age")}")
+sys.echo("Has email: ${map.has_key(@person, "email")}")
 
-var.set("person", map.set(var.get("person"), "email", "alice@example.com"))
-sys.echo("Email: ${map.get(var.get("person"), "email")}")
-sys.echo("Keys: ${list.join(map.keys(var.get("person")), ", ")}")
+@person = map.set(@person, "email", "alice@example.com")
+sys.echo("Email: ${map.get(@person, "email")}")
+sys.echo("Keys: ${list.join(map.keys(@person), ", ")}")

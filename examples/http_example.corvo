@@ -4,10 +4,10 @@
 
 sys.echo("=== http.get ===")
 try {
-    var.set("res", http.get("https://httpbin.org/get"))
-    sys.echo("Status: ${map.get(var.get("res"), "status_code")}")
-    var.set("body", json.parse(map.get(var.get("res"), "response_body")))
-    sys.echo("URL reported by server: ${map.get(var.get("body"), "url")}")
+    @res = http.get("https://httpbin.org/get")
+    sys.echo("Status: ${map.get(@res, "status_code")}")
+    @body = json.parse(map.get(@res, "response_body"))
+    sys.echo("URL reported by server: ${map.get(@body, "url")}")
 } fallback {
     sys.echo("(skipped — no network access)")
 }
@@ -16,9 +16,9 @@ try {
 sys.echo("")
 sys.echo("=== http.get with headers ===")
 try {
-    var.set("headers", {"Accept": "application/json", "X-Custom": "corvo"})
-    var.set("res2", http.get("https://httpbin.org/headers", var.get("headers")))
-    sys.echo("Status: ${map.get(var.get("res2"), "status_code")}")
+    @headers = {"Accept": "application/json", "X-Custom": "corvo"}
+    @res2 = http.get("https://httpbin.org/headers", @headers)
+    sys.echo("Status: ${map.get(@res2, "status_code")}")
 } fallback {
     sys.echo("(skipped — no network access)")
 }
@@ -26,9 +26,9 @@ try {
 sys.echo("")
 sys.echo("=== http.post ===")
 try {
-    var.set("payload", json.stringify({"name": "Corvo", "type": "language"}))
-    var.set("post_res", http.post("https://httpbin.org/post", var.get("payload")))
-    sys.echo("Status: ${map.get(var.get("post_res"), "status_code")}")
+    @payload = json.stringify({"name": "Corvo", "type": "language"})
+    @post_res = http.post("https://httpbin.org/post", @payload)
+    sys.echo("Status: ${map.get(@post_res, "status_code")}")
 } fallback {
     sys.echo("(skipped — no network access)")
 }
@@ -36,8 +36,8 @@ try {
 sys.echo("")
 sys.echo("=== http.put ===")
 try {
-    var.set("put_res", http.put("https://httpbin.org/put", json.stringify({"updated": true})))
-    sys.echo("Status: ${map.get(var.get("put_res"), "status_code")}")
+    @put_res = http.put("https://httpbin.org/put", json.stringify({"updated": true}))
+    sys.echo("Status: ${map.get(@put_res, "status_code")}")
 } fallback {
     sys.echo("(skipped — no network access)")
 }
@@ -45,8 +45,8 @@ try {
 sys.echo("")
 sys.echo("=== http.delete ===")
 try {
-    var.set("del_res", http.delete("https://httpbin.org/delete"))
-    sys.echo("Status: ${map.get(var.get("del_res"), "status_code")}")
+    @del_res = http.delete("https://httpbin.org/delete")
+    sys.echo("Status: ${map.get(@del_res, "status_code")}")
 } fallback {
     sys.echo("(skipped — no network access)")
 }

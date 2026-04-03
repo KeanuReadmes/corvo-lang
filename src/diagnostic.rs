@@ -170,6 +170,10 @@ fn lint_stmt(stmt: &Stmt, out: &mut Vec<LintDiagnostic>) {
             }
         }
         Stmt::Terminate => {}
+        Stmt::VarIndexSet { index, value, .. } => {
+            lint_expr(index, out);
+            lint_expr(value, out);
+        }
     }
 }
 
@@ -221,6 +225,35 @@ fn lint_expr(expr: &Expr, out: &mut Vec<LintDiagnostic>) {
             lint_expr(target, out);
             lint_expr(index, out);
         }
+        Expr::SliceAccess { target, start, end } => {
+            lint_expr(target, out);
+            if let Some(s) = start {
+                lint_expr(s, out);
+            }
+            if let Some(e) = end {
+                lint_expr(e, out);
+            }
+        }
+        Expr::Match { value, arms } => {
+            lint_expr(value, out);
+            for arm in arms {
+                lint_expr(&arm.body, out);
+            }
+        }
+        Expr::MethodCall {
+            target,
+            args,
+            named_args,
+            ..
+        } => {
+            lint_expr(target, out);
+            for a in args {
+                lint_expr(a, out);
+            }
+            for a in named_args.values() {
+                lint_expr(a, out);
+            }
+        }
         Expr::Literal { .. } | Expr::VarGet { .. } | Expr::StaticGet { .. } => {}
     }
 }
@@ -231,8 +264,28 @@ fn lint_expr(expr: &Expr, out: &mut Vec<LintDiagnostic>) {
 
 /// All namespaces recognised by the standard library.
 const KNOWN_NAMESPACES: &[&str] = &[
-    "sys", "os", "math", "fs", "http", "dns", "crypto", "json", "yaml", "hcl", "csv", "xml", "env",
-    "llm", "string", "number", "list", "map", "var", "static",
+    "sys",
+    "os",
+    "math",
+    "fs",
+    "http",
+    "dns",
+    "crypto",
+    "json",
+    "yaml",
+    "hcl",
+    "csv",
+    "xml",
+    "env",
+    "llm",
+    "notifications",
+    "re",
+    "string",
+    "number",
+    "list",
+    "map",
+    "var",
+    "static",
 ];
 
 /// All functions recognised by the standard library and type system.
@@ -295,11 +348,34 @@ pub const KNOWN_FUNCTIONS: &[&str] = &[
     "xml.parse",
     // env
     "env.parse",
+    // template
+    "template.render",
+    "template.render_file",
     // llm
     "llm.model",
     "llm.prompt",
     "llm.embed",
     "llm.chat",
+    // notifications
+    "notifications.smtp",
+    "notifications.slack",
+    "notifications.telegram",
+    "notifications.mattermost",
+    "notifications.gitter",
+    "notifications.messenger",
+    "notifications.discord",
+    "notifications.teams",
+    "notifications.x",
+    "notifications.os",
+    "notifications.irc",
+    // regex methods
+    "re.match",
+    "re.find",
+    "re.find_all",
+    "re.replace",
+    "re.replace_all",
+    "re.split",
+    "re.new",
     // string methods
     "string.concat",
     "string.replace",
@@ -338,6 +414,7 @@ pub const KNOWN_FUNCTIONS: &[&str] = &[
     "list.last",
     "list.is_empty",
     "list.contains",
+    "list.delete",
     "list.filter",
     "list.map",
     "list.reduce",

@@ -167,6 +167,17 @@ Functions are grouped by module. Parameter names in `[brackets]` are optional.
 
 ---
 
+## `template` — Handlebars Templating
+
+| Function | Parameters | Returns | Description |
+|---|---|---|---|
+| `template.render` | `template: string, data: map` | `string` | Render a [Handlebars](https://handlebarsjs.com) template string with `data` |
+| `template.render_file` | `path: string, data: map` | `string` | Load a template from `path` and render it with `data` |
+
+**Example file:** [`examples/template_example.corvo`](examples/template_example.corvo)
+
+---
+
 ## `llm` — Large Language Models *(placeholder)*
 
 | Function | Parameters | Returns | Description |
@@ -177,6 +188,26 @@ Functions are grouped by module. Parameter names in `[brackets]` are optional.
 | `llm.chat` | `id: string, model: string, messages: list[map]` | `map{role, content}` | Multi-turn chat with message history |
 
 **Example file:** [`examples/llm_example.corvo`](examples/llm_example.corvo)
+
+---
+
+## `notifications` — Notifications
+
+| Function | Parameters | Returns | Description |
+|---|---|---|---|
+| `notifications.smtp` | `host: string, port: number, username: string, password: string, from_addr: string, to_addr: string, subject: string, body: string` | `map{success}` | Send an email via SMTP (STARTTLS) |
+| `notifications.slack` | `webhook_url: string, message: string` | `map{status_code, response_body}` | Post a message to a Slack incoming webhook |
+| `notifications.telegram` | `bot_token: string, chat_id: string, message: string` | `map{status_code, response_body}` | Send a message via the Telegram Bot API |
+| `notifications.mattermost` | `webhook_url: string, message: string` | `map{status_code, response_body}` | Post a message to a Mattermost incoming webhook |
+| `notifications.gitter` | `token: string, room_id: string, message: string` | `map{status_code, response_body}` | Post a message to a Gitter room |
+| `notifications.messenger` | `page_access_token: string, recipient_id: string, message: string` | `map{status_code, response_body}` | Send a message via the Facebook Messenger Send API |
+| `notifications.discord` | `webhook_url: string, message: string` | `map{status_code, response_body}` | Post a message to a Discord webhook |
+| `notifications.teams` | `webhook_url: string, message: string` | `map{status_code, response_body}` | Post a message to a Microsoft Teams incoming webhook |
+| `notifications.x` | `api_key: string, api_secret: string, access_token: string, access_token_secret: string, message: string` | `map{status_code, response_body}` | Post a tweet via the Twitter/X API v2 (OAuth 1.0a) |
+| `notifications.os` | `title: string, message: string` | `map{success}` | Show a local desktop notification (Linux: `notify-send`, macOS: `osascript`, Windows: PowerShell toast) |
+| `notifications.irc` | `host: string, port: number, nickname: string, channel: string, message: string, [password: string]` | `map{success}` | Send a PRIVMSG to an IRC channel over plain TCP; `password` is optional (pass `""` to skip PASS) |
+
+**Example file:** [`examples/notifications_example.corvo`](examples/notifications_example.corvo)
 
 ---
 
@@ -294,7 +325,14 @@ Used inside `try` blocks to drive conditional branching.
 ## Control Flow Quick Reference
 
 ```corvo
-# Conditional (if/else equivalent)
+# Match expression (if/else equivalent for value-based branching)
+@result = match(@value) {
+    "a" => "got a",
+    "b" => "got b",
+    _   => "something else"
+}
+
+# Conditional branching via try/fallback (for assertions and error handling)
 try {
     assert_eq(@value, "expected")
     sys.echo("matched")
