@@ -6,6 +6,9 @@ use std::collections::HashMap;
 pub struct RuntimeState {
     vars: HashMap<String, Value>,
     statics: HashMap<String, Value>,
+    /// Arguments passed to the Corvo program (after the script path when using
+    /// the interpreter, or after the executable when running a compiled binary).
+    script_argv: Vec<String>,
 }
 
 impl RuntimeState {
@@ -13,7 +16,16 @@ impl RuntimeState {
         Self {
             vars: HashMap::new(),
             statics: HashMap::new(),
+            script_argv: Vec::new(),
         }
+    }
+
+    pub fn set_script_argv(&mut self, argv: Vec<String>) {
+        self.script_argv = argv;
+    }
+
+    pub fn script_argv(&self) -> &[String] {
+        &self.script_argv
     }
 
     // --- Variable Operations ---
@@ -295,5 +307,18 @@ mod tests {
         state.static_set("x".to_string(), Value::Number(2.0));
         assert_eq!(state.var_get("x").unwrap(), Value::Number(1.0));
         assert_eq!(state.static_get("x").unwrap(), Value::Number(2.0));
+    }
+
+    #[test]
+    fn test_script_argv_default_empty() {
+        let state = RuntimeState::new();
+        assert!(state.script_argv().is_empty());
+    }
+
+    #[test]
+    fn test_set_script_argv() {
+        let mut state = RuntimeState::new();
+        state.set_script_argv(vec!["a".to_string(), "b".to_string()]);
+        assert_eq!(state.script_argv(), &["a", "b"]);
     }
 }

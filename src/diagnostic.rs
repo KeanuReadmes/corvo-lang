@@ -277,6 +277,7 @@ const KNOWN_NAMESPACES: &[&str] = &[
     "csv",
     "xml",
     "env",
+    "args",
     "llm",
     "notifications",
     "re",
@@ -301,6 +302,7 @@ pub const KNOWN_FUNCTIONS: &[&str] = &[
     "os.set_env",
     "os.exec",
     "os.info",
+    "os.argv",
     // math
     "math.add",
     "math.sub",
@@ -348,6 +350,8 @@ pub const KNOWN_FUNCTIONS: &[&str] = &[
     "xml.parse",
     // env
     "env.parse",
+    // args
+    "args.scan",
     // template
     "template.render",
     "template.render_file",

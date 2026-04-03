@@ -27,8 +27,19 @@ Functions are grouped by module. Parameter names in `[brackets]` are optional.
 | `os.set_env` | `key: string, value: string` | `null` | Set an environment variable |
 | `os.exec` | `cmd: string` | `map{stdout, stderr, code}` | Run a shell command via `sh -c` |
 | `os.info` | *(none)* | `map{os, arch, hostname}` | Return OS / architecture / hostname |
+| `os.argv` | *(none)* | `list[string]` | Script arguments (after `corvo script.corvo …` or after the compiled binary name) |
 
 **Example file:** [`examples/os_example.corvo`](examples/os_example.corvo)
+
+---
+
+## `args` — Command-line parsing
+
+| Function | Parameters | Returns | Description |
+|---|---|---|---|
+| `args.scan` | `argv: list[string]` | `map{positional, options}` | Split argv into a positional list and an options map (`true` or `string` values). Supports `--`, `--k=v`, long options, and clustered short flags (`-abc`). |
+
+**Example file:** [`examples/args.corvo`](examples/args.corvo)
 
 ---
 

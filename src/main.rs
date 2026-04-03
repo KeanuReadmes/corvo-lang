@@ -5,6 +5,7 @@ use structopt::StructOpt;
 #[structopt(
     name = "corvo",
     about = "Corvo Programming Language",
+    setting = structopt::clap::AppSettings::TrailingVarArg,
     after_help = "Examples:\n  corvo script.corvo              Run a file\n  corvo --repl                    Start interactive REPL\n  corvo --eval 'sys.echo(\"hi\")'  Evaluate an expression\n  corvo --compile script.corvo    Compile to standalone executable\n  corvo --check script.corvo      Check syntax\n  corvo --lint script.corvo       Analyse code for errors and unknown functions"
 )]
 struct Args {
@@ -48,6 +49,10 @@ struct Args {
         help = "Generate a binary that aborts when run under a debugger, tracer, or dynamic analysis tool (gdb, LLDB, strace, rr, WinDbg, Valgrind)"
     )]
     no_debug: bool,
+
+    /// Arguments forwarded to the script (`os.argv()`); may start with `-` when placed after FILE
+    #[structopt(name = "SCRIPT_ARGS")]
+    script_args: Vec<String>,
 }
 
 fn main() {
@@ -85,7 +90,7 @@ fn main() {
         } else if args.check {
             check_syntax(&file);
         } else {
-            run_file(&file);
+            run_file(&file, args.script_args);
         }
         return;
     }
@@ -94,7 +99,7 @@ fn main() {
     std::process::exit(1);
 }
 
-fn run_file(file: &std::path::Path) {
+fn run_file(file: &std::path::Path, script_args: Vec<String>) {
     let source = match std::fs::read_to_string(file) {
         Ok(s) => s,
         Err(e) => {
@@ -103,7 +108,9 @@ fn run_file(file: &std::path::Path) {
         }
     };
 
-    match corvo_lang::run_source(&source) {
+    let mut state = corvo_lang::RuntimeState::new();
+    state.set_script_argv(script_args);
+    match corvo_lang::run_source_with_state(&source, &mut state) {
         Ok(_) => {}
         Err(e) => {
             let filename = file.display().to_string();
@@ -291,7 +298,7 @@ fn lint_file(file: &std::path::Path) {
 }
 
 fn print_usage() {
-    eprintln!("Usage: corvo [OPTIONS] [FILE]");
+    eprintln!("Usage: corvo [OPTIONS] [FILE] [SCRIPT_ARGS]...");
     eprintln!();
     eprintln!("Options:");
     eprintln!("  -r, --repl           Start the REPL");

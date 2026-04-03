@@ -14,6 +14,18 @@ fn run_with_state(source: &str) -> CorvoResult<RuntimeState> {
     Ok(state)
 }
 
+fn run_with_script_argv(source: &str, script_argv: Vec<String>) -> CorvoResult<RuntimeState> {
+    let mut lexer = Lexer::new(source);
+    let tokens = lexer.tokenize()?;
+    let mut parser = Parser::new(tokens);
+    let program = parser.parse()?;
+    let mut state = RuntimeState::new();
+    state.set_script_argv(script_argv);
+    let mut evaluator = Evaluator::new();
+    evaluator.run(&program, &mut state)?;
+    Ok(state)
+}
+
 // --- End-to-End Programs ---
 
 #[test]
@@ -1040,6 +1052,38 @@ fn test_os_env() {
         corvo_lang::type_system::Value::String("test_value".to_string())
     );
     std::env::remove_var("CORVO_INTEGRATION_TEST");
+}
+
+#[test]
+fn test_os_argv_and_args_scan() {
+    let state = run_with_script_argv(
+        r#"
+        @parsed = args.scan(os.argv())
+        @opts = map.get(@parsed, "options")
+        @pos = map.get(@parsed, "positional")
+        var.set("v", map.get(@opts, "v", false))
+        var.set("p0", list.get(@pos, 0))
+        "#,
+        vec!["-v".to_string(), "hello".to_string()],
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("v").unwrap(),
+        corvo_lang::type_system::Value::Boolean(true)
+    );
+    assert_eq!(
+        state.var_get("p0").unwrap(),
+        corvo_lang::type_system::Value::String("hello".to_string())
+    );
+}
+
+#[test]
+fn test_run_source_with_script_argv_api() {
+    let result = corvo_lang::run_source_with_script_argv(
+        r#"var.set("argc", list.len(os.argv()))"#,
+        vec!["a".to_string(), "b".to_string()],
+    );
+    assert!(result.is_ok(), "{:?}", result.err());
 }
 
 // --- run_source / run_file API Tests ---

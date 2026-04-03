@@ -190,6 +190,7 @@ impl Compiler {
         main_rs.push_str(
             "    corvo_lang::load_statics_from_encrypted_bytes(&mut state, ENCRYPTED_STATICS, STATICS_KEY);\n",
         );
+        main_rs.push_str("    state.set_script_argv(std::env::args().skip(1).collect());\n");
 
         // Embed the encrypted source and the key as raw byte arrays, then
         // decrypt at runtime before executing.  Neither the source nor the key
@@ -832,6 +833,10 @@ mod tests {
             "encrypted statics loader must be called"
         );
         assert!(main_rs.contains("run_source_with_state"));
+        assert!(
+            main_rs.contains("set_script_argv"),
+            "generated main must forward process argv to the runtime"
+        );
 
         let _ = std::fs::remove_dir_all(&build_dir);
     }

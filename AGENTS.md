@@ -17,12 +17,12 @@ src/
   parser/            Recursive-descent parser
   runtime/           Runtime state (variables, statics)
   standard_lib/      Built-in modules: sys, fs, http, json, yaml, xml, csv,
-                     hcl, math, os, crypto, dns, llm
+                     hcl, math, os, args, crypto, dns, llm
   type_system/       Value enum, type methods (list.*, map.*, string.*, …)
   diagnostic.rs      Linter + pretty error rendering
   lib.rs             Public API (run_source, run_source_with_state, …)
   main.rs            CLI entry point
-examples/            26 .corvo example scripts, one per feature area
+examples/            27 .corvo example scripts, one per feature area
 tests/
   integration_test.rs  Integration test suite (≥ 60 tests)
 ```

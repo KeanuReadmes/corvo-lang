@@ -1,3 +1,4 @@
+use crate::runtime::RuntimeState;
 use crate::type_system::Value;
 use crate::{CorvoError, CorvoResult};
 use std::collections::HashMap;
@@ -61,6 +62,25 @@ pub fn exec(args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResult
     Ok(Value::Map(result))
 }
 
+pub fn argv(
+    args: &[Value],
+    _named_args: &HashMap<String, Value>,
+    state: &RuntimeState,
+) -> CorvoResult<Value> {
+    if !args.is_empty() {
+        return Err(CorvoError::invalid_argument(
+            "os.argv does not accept arguments",
+        ));
+    }
+    Ok(Value::List(
+        state
+            .script_argv()
+            .iter()
+            .map(|s| Value::String(s.clone()))
+            .collect(),
+    ))
+}
+
 pub fn info(_args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResult<Value> {
     let mut result = HashMap::new();
     result.insert(
@@ -86,6 +106,7 @@ pub fn info(_args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResul
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runtime::RuntimeState;
 
     fn empty_args() -> HashMap<String, Value> {
         HashMap::new()
@@ -185,5 +206,33 @@ mod tests {
             }
             _ => panic!("Expected Map"),
         }
+    }
+
+    #[test]
+    fn test_argv_empty() {
+        let state = RuntimeState::new();
+        let result = argv(&[], &empty_args(), &state).unwrap();
+        assert_eq!(result, Value::List(vec![]));
+    }
+
+    #[test]
+    fn test_argv_script_args() {
+        let mut state = RuntimeState::new();
+        state.set_script_argv(vec!["a".to_string(), "b".to_string()]);
+        let result = argv(&[], &empty_args(), &state).unwrap();
+        assert_eq!(
+            result,
+            Value::List(vec![
+                Value::String("a".to_string()),
+                Value::String("b".to_string())
+            ])
+        );
+    }
+
+    #[test]
+    fn test_argv_rejects_args() {
+        let state = RuntimeState::new();
+        let args = vec![Value::String("x".to_string())];
+        assert!(argv(&args, &empty_args(), &state).is_err());
     }
 }

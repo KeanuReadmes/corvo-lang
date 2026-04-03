@@ -29,6 +29,13 @@ pub fn run_source(source: &str) -> CorvoResult<()> {
     run_source_with_state(source, &mut state)
 }
 
+/// Run source with a preset script argument vector (for `os.argv()` / `args.scan`).
+pub fn run_source_with_script_argv(source: &str, script_argv: Vec<String>) -> CorvoResult<()> {
+    let mut state = RuntimeState::new();
+    state.set_script_argv(script_argv);
+    run_source_with_state(source, &mut state)
+}
+
 pub fn run_source_with_state(source: &str, state: &mut RuntimeState) -> CorvoResult<()> {
     let mut lexer = Lexer::new(source);
     let tokens = lexer.tokenize()?;

@@ -208,6 +208,8 @@ match(<expr>) {
 * `os.set_env(key: string, value: string)`
 * `os.exec(cmd: string, args: list) -> map`: Simple process execution without a shell. Returns `{"stdout": string, "stderr": string, "code": number}`. Use `os.exec` for direct process invocation when you have a command and its arguments as separate values and do not need shell features.
 * `os.info() -> map`: Returns `{"os": string, "arch": string, "hostname": string}`.
+* `os.argv() -> list`: Arguments for the Corvo program (trailing tokens after the script when using `corvo file.corvo …`, or `std::env::args().skip(1)` for a compiled binary). Empty in the REPL and in `run_source` unless set via `RuntimeState::set_script_argv` / `run_source_with_script_argv`.
+* `args.scan(argv: list) -> map`: Returns `{"positional": list[string], "options": map}` using simple GNU-like rules (`--` stops flag parsing, `--name=value`, `--name` with optional following value, `-xyz` as boolean short flags).
 * `math.add(a: number, b: number) -> number`
 * `math.sub(a: number, b: number) -> number`
 * `math.mul(a: number, b: number) -> number`

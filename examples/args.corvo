@@ -1,0 +1,23 @@
+# args.corvo — script arguments (os.argv + args.scan)
+#
+# Run with extra tokens after the script path:
+#   corvo examples/args.corvo hello --verbose --out=tmp.txt
+#
+# Note: a long option like --name consumes the next token as its value if that
+# token does not start with '-'. Use short flags (-v) when the next arg is positional.
+
+@argv = os.argv()
+sys.echo("argc (script args): ${list.len(@argv)}")
+
+@parsed = args.scan(@argv)
+@positional = map.get(@parsed, "positional")
+@options = map.get(@parsed, "options")
+
+sys.echo("positionals (${list.len(@positional)}):")
+browse(@positional, _i, p) {
+    sys.echo("  - ${@p}")
+}
+
+sys.echo("options (sample):")
+sys.echo("  verbose: ${map.get(@options, "verbose", false)}")
+sys.echo("  out:     ${map.get(@options, "out", "")}")

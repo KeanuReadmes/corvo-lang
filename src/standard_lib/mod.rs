@@ -1,3 +1,4 @@
+pub mod args;
 pub mod crypto;
 pub mod csv;
 pub mod dns;
@@ -25,7 +26,7 @@ pub fn call(
     name: &str,
     args: &[Value],
     named_args: &HashMap<String, Value>,
-    _state: &RuntimeState,
+    state: &RuntimeState,
 ) -> CorvoResult<Value> {
     match name {
         "sys.echo" => sys::echo(args, named_args),
@@ -38,6 +39,9 @@ pub fn call(
         "os.set_env" => os::set_env(args, named_args),
         "os.exec" => os::exec(args, named_args),
         "os.info" => os::info(args, named_args),
+        "os.argv" => os::argv(args, named_args, state),
+
+        "args.scan" => args::scan(args, named_args),
 
         "math.add" => math::add(args, named_args),
         "math.sub" => math::sub(args, named_args),

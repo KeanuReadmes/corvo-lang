@@ -25,6 +25,12 @@ sys.echo("exit code: ${map.get(@result, "code")}")
 sys.echo("Working dir: ${string.trim(map.get(@pwd_result, "stdout"))}")
 
 sys.echo("")
+sys.echo("=== os.argv ===")
+# Arguments after the script path (interpreter) or after the executable (compiled).
+@av = os.argv()
+sys.echo("script argv count: ${list.len(@av)}")
+
+sys.echo("")
 sys.echo("=== os.info ===")
 @info = os.info()
 sys.echo("OS: ${map.get(@info, "os")}")
