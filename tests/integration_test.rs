@@ -62,6 +62,20 @@ fn test_variable_arithmetic() {
 }
 
 #[test]
+fn test_math_max() {
+    let state = run_with_state(
+        r#"
+        var.set("m", math.max(2, 5, 3))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("m").unwrap(),
+        corvo_lang::type_system::Value::Number(5.0)
+    );
+}
+
+#[test]
 fn test_string_operations() {
     let state = run_with_state(
         r#"
@@ -194,6 +208,29 @@ fn test_map_new() {
     assert_eq!(
         state.var_get("count").unwrap(),
         corvo_lang::type_system::Value::Number(1.0)
+    );
+}
+
+#[test]
+fn test_map_column() {
+    let state = run_with_state(
+        r#"
+        var.set("kv", {"b": "2", "a": "100"})
+        var.set("kv_fmt", map.column(var.get("kv")))
+        var.set("t", map.new())
+        var.set("t", map.set(var.get("t"), "name", ["Ann", "Bob"]))
+        var.set("t", map.set(var.get("t"), "id", [1, 10]))
+        var.set("tbl", map.column(var.get("t")))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("kv_fmt").unwrap(),
+        corvo_lang::type_system::Value::String("a  100\nb  2  ".to_string())
+    );
+    assert_eq!(
+        state.var_get("tbl").unwrap(),
+        corvo_lang::type_system::Value::String("id  name\n1   Ann \n10  Bob ".to_string())
     );
 }
 
@@ -2193,6 +2230,39 @@ fn test_template_render_file_missing() {
     assert!(result.is_err());
 }
 
+#[test]
+fn test_net_tcp_connect_echo() {
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    use std::thread;
+
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap().to_string();
+
+    let server = thread::spawn(move || {
+        let (mut s, _) = listener.accept().unwrap();
+        let mut buf = [0u8; 64];
+        let n = s.read(&mut buf).unwrap();
+        s.write_all(&buf[..n]).unwrap();
+    });
+
+    let source = format!(
+        r#"
+        @c = net.tcp_connect("{}")
+        net.tcp_write(@c, "hello")
+        @reply = net.tcp_read(@c, 64)
+        net.tcp_close(@c)
+        "#,
+        addr
+    );
+    let state = run_with_state(&source).unwrap();
+    assert_eq!(
+        state.var_get("reply").unwrap(),
+        corvo_lang::type_system::Value::String("hello".to_string())
+    );
+    server.join().unwrap();
+}
+
 // --- Slicing Tests ---
 
 #[test]
@@ -2394,5 +2464,174 @@ fn test_slice_in_string_interpolation() {
     assert_eq!(
         state.var_get("result").unwrap(),
         corvo_lang::type_system::Value::String("Cor".to_string())
+    );
+}
+
+#[test]
+fn test_sys_exit_is_exit_request() {
+    let err = run_with_state(r#"sys.exit(42)"#).unwrap_err();
+    assert_eq!(err.process_exit_code(), Some(42));
+}
+
+#[test]
+fn test_args_parse_width_cluster() {
+    let state = run_with_state(
+        r#"
+        @spec = { "aliases": { "w": "width" }, "short_values": ["w"] }
+        @m = args.parse(["-w80", "path"], @spec)
+        var.set("opts", map.get(@m, "options"))
+        var.set("w", map.get(var.get("opts"), "width"))
+        var.set("pos", map.get(@m, "positional"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("w").unwrap(),
+        corvo_lang::type_system::Value::String("80".to_string())
+    );
+    assert_eq!(
+        state.var_get("pos").unwrap(),
+        corvo_lang::type_system::Value::List(vec![corvo_lang::type_system::Value::String(
+            "path".to_string()
+        )])
+    );
+}
+
+#[test]
+fn test_args_parse_plus_flags() {
+    let state = run_with_state(
+        r#"
+        @spec = { "plus_flags": true }
+        @m = args.parse(["+short", "+notcp", "+retry=3", "example.com"], @spec)
+        @plus = map.get(@m, "plus")
+        var.set("short", map.get(@plus, "short", false))
+        var.set("tcp", map.get(@plus, "tcp", true))
+        var.set("retry", map.get(@plus, "retry", ""))
+        var.set("pos", map.get(@m, "positional"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("short").unwrap(),
+        corvo_lang::type_system::Value::Boolean(true)
+    );
+    assert_eq!(
+        state.var_get("tcp").unwrap(),
+        corvo_lang::type_system::Value::Boolean(false)
+    );
+    assert_eq!(
+        state.var_get("retry").unwrap(),
+        corvo_lang::type_system::Value::String("3".to_string())
+    );
+    assert_eq!(
+        state.var_get("pos").unwrap(),
+        corvo_lang::type_system::Value::List(vec![corvo_lang::type_system::Value::String(
+            "example.com".to_string()
+        )])
+    );
+}
+
+#[test]
+fn test_args_parse_at_tokens() {
+    let state = run_with_state(
+        r#"
+        @spec = { "at_tokens": true }
+        @m = args.parse(["@8.8.8.8", "@1.1.1.1", "example.com"], @spec)
+        var.set("servers", map.get(@m, "at_servers"))
+        var.set("pos", map.get(@m, "positional"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("servers").unwrap(),
+        corvo_lang::type_system::Value::List(vec![
+            corvo_lang::type_system::Value::String("8.8.8.8".to_string()),
+            corvo_lang::type_system::Value::String("1.1.1.1".to_string()),
+        ])
+    );
+    assert_eq!(
+        state.var_get("pos").unwrap(),
+        corvo_lang::type_system::Value::List(vec![corvo_lang::type_system::Value::String(
+            "example.com".to_string()
+        )])
+    );
+}
+
+#[test]
+fn test_args_parse_accumulate() {
+    let state = run_with_state(
+        r#"
+        @spec = {
+          "aliases": { "I": "ignore" },
+          "short_values": ["I"],
+          "long_values": ["ignore"],
+          "accumulate": ["ignore"]
+        }
+        @m = args.parse(["-I", "*.bak", "-I", "*.tmp", "--ignore=*.log"], @spec)
+        var.set("ignore", map.get(map.get(@m, "options"), "ignore", list.new()))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("ignore").unwrap(),
+        corvo_lang::type_system::Value::List(vec![
+            corvo_lang::type_system::Value::String("*.bak".to_string()),
+            corvo_lang::type_system::Value::String("*.tmp".to_string()),
+            corvo_lang::type_system::Value::String("*.log".to_string()),
+        ])
+    );
+}
+
+#[test]
+fn test_args_parse_double_dash_separator() {
+    let state = run_with_state(
+        r#"
+        @m = args.parse(["-v", "--", "-not-a-flag", "file.txt"])
+        @opts = map.get(@m, "options")
+        var.set("v", map.get(@opts, "v", false))
+        var.set("pos", map.get(@m, "positional"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("v").unwrap(),
+        corvo_lang::type_system::Value::Boolean(true)
+    );
+    assert_eq!(
+        state.var_get("pos").unwrap(),
+        corvo_lang::type_system::Value::List(vec![
+            corvo_lang::type_system::Value::String("-not-a-flag".to_string()),
+            corvo_lang::type_system::Value::String("file.txt".to_string()),
+        ])
+    );
+}
+
+#[test]
+fn test_time_format_local_epoch() {
+    let state = run_with_state(
+        r#"
+        @s = time.format_local(0, 0, "%s")
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("s").unwrap(),
+        corvo_lang::type_system::Value::String("0".to_string())
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn test_fs_read_meta_tmp() {
+    let state = run_with_state(
+        r#"
+        @m = fs.read_meta("/tmp")
+        var.set("is_dir", map.get(@m, "is_dir"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("is_dir").unwrap(),
+        corvo_lang::type_system::Value::Boolean(true)
     );
 }

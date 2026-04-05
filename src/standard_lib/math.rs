@@ -85,12 +85,67 @@ pub fn modulo(args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResu
     Ok(Value::Number(a % b))
 }
 
+/// Maximum of two or more numbers.
+pub fn max(args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResult<Value> {
+    if args.len() < 2 {
+        return Err(CorvoError::invalid_argument(
+            "math.max requires at least two numbers",
+        ));
+    }
+    let mut m = args[0]
+        .as_number()
+        .ok_or_else(|| CorvoError::r#type("math.max requires numbers"))?;
+    for a in args.iter().skip(1) {
+        let n = a
+            .as_number()
+            .ok_or_else(|| CorvoError::r#type("math.max requires numbers"))?;
+        m = m.max(n);
+    }
+    Ok(Value::Number(m))
+}
+
+/// Format a byte size like GNU `ls --human-readable` (`si`: powers of 1000 instead of 1024).
+pub fn human_bytes(args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResult<Value> {
+    let n = args.first().and_then(|v| v.as_number()).ok_or_else(|| {
+        CorvoError::invalid_argument("math.human_bytes requires a byte size (number)")
+    })?;
+    let si = args.get(1).and_then(|v| v.as_bool()).unwrap_or(false);
+    let n = n.max(0.0);
+    let base = if si { 1000.0 } else { 1024.0 };
+    if n < base {
+        return Ok(Value::String(format!("{:.0}", n)));
+    }
+    let suf = if si {
+        ["B", "k", "M", "G", "T", "P", "E", "Z", "Y"]
+    } else {
+        ["B", "K", "M", "G", "T", "P", "E", "Z", "Y"]
+    };
+    let mut val = n;
+    let mut idx = 0usize;
+    while val >= base && idx + 1 < suf.len() {
+        val /= base;
+        idx += 1;
+    }
+    let out = if idx > 0 && val < 10.0 {
+        format!("{:.1}{}", val, suf[idx])
+    } else {
+        format!("{:.0}{}", val.round(), suf[idx])
+    };
+    Ok(Value::String(out))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     fn empty_args() -> HashMap<String, Value> {
         HashMap::new()
+    }
+
+    #[test]
+    fn test_max() {
+        let args = vec![Value::Number(2.0), Value::Number(5.0), Value::Number(3.0)];
+        assert_eq!(max(&args, &empty_args()).unwrap(), Value::Number(5.0));
     }
 
     #[test]
@@ -169,5 +224,12 @@ mod tests {
     fn test_div_float() {
         let args = vec![Value::Number(7.0), Value::Number(2.0)];
         assert_eq!(div(&args, &empty_args()).unwrap(), Value::Number(3.5));
+    }
+
+    #[test]
+    fn human_k() {
+        let args = vec![Value::Number(2048.0), Value::Boolean(false)];
+        let s = human_bytes(&args, &empty_args()).unwrap();
+        assert_eq!(s, Value::String("2.0K".to_string()));
     }
 }

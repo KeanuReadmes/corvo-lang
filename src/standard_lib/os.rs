@@ -81,6 +81,16 @@ pub fn argv(
     ))
 }
 
+/// Current working directory (POSIX `getcwd`).
+pub fn getcwd(args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResult<Value> {
+    if !args.is_empty() {
+        return Err(CorvoError::invalid_argument("os.getcwd takes no arguments"));
+    }
+    std::env::current_dir()
+        .map(|p| Value::String(p.to_string_lossy().to_string()))
+        .map_err(|e| CorvoError::io(e.to_string()))
+}
+
 pub fn info(_args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResult<Value> {
     let mut result = HashMap::new();
     result.insert(

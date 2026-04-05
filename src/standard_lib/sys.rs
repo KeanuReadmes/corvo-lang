@@ -49,6 +49,16 @@ pub fn sleep(args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResul
     Ok(Value::Null)
 }
 
+/// Exit the process with the given status code (default `0`). Does not print a Corvo error.
+pub fn exit_process(args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResult<Value> {
+    let code = args
+        .first()
+        .and_then(|v| v.as_number())
+        .map(|n| n as i32)
+        .unwrap_or(0);
+    Err(CorvoError::ExitRequest { code })
+}
+
 pub fn panic(args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResult<Value> {
     let msg = if args.is_empty() {
         "panic".to_string()

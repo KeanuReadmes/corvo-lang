@@ -1,0 +1,33 @@
+# GNU ls-style argv parsing using the generic args.parse.
+#
+# Run: corvo examples/coreutils_ls.corvo -lah /tmp
+#
+# Full listing implementation: corvo coreutils/ls.corvo …
+
+@argv = os.argv()
+
+@ls_spec = {
+  "aliases": {
+    "a": "all",   "A": "almost_all",  "l": "long",
+    "h": "human_readable", "r": "reverse",  "R": "recursive",
+    "t": "time_sort_modified", "s": "blocks", "d": "directory",
+    "1": "one_per_line",
+    "w": "width", "I": "ignore"
+  },
+  "short_values": ["w", "I"],
+  "long_values": ["sort", "time_style", "width", "ignore", "hide"],
+  "accumulate": ["ignore", "hide"]
+}
+
+@parsed = args.parse(@argv, @ls_spec)
+@opts = map.get(@parsed, "options")
+
+sys.echo("long (-l): ${map.get(@opts, "long", false)}")
+sys.echo("almost-all (-A): ${map.get(@opts, "almost_all", false)}")
+sys.echo("human-readable (-h): ${map.get(@opts, "human_readable", false)}")
+
+@positional = map.get(@parsed, "positional")
+sys.echo("operands (${list.len(@positional)}):")
+browse(@positional, _i, p) {
+    sys.echo("  - ${@p}")
+}
