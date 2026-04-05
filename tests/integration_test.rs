@@ -2623,12 +2623,24 @@ fn test_time_format_local_epoch() {
 #[cfg(unix)]
 #[test]
 fn test_fs_read_meta_tmp() {
-    let state = run_with_state(
+    // `/tmp` is a symlink on macOS; default fs.read_meta uses lstat, so is_dir is false for the
+    // link itself. Use the process temp dir, which is always a real directory.
+    let dir = std::env::temp_dir();
+    assert!(
+        std::fs::metadata(&dir).map(|m| m.is_dir()).unwrap_or(false),
+        "temp_dir should be a directory"
+    );
+    let path_esc = dir
+        .to_string_lossy()
+        .replace('\\', "\\\\")
+        .replace('"', "\\\"");
+    let state = run_with_state(&format!(
         r#"
-        @m = fs.read_meta("/tmp")
+        @m = fs.read_meta("{path}")
         var.set("is_dir", map.get(@m, "is_dir"))
         "#,
-    )
+        path = path_esc
+    ))
     .unwrap();
     assert_eq!(
         state.var_get("is_dir").unwrap(),
