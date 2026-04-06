@@ -567,16 +567,21 @@ fn push_times(m: &mut HashMap<String, Value>, meta: &fs::Metadata) {
 
 #[cfg(not(unix))]
 fn push_times(m: &mut HashMap<String, Value>, meta: &fs::Metadata) {
-    fn split(t: Result<std::time::SystemTime, std::time::SystemTimeError>) -> (f64, f64) {
-        match t.and_then(|s| s.duration_since(std::time::UNIX_EPOCH)) {
+    // Windows uses `io::Error` for these; other non-Unix targets may differ—`Option` erases the
+    // error type.
+    fn split_system_time(t: Option<std::time::SystemTime>) -> (f64, f64) {
+        let Some(st) = t else {
+            return (0.0, 0.0);
+        };
+        match st.duration_since(std::time::UNIX_EPOCH) {
             Ok(d) => (d.as_secs() as f64, d.subsec_nanos() as f64),
             Err(_) => (0.0, 0.0),
         }
     }
 
-    let (mts, mtn) = split(meta.modified());
-    let (ats, atn) = split(meta.accessed());
-    let (cts, ctn) = split(meta.created());
+    let (mts, mtn) = split_system_time(meta.modified().ok());
+    let (ats, atn) = split_system_time(meta.accessed().ok());
+    let (cts, ctn) = split_system_time(meta.created().ok());
 
     m.insert("mtime_sec".to_string(), Value::Number(mts));
     m.insert("mtime_nsec".to_string(), Value::Number(mtn));
