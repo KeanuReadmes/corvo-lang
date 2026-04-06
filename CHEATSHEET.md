@@ -361,6 +361,12 @@ These are language-level constructs, not stdlib functions, but are used in every
 | `var.get("name")` | Retrieve a runtime variable |
 | `@name = value` | Shorthand for `var.set("name", value)` |
 | `@name` | Shorthand for `var.get("name")` |
+| `@name++` | Increment number variable by 1 |
+| `@name--` | Decrement number variable by 1 |
+| `@name += n` | Add `n` to a number variable |
+| `@name -= n` | Subtract `n` from a number variable |
+| `@name += "str"` | Concatenate `"str"` to a string variable |
+| `@name -= "str"` | Remove all occurrences of `"str"` from a string variable |
 | `static.set("name", value)` | Store a compile-time constant (inside `prep {}`) |
 | `static.get("name")` | Retrieve a compile-time constant |
 

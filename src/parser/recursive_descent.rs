@@ -72,25 +72,57 @@ impl Parser {
             TokenType::At => {
                 // @name = value       → VarSet shortcut
                 // @name[index] = val  → VarIndexSet shortcut
+                // @name++             → VarAddAssign shortcut (increment by 1)
+                // @name--             → VarSubAssign shortcut (decrement by 1)
+                // @name += expr       → VarAddAssign shortcut
+                // @name -= expr       → VarSubAssign shortcut
                 // @name               → ExprStmt (VarGet shortcut)
-                let is_simple_assignment = matches!(
+                let next_is_ident = matches!(
                     self.tokens.get(self.current + 1).map(|t| &t.token_type),
                     Some(TokenType::Identifier(_))
-                ) && matches!(
-                    self.tokens.get(self.current + 2).map(|t| &t.token_type),
-                    Some(TokenType::Equals)
                 );
-                let is_index_assignment = matches!(
-                    self.tokens.get(self.current + 1).map(|t| &t.token_type),
-                    Some(TokenType::Identifier(_))
-                ) && matches!(
-                    self.tokens.get(self.current + 2).map(|t| &t.token_type),
-                    Some(TokenType::LeftBracket)
-                );
+                let is_simple_assignment = next_is_ident
+                    && matches!(
+                        self.tokens.get(self.current + 2).map(|t| &t.token_type),
+                        Some(TokenType::Equals)
+                    );
+                let is_index_assignment = next_is_ident
+                    && matches!(
+                        self.tokens.get(self.current + 2).map(|t| &t.token_type),
+                        Some(TokenType::LeftBracket)
+                    );
+                let is_increment = next_is_ident
+                    && matches!(
+                        self.tokens.get(self.current + 2).map(|t| &t.token_type),
+                        Some(TokenType::Increment)
+                    );
+                let is_decrement = next_is_ident
+                    && matches!(
+                        self.tokens.get(self.current + 2).map(|t| &t.token_type),
+                        Some(TokenType::Decrement)
+                    );
+                let is_add_assign = next_is_ident
+                    && matches!(
+                        self.tokens.get(self.current + 2).map(|t| &t.token_type),
+                        Some(TokenType::PlusEqual)
+                    );
+                let is_sub_assign = next_is_ident
+                    && matches!(
+                        self.tokens.get(self.current + 2).map(|t| &t.token_type),
+                        Some(TokenType::MinusEqual)
+                    );
                 if is_simple_assignment {
                     self.parse_at_var_set()?
                 } else if is_index_assignment {
                     self.parse_at_index_set_or_expr()?
+                } else if is_increment {
+                    self.parse_at_var_increment()?
+                } else if is_decrement {
+                    self.parse_at_var_decrement()?
+                } else if is_add_assign {
+                    self.parse_at_var_add_assign()?
+                } else if is_sub_assign {
+                    self.parse_at_var_sub_assign()?
                 } else {
                     self.parse_expr_statement()?
                 }
@@ -240,6 +272,62 @@ impl Parser {
         self.consume(TokenType::Equals, "Expected '=' after variable name")?;
         let value = self.parse_expression()?;
         Ok(Stmt::VarSet { name, value })
+    }
+
+    fn parse_at_var_increment(&mut self) -> CorvoResult<Stmt> {
+        self.advance(); // consume '@'
+        let name = match &self.peek().token_type {
+            TokenType::Identifier(s) => s.clone(),
+            _ => return Err(self.error("Expected variable name after '@'")),
+        };
+        self.advance(); // consume identifier
+        self.advance(); // consume '++'
+        Ok(Stmt::VarAddAssign {
+            name,
+            value: Expr::Literal {
+                value: Value::Number(1.0),
+            },
+        })
+    }
+
+    fn parse_at_var_decrement(&mut self) -> CorvoResult<Stmt> {
+        self.advance(); // consume '@'
+        let name = match &self.peek().token_type {
+            TokenType::Identifier(s) => s.clone(),
+            _ => return Err(self.error("Expected variable name after '@'")),
+        };
+        self.advance(); // consume identifier
+        self.advance(); // consume '--'
+        Ok(Stmt::VarSubAssign {
+            name,
+            value: Expr::Literal {
+                value: Value::Number(1.0),
+            },
+        })
+    }
+
+    fn parse_at_var_add_assign(&mut self) -> CorvoResult<Stmt> {
+        self.advance(); // consume '@'
+        let name = match &self.peek().token_type {
+            TokenType::Identifier(s) => s.clone(),
+            _ => return Err(self.error("Expected variable name after '@'")),
+        };
+        self.advance(); // consume identifier
+        self.advance(); // consume '+='
+        let value = self.parse_expression()?;
+        Ok(Stmt::VarAddAssign { name, value })
+    }
+
+    fn parse_at_var_sub_assign(&mut self) -> CorvoResult<Stmt> {
+        self.advance(); // consume '@'
+        let name = match &self.peek().token_type {
+            TokenType::Identifier(s) => s.clone(),
+            _ => return Err(self.error("Expected variable name after '@'")),
+        };
+        self.advance(); // consume identifier
+        self.advance(); // consume '-='
+        let value = self.parse_expression()?;
+        Ok(Stmt::VarSubAssign { name, value })
     }
 
     fn parse_at_index_set_or_expr(&mut self) -> CorvoResult<Stmt> {

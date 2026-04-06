@@ -1,0 +1,28 @@
+# Shorthand compound assignment operators
+
+# @var++ and @var-- increment or decrement a number by 1
+@counter = 0
+@counter++
+@counter++
+@counter--
+sys.echo("counter after ++, ++, --: ${@counter}")
+
+# @var += <int> adds a number to the variable
+@score = 10
+@score += 5
+sys.echo("score after += 5: ${@score}")
+
+# @var -= <int> subtracts a number from the variable
+@score -= 3
+sys.echo("score after -= 3: ${@score}")
+
+# @var += "string" concatenates a string to the variable
+@greeting = "Hello"
+@greeting += ", World"
+@greeting += "!"
+sys.echo("greeting: ${@greeting}")
+
+# @var -= "string" removes all occurrences of the given value from the variable
+@sentence = "foo bar foo baz foo"
+@sentence -= "foo"
+sys.echo("sentence after removing 'foo': ${@sentence}")
