@@ -58,3 +58,6 @@ proptest = "1.4"
 [features]
 default = ["repl"]
 repl = ["rustyline"]
+
+[target.'cfg(unix)'.dependencies]
+uzers = "0.11"

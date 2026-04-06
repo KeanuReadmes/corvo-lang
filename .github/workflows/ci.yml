@@ -45,6 +45,15 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --all-features
 
+  ls-parity-docker:
+    name: GNU ls parity (Docker)
+    runs-on: ubuntu-latest
+    needs: [fmt, clippy]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run ls parity vs GNU coreutils in container
+        run: ./scripts/ls-parity-docker.sh --require-docker
+
   build:
     name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

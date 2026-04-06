@@ -1,0 +1,107 @@
+# args_parse.corvo — showcase of args.parse across multiple CLI styles
+#
+# This file demonstrates the three main argument-style families supported by
+# the single generic args.parse function:
+#
+#   1. GNU coreutils  (-x, --long, --key=val, accumulate, aliases)
+#   2. dnsutils / dig (+flag, +noflag, +key=val, @nameserver)
+#   3. usbutils / lsusb (-s bus:devnum, -d vendor:product — colon compound values)
+#
+# No actual network or USB calls are made; the examples only show parsing.
+
+# ────────────────────────────────────────────────────────────────────────────
+# 1. GNU coreutils style
+#    Simulates: grep -rni --include=*.rs --include=*.toml -- pattern /src
+# ────────────────────────────────────────────────────────────────────────────
+
+@grep_argv = ["-r", "-n", "-i", "--include=*.rs", "--include=*.toml", "--", "pattern", "/src"]
+
+@grep_spec = {
+  "aliases": {
+    "r": "recursive",
+    "n": "line_number",
+    "i": "ignore_case",
+    "e": "regexp",
+    "l": "files_with_matches",
+    "v": "invert_match",
+    "c": "count"
+  },
+  "long_values": ["include", "exclude", "exclude_dir", "color"],
+  "accumulate": ["include", "exclude", "exclude_dir", "regexp"]
+}
+
+@g = args.parse(@grep_argv, @grep_spec)
+@gopts = map.get(@g, "options")
+sys.echo("=== GNU grep-style ===")
+sys.echo("  recursive:    ${map.get(@gopts, "recursive", false)}")
+sys.echo("  line_number:  ${map.get(@gopts, "line_number", false)}")
+sys.echo("  ignore_case:  ${map.get(@gopts, "ignore_case", false)}")
+sys.echo("  include:      ${map.get(@gopts, "include", list.new())}")
+sys.echo("  positional:   ${map.get(@g, "positional")}")
+
+# ────────────────────────────────────────────────────────────────────────────
+# 2. dnsutils / dig style
+#    Simulates: dig +short +tcp +retry=3 @8.8.8.8 example.com A
+# ────────────────────────────────────────────────────────────────────────────
+
+@dig_argv = ["+short", "+tcp", "+retry=3", "@8.8.8.8", "example.com", "A"]
+
+@dig_spec = {
+  "plus_flags": true,
+  "at_tokens": true
+}
+
+@d = args.parse(@dig_argv, @dig_spec)
+@dplus = map.get(@d, "plus")
+sys.echo("=== dnsutils dig-style ===")
+sys.echo("  +short:       ${map.get(@dplus, "short", false)}")
+sys.echo("  +tcp:         ${map.get(@dplus, "tcp", false)}")
+sys.echo("  +retry:       ${map.get(@dplus, "retry", "")}")
+sys.echo("  @nameserver:  ${map.get(@d, "at_servers")}")
+sys.echo("  positional:   ${map.get(@d, "positional")}")
+
+# ────────────────────────────────────────────────────────────────────────────
+# 3. usbutils / lsusb style
+#    Simulates: lsusb -v -s 001:003 -d 046d:c52b
+# ────────────────────────────────────────────────────────────────────────────
+
+@lsusb_argv = ["-v", "-s", "001:003", "-d", "046d:c52b"]
+
+@lsusb_spec = {
+  "aliases": {
+    "v": "verbose",
+    "t": "tree",
+    "D": "device"
+  },
+  "short_values": ["s", "d", "D"]
+}
+
+@u = args.parse(@lsusb_argv, @lsusb_spec)
+@uopts = map.get(@u, "options")
+sys.echo("=== usbutils lsusb-style ===")
+sys.echo("  verbose:      ${map.get(@uopts, "verbose", false)}")
+sys.echo("  -s (bus:dev): ${map.get(@uopts, "s", "")}")
+sys.echo("  -d (vid:pid): ${map.get(@uopts, "d", "")}")
+
+# ────────────────────────────────────────────────────────────────────────────
+# 4. Combined: all three styles at once (hypothetical multi-protocol tool)
+# ────────────────────────────────────────────────────────────────────────────
+
+@combined_argv = ["-v", "--timeout=5", "+retry=2", "@ns1.example.com", "query.txt"]
+
+@combined_spec = {
+  "aliases": { "v": "verbose", "t": "timeout" },
+  "short_values": ["t"],
+  "long_values": ["timeout"],
+  "plus_flags": true,
+  "at_tokens": true
+}
+
+@c = args.parse(@combined_argv, @combined_spec)
+@copts = map.get(@c, "options")
+sys.echo("=== combined style ===")
+sys.echo("  verbose:    ${map.get(@copts, "verbose", false)}")
+sys.echo("  timeout:    ${map.get(@copts, "timeout", "")}")
+sys.echo("  +retry:     ${map.get(map.get(@c, "plus"), "retry", "")}")
+sys.echo("  @servers:   ${map.get(@c, "at_servers")}")
+sys.echo("  positional: ${map.get(@c, "positional")}")

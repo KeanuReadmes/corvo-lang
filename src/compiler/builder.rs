@@ -213,6 +213,9 @@ impl Compiler {
         main_rs.push_str("    match corvo_lang::run_source_with_state(&source, &mut state) {\n");
         main_rs.push_str("        Ok(_) => std::process::exit(0),\n");
         main_rs.push_str("        Err(e) => {\n");
+        main_rs.push_str("            if let Some(code) = e.process_exit_code() {\n");
+        main_rs.push_str("                std::process::exit(code);\n");
+        main_rs.push_str("            }\n");
         main_rs.push_str("            eprintln!(\"{}\", e);\n");
         main_rs.push_str("            std::process::exit(e.exit_code());\n");
         main_rs.push_str("        }\n");

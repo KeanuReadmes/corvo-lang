@@ -49,6 +49,16 @@ pub fn sleep(args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResul
     Ok(Value::Null)
 }
 
+/// Exit the process with the given status code (default `0`). Does not print a Corvo error.
+pub fn exit_process(args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResult<Value> {
+    let code = args
+        .first()
+        .and_then(|v| v.as_number())
+        .map(|n| n as i32)
+        .unwrap_or(0);
+    Err(CorvoError::ExitRequest { code })
+}
+
 pub fn panic(args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResult<Value> {
     let msg = if args.is_empty() {
         "panic".to_string()
@@ -290,14 +300,33 @@ mod tests {
 
     #[test]
     fn test_exec_with_cwd() {
+        let dir = tempfile::tempdir().unwrap();
+        let cwd = std::fs::canonicalize(dir.path()).unwrap();
+        let cwd_s = cwd.to_string_lossy().to_string();
+        let marker = cwd
+            .file_name()
+            .expect("temp dir must have a name")
+            .to_string_lossy()
+            .to_string();
+
+        #[cfg(unix)]
         let args = vec![make_cmd(&["pwd"])];
+        #[cfg(windows)]
+        let args = vec![make_cmd(&["cmd", "/C", "echo", "%CD%"])];
+
         let mut named = HashMap::new();
-        named.insert("cwd".to_string(), Value::String("/tmp".to_string()));
+        named.insert("cwd".to_string(), Value::String(cwd_s.clone()));
         let result = exec(&args, &named).unwrap();
         match result {
             Value::Map(m) => {
+                let code = m.get("code").unwrap().as_number().unwrap();
+                assert_eq!(code, 0.0);
                 let stdout = m.get("stdout").unwrap().as_string().unwrap();
-                assert!(stdout.contains("/tmp"));
+                let out = stdout.trim().trim_end_matches('\r');
+                assert!(
+                    out.contains(&marker) || out.eq_ignore_ascii_case(&cwd_s),
+                    "stdout={stdout:?} cwd={cwd_s:?} marker={marker:?}"
+                );
             }
             _ => panic!("Expected Map"),
         }

@@ -1,14 +1,16 @@
+use super::tcp_registry::TcpRegistry;
 use crate::type_system::Value;
 use crate::CorvoError;
 use std::collections::HashMap;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct RuntimeState {
     vars: HashMap<String, Value>,
     statics: HashMap<String, Value>,
     /// Arguments passed to the Corvo program (after the script path when using
     /// the interpreter, or after the executable when running a compiled binary).
     script_argv: Vec<String>,
+    pub(crate) tcp: TcpRegistry,
 }
 
 impl RuntimeState {
@@ -17,7 +19,12 @@ impl RuntimeState {
             vars: HashMap::new(),
             statics: HashMap::new(),
             script_argv: Vec::new(),
+            tcp: TcpRegistry::new(),
         }
+    }
+
+    pub(crate) fn tcp(&self) -> &TcpRegistry {
+        &self.tcp
     }
 
     pub fn set_script_argv(&mut self, argv: Vec<String>) {
@@ -112,6 +119,18 @@ impl RuntimeState {
 impl Default for RuntimeState {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl Clone for RuntimeState {
+    fn clone(&self) -> Self {
+        Self {
+            vars: self.vars.clone(),
+            statics: self.statics.clone(),
+            script_argv: self.script_argv.clone(),
+            // Sockets are not duplicated; cloned state starts with no live handles.
+            tcp: TcpRegistry::new(),
+        }
     }
 }
 

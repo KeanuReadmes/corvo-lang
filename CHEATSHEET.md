@@ -13,6 +13,7 @@ Functions are grouped by module. Parameter names in `[brackets]` are optional.
 | `sys.read_line` | `[prompt: string]` | `string` | Read a line from stdin |
 | `sys.sleep` | `ms: number` | `null` | Pause execution for `ms` milliseconds |
 | `sys.panic` | `[message: string]` | *(exits)* | Terminate with a non-zero exit code |
+| `sys.exit` | `[code: number]` | *(exits)* | Terminate with exit code `code` (default `0`) |
 | `sys.exec` | `cmd: list[string]` | `map{stdout, stderr, code}` | Run an external command (no shell) |
 
 **Example file:** [`examples/sys_example.corvo`](examples/sys_example.corvo)
@@ -37,9 +38,23 @@ Functions are grouped by module. Parameter names in `[brackets]` are optional.
 
 | Function | Parameters | Returns | Description |
 |---|---|---|---|
-| `args.scan` | `argv: list[string]` | `map{positional, options}` | Split argv into a positional list and an options map (`true` or `string` values). Supports `--`, `--k=v`, long options, and clustered short flags (`-abc`). |
+| `args.parse` | `argv: list[string], config?: map` | `map{positional, options, plus?, at_servers?}` | Generic configurable argv parser. Supports GNU coreutils style (short clusters, long options, `--key=val`, aliases, accumulate), dnsutils/dig style (`+flag`, `+noflag`, `+key=val`, `@server`), and usbutils style (colon-compound values). All config keys are optional. |
+| `args.scan` | `argv: list[string]` | `map{positional, options}` | Zero-config wrapper around `args.parse`. Backward-compatible with existing scripts. |
 
-**Example file:** [`examples/args.corvo`](examples/args.corvo)
+### `args.parse` config map keys
+
+| Key | Type | Description |
+|---|---|---|
+| `"aliases"` | `map` | raw-key → semantic output key (e.g. `"l": "long"`) |
+| `"short_values"` | `list[string]` | short chars that consume a glued tail or next token as a value |
+| `"long_values"` | `list[string]` | long flag names (normalised) that require a value via `=` or next token |
+| `"long_optional_values"` | `list[string]` | long flags whose value is only accepted via `=` (defaults to `"always"`) |
+| `"accumulate"` | `list[string]` | output keys where repeated values build a list instead of overwriting |
+| `"plus_flags"` | `bool` | enable dig-style `+flag` / `+noflag` / `+key=val` collected into `"plus"` map |
+| `"at_tokens"` | `bool` | collect `@server` tokens into `"at_servers"` list |
+| `"permute"` | `bool` (default `true`) | GNU mode: interleave options and operands; `false` = stop at first positional (POSIX) |
+
+**Example files:** [`examples/args.corvo`](examples/args.corvo), [`examples/args_parse.corvo`](examples/args_parse.corvo), [`examples/coreutils_ls.corvo`](examples/coreutils_ls.corvo)
 
 ---
 
@@ -52,8 +67,19 @@ Functions are grouped by module. Parameter names in `[brackets]` are optional.
 | `math.mul` | `a: number, b: number` | `number` | `a * b` |
 | `math.div` | `a: number, b: number` | `number` | `a / b` — error if `b == 0` |
 | `math.mod` | `a: number, b: number` | `number` | `a % b` — error if `b == 0` |
+| `math.max` | `a: number, b: number, …` | `number` | Largest argument (two or more numbers) |
+| `math.human_bytes` | `bytes: number, [si: bool]` | `string` | Human-readable size (`1024`‑based by default; `si: true` uses `1000`‑based prefixes) |
 
 **Example file:** [`examples/math_example.corvo`](examples/math_example.corvo)
+
+---
+
+## `time` — Timestamps
+
+| Function | Parameters | Returns | Description |
+|---|---|---|---|
+| `time.format_local` | `seconds: number, [nanoseconds: number], format: string` | `string` | Format Unix time with `chrono` strftime in the **local** timezone (honours `TZ`) |
+| `time.unix_now` | *(none)* | `number` | Current time as seconds since the Unix epoch |
 
 ---
 
@@ -71,6 +97,9 @@ Functions are grouped by module. Parameter names in `[brackets]` are optional.
 | `fs.copy` | `src: string, dest: string` | `bool` | Copy a file |
 | `fs.move` | `src: string, dest: string` | `bool` | Move / rename a file |
 | `fs.stat` | `path: string` | `map{size, is_dir, permissions, modified_at}` | Get file metadata |
+| `fs.read_meta` | `path: string, [follow_symlinks: bool]` | `map` | Rich metadata (mode, inode, nlink, uid/gid, user/group, symlink target, blocks, times, …) — Unix fields are zeros / placeholders on non-Unix |
+| `fs.read_dir_meta` | `path: string, [follow_symlinks: bool]` | `list[map]` | Directory entries with the same metadata shape as `fs.read_meta` |
+| `fs.read_link` | `path: string` | `string` | Target path of a symbolic link |
 
 **Example file:** [`examples/fs_example.corvo`](examples/fs_example.corvo)
 
@@ -86,6 +115,22 @@ Functions are grouped by module. Parameter names in `[brackets]` are optional.
 | `http.delete` | `url: string` | `map{status_code, response_body}` | HTTP DELETE request |
 
 **Example file:** [`examples/http_example.corvo`](examples/http_example.corvo) *(requires network)*
+
+---
+
+## `net` — TCP sockets
+
+| Function | Parameters | Returns | Description |
+|---|---|---|---|
+| `net.tcp_listen` | `address: string` | `map` | `tcp_listener` handle: `kind`, `id`, `local_addr` |
+| `net.tcp_accept` | `listener: map` | `map` | Blocks; `tcp_stream` handle: `kind`, `id`, `local_addr`, `peer_addr` |
+| `net.tcp_close_listener` | `listener: map` | `null` | Close listener; handle is invalid after |
+| `net.tcp_connect` | `address: string` | `map` | Client `tcp_stream` handle |
+| `net.tcp_read` | `stream: map, max_bytes: number` | `string` | Up to `max_bytes`; non-UTF-8 is lossy-decoded |
+| `net.tcp_write` | `stream: map, data: string` | `null` | Send bytes of `data` |
+| `net.tcp_close` | `stream: map` | `null` | Close stream; handle is invalid after |
+
+**Example file:** [`examples/net_tcp.corvo`](examples/net_tcp.corvo)
 
 ---
 
@@ -238,6 +283,8 @@ Functions are grouped by module. Parameter names in `[brackets]` are optional.
 | `string.len` | `s: string` | `number` | Number of characters |
 | `string.reverse` | `s: string` | `string` | Reverse the characters |
 | `string.is_empty` | `s: string` | `bool` | Check if the string has zero length |
+| `string.pad_start` | `s: string, width: number, [fill: string]` | `string` | Pad on the left to `width` characters (default fill space) |
+| `string.pad_end` | `s: string, width: number, [fill: string]` | `string` | Pad on the right to `width` characters (default fill space) |
 
 **Example file:** [`examples/string_methods.corvo`](examples/string_methods.corvo)
 
@@ -278,6 +325,8 @@ Functions are grouped by module. Parameter names in `[brackets]` are optional.
 | `list.contains` | `l: list, item: any` | `bool` | Check if `item` is in the list |
 | `list.reverse` | `l: list` | `list` | Return a new list in reverse order |
 | `list.join` | `l: list, delimiter: string` | `string` | Join all items into a string |
+| `list.sort_version` | `l: list` | `list` | Sort items (`Display` / string comparison) using GNU `strverscmp`-compatible ordering |
+| `list.sort_maps_by_key` | `l: list[map], key: string, [reverse: bool]` | `list[map]` | Stable sort of maps by string key (values coerced to string for comparison) |
 
 **Example file:** [`examples/list_methods.corvo`](examples/list_methods.corvo)
 

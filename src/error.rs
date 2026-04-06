@@ -3,20 +3,65 @@ use std::fmt;
 
 #[derive(Debug, Clone)]
 pub enum CorvoError {
-    Lexing { message: String, span: Option<Span> },
-    Parsing { message: String, span: Option<Span> },
-    Type { message: String, span: Option<Span> },
-    Runtime { message: String, span: Option<Span> },
-    Assertion { message: String, span: Option<Span> },
-    FileSystem { message: String, span: Option<Span> },
-    Network { message: String, span: Option<Span> },
-    UnknownFunction { name: String, span: Option<Span> },
-    StaticModification { name: String, span: Option<Span> },
-    DivisionByZero { span: Option<Span> },
-    VariableNotFound { name: String, span: Option<Span> },
-    StaticNotFound { name: String, span: Option<Span> },
-    Io { message: String, span: Option<Span> },
-    InvalidArgument { message: String, span: Option<Span> },
+    Lexing {
+        message: String,
+        span: Option<Span>,
+    },
+    Parsing {
+        message: String,
+        span: Option<Span>,
+    },
+    Type {
+        message: String,
+        span: Option<Span>,
+    },
+    Runtime {
+        message: String,
+        span: Option<Span>,
+    },
+    Assertion {
+        message: String,
+        span: Option<Span>,
+    },
+    FileSystem {
+        message: String,
+        span: Option<Span>,
+    },
+    Network {
+        message: String,
+        span: Option<Span>,
+    },
+    UnknownFunction {
+        name: String,
+        span: Option<Span>,
+    },
+    StaticModification {
+        name: String,
+        span: Option<Span>,
+    },
+    DivisionByZero {
+        span: Option<Span>,
+    },
+    VariableNotFound {
+        name: String,
+        span: Option<Span>,
+    },
+    StaticNotFound {
+        name: String,
+        span: Option<Span>,
+    },
+    Io {
+        message: String,
+        span: Option<Span>,
+    },
+    InvalidArgument {
+        message: String,
+        span: Option<Span>,
+    },
+    /// Requested clean process exit (e.g. `sys.exit`). Not printed as an error.
+    ExitRequest {
+        code: i32,
+    },
 }
 
 impl fmt::Display for CorvoError {
@@ -38,6 +83,7 @@ impl fmt::Display for CorvoError {
             Self::StaticNotFound { name, .. } => write!(f, "Static not found: {}", name),
             Self::Io { message, .. } => write!(f, "IO error: {}", message),
             Self::InvalidArgument { message, .. } => write!(f, "Invalid argument: {}", message),
+            Self::ExitRequest { .. } => Ok(()),
         }
     }
 }
@@ -135,6 +181,7 @@ impl CorvoError {
 
     pub fn with_span(mut self, span: Span) -> Self {
         match &mut self {
+            Self::ExitRequest { .. } => {}
             Self::Lexing { span: s, .. }
             | Self::Parsing { span: s, .. }
             | Self::Type { span: s, .. }
@@ -153,8 +200,17 @@ impl CorvoError {
         self
     }
 
+    /// If this error is a requested process exit, returns the exit code (no message printed).
+    pub fn process_exit_code(&self) -> Option<i32> {
+        match self {
+            Self::ExitRequest { code } => Some(*code),
+            _ => None,
+        }
+    }
+
     pub fn exit_code(&self) -> i32 {
         match self {
+            Self::ExitRequest { code } => *code,
             Self::Lexing { .. } => 1,
             Self::Parsing { .. } => 2,
             Self::Type { .. } => 3,
@@ -174,6 +230,7 @@ impl CorvoError {
 
     pub fn span(&self) -> Option<Span> {
         match self {
+            Self::ExitRequest { .. } => None,
             Self::Lexing { span, .. }
             | Self::Parsing { span, .. }
             | Self::Type { span, .. }
@@ -193,6 +250,7 @@ impl CorvoError {
 
     pub fn kind_label(&self) -> &'static str {
         match self {
+            Self::ExitRequest { .. } => "exit",
             Self::Lexing { .. } => "lexing error",
             Self::Parsing { .. } => "syntax error",
             Self::Type { .. } => "type error",

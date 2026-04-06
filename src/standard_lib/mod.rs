@@ -9,11 +9,13 @@ pub mod http;
 pub mod json;
 pub mod llm;
 pub mod math;
+pub mod net;
 pub mod notifications;
 pub mod os;
 pub mod re;
 pub mod sys;
 pub mod template;
+pub mod time;
 pub mod xml;
 pub mod yaml;
 
@@ -33,6 +35,7 @@ pub fn call(
         "sys.read_line" => sys::read_line(args, named_args),
         "sys.sleep" => sys::sleep(args, named_args),
         "sys.panic" => sys::panic(args, named_args),
+        "sys.exit" => sys::exit_process(args, named_args),
         "sys.exec" => sys::exec(args, named_args),
 
         "os.get_env" => os::get_env(args, named_args),
@@ -40,14 +43,18 @@ pub fn call(
         "os.exec" => os::exec(args, named_args),
         "os.info" => os::info(args, named_args),
         "os.argv" => os::argv(args, named_args, state),
+        "os.getcwd" => os::getcwd(args, named_args),
 
         "args.scan" => args::scan(args, named_args),
+        "args.parse" => args::parse(args, named_args),
 
         "math.add" => math::add(args, named_args),
         "math.sub" => math::sub(args, named_args),
         "math.mul" => math::mul(args, named_args),
         "math.div" => math::div(args, named_args),
         "math.mod" => math::modulo(args, named_args),
+        "math.max" => math::max(args, named_args),
+        "math.human_bytes" => math::human_bytes(args, named_args),
 
         "fs.read" => fs::read(args, named_args),
         "fs.write" => fs::write(args, named_args),
@@ -59,11 +66,27 @@ pub fn call(
         "fs.copy" => fs::copy(args, named_args),
         "fs.move" => fs::move_file(args, named_args),
         "fs.stat" => fs::stat(args, named_args),
+        "fs.read_link" => fs::read_link(args, named_args),
+        "fs.read_dir_meta" => fs::read_dir_meta(args, named_args),
+        "fs.read_meta" => fs::read_meta(args, named_args),
+        "fs.path_parent" => fs::path_parent(args, named_args),
+        "fs.path_relative" => fs::path_relative(args, named_args),
+
+        "time.format_local" => time::format_local(args, named_args),
+        "time.unix_now" => time::unix_now(args, named_args),
 
         "http.get" => http::get(args, named_args),
         "http.post" => http::post(args, named_args),
         "http.put" => http::put(args, named_args),
         "http.delete" => http::delete(args, named_args),
+
+        "net.tcp_listen" => net::tcp_listen(args, named_args, state),
+        "net.tcp_accept" => net::tcp_accept(args, named_args, state),
+        "net.tcp_close_listener" => net::tcp_close_listener(args, named_args, state),
+        "net.tcp_connect" => net::tcp_connect(args, named_args, state),
+        "net.tcp_read" => net::tcp_read(args, named_args, state),
+        "net.tcp_write" => net::tcp_write(args, named_args, state),
+        "net.tcp_close" => net::tcp_close(args, named_args, state),
 
         "dns.resolve" => dns::resolve(args, named_args),
         "dns.lookup" => dns::lookup(args, named_args),

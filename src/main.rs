@@ -5,8 +5,12 @@ use structopt::StructOpt;
 #[structopt(
     name = "corvo",
     about = "Corvo Programming Language",
-    setting = structopt::clap::AppSettings::TrailingVarArg,
-    after_help = "Examples:\n  corvo script.corvo              Run a file\n  corvo --repl                    Start interactive REPL\n  corvo --eval 'sys.echo(\"hi\")'  Evaluate an expression\n  corvo --compile script.corvo    Compile to standalone executable\n  corvo --check script.corvo      Check syntax\n  corvo --lint script.corvo       Analyse code for errors and unknown functions"
+    settings = &[
+        structopt::clap::AppSettings::TrailingVarArg,
+        structopt::clap::AppSettings::AllowLeadingHyphen,
+        structopt::clap::AppSettings::DisableHelpFlags,
+    ],
+    after_help = "Corvo CLI help (no script):\n  corvo -h | corvo --help\n\nExamples:\n  corvo script.corvo              Run a file\n  corvo script.corvo -lh /        Run a script with args (e.g. coreutils/ls.corvo; same flag ordering as GNU ls)\n  corvo --repl                    Start interactive REPL\n  corvo --eval 'sys.echo(\"hi\")'  Evaluate an expression\n  corvo --compile script.corvo    Compile to standalone executable\n  corvo --check script.corvo      Check syntax\n  corvo --lint script.corvo       Analyse code for errors and unknown functions"
 )]
 struct Args {
     #[structopt(help = "Corvo file to execute or compile")]
@@ -50,12 +54,29 @@ struct Args {
     )]
     no_debug: bool,
 
-    /// Arguments forwarded to the script (`os.argv()`); may start with `-` when placed after FILE
-    #[structopt(name = "SCRIPT_ARGS")]
+    /// Arguments forwarded to the script (`os.argv()`); may start with `-` (GNU ls-style flags after FILE)
+    #[structopt(name = "SCRIPT_ARGS", allow_hyphen_values = true)]
     script_args: Vec<String>,
 }
 
+/// When the user runs exactly `corvo -h` or `corvo --help`, show Corvo's CLI help.
+/// Any other invocation (including `corvo script.corvo -h`) is parsed normally so
+/// script flags like GNU `ls -h` are forwarded via `SCRIPT_ARGS`.
+fn maybe_print_corvo_help_only() -> bool {
+    let argv: Vec<String> = std::env::args().collect();
+    if argv.len() == 2 && (argv[1] == "-h" || argv[1] == "--help") {
+        Args::clap().print_help().unwrap();
+        println!();
+        return true;
+    }
+    false
+}
+
 fn main() {
+    if maybe_print_corvo_help_only() {
+        return;
+    }
+
     let args = Args::from_args();
 
     if args.version {
@@ -75,6 +96,9 @@ fn main() {
         match corvo_lang::run_source(&source) {
             Ok(_) => {}
             Err(e) => {
+                if let Some(code) = e.process_exit_code() {
+                    std::process::exit(code);
+                }
                 corvo_lang::diagnostic::print_error_no_source(&e);
                 std::process::exit(e.exit_code());
             }
@@ -113,6 +137,9 @@ fn run_file(file: &std::path::Path, script_args: Vec<String>) {
     match corvo_lang::run_source_with_state(&source, &mut state) {
         Ok(_) => {}
         Err(e) => {
+            if let Some(code) = e.process_exit_code() {
+                std::process::exit(code);
+            }
             let filename = file.display().to_string();
             corvo_lang::diagnostic::print_error(&e, &source, &filename);
             std::process::exit(e.exit_code());
@@ -313,6 +340,10 @@ fn print_usage() {
     eprintln!();
     eprintln!("Examples:");
     eprintln!("  corvo script.corvo               Run a file");
+    eprintln!("  corvo script.corvo -lh /         Run with script args (GNU ls-style flags after the file)");
+    eprintln!(
+        "  corvo -h                         Corvo CLI help (must be the only argument after corvo)"
+    );
     eprintln!("  corvo --repl                     Start interactive REPL");
     eprintln!("  corvo --compile script.corvo     Compile to executable");
     eprintln!("  corvo --compile script.corvo -o myapp");

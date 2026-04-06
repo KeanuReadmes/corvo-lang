@@ -28,6 +28,8 @@ Corvo is strongly and limited typed. A variable's type is inferred on its first 
 * `string.len(target: string) -> number`
 * `string.reverse(target: string) -> string`
 * `string.is_empty(target: string) -> boolean`
+* `string.pad_start(target: string, width: number, fill?: string) -> string`
+* `string.pad_end(target: string, width: number, fill?: string) -> string`
 
 ### `number`
 * `number.to_string(num: number) -> string`
@@ -46,6 +48,8 @@ Corvo is strongly and limited typed. A variable's type is inferred on its first 
 * `list.contains(target: list, item: any) -> boolean`
 * `list.reverse(target: list) -> list`
 * `list.join(target: list, delimiter: string) -> string`
+* `list.sort_version(target: list) -> list` (GNU `strverscmp`-compatible sort; elements compared via string form)
+* `list.sort_maps_by_key(target: list, key: string, reverse?: boolean) -> list`
 
 ### `map`
 * `map.keys(target: map) -> list`
@@ -203,18 +207,26 @@ match(<expr>) {
 * `sys.read_line(prompt: string) -> string`: Reads user input from stdin.
 * `sys.sleep(ms: number)`: Pauses execution.
 * `sys.panic(msg: string)`: Terminates with a non-zero exit code.
+* `sys.exit(code?: number)`: Terminates with the given exit code (default `0`).
 * `sys.exec(cmd: list, input?: string, check?: boolean, timeout?: number, cwd?: string, env?: map) -> map`: Executes a process directly without a shell. The first argument is a list of strings where the first element is the program and the remaining elements are its arguments (e.g., `["ls", "-la", "/tmp"]`). Returns `{"stdout": string, "stderr": string, "code": number}`. Named parameters: `input` (data piped to stdin), `check` (error on non-zero exit), `timeout` (kill after N seconds, triggers fallback on timeout), `cwd` (working directory), `env` (environment variables). Use `sys.exec` when you need direct process invocation, piping, timeouts, or environment control.
 * `os.get_env(key: string, default: string) -> string`
 * `os.set_env(key: string, value: string)`
 * `os.exec(cmd: string, args: list) -> map`: Simple process execution without a shell. Returns `{"stdout": string, "stderr": string, "code": number}`. Use `os.exec` for direct process invocation when you have a command and its arguments as separate values and do not need shell features.
 * `os.info() -> map`: Returns `{"os": string, "arch": string, "hostname": string}`.
 * `os.argv() -> list`: Arguments for the Corvo program (trailing tokens after the script when using `corvo file.corvo …`, or `std::env::args().skip(1)` for a compiled binary). Empty in the REPL and in `run_source` unless set via `RuntimeState::set_script_argv` / `run_source_with_script_argv`.
-* `args.scan(argv: list) -> map`: Returns `{"positional": list[string], "options": map}` using simple GNU-like rules (`--` stops flag parsing, `--name=value`, `--name` with optional following value, `-xyz` as boolean short flags).
+* `args.parse(argv: list, config?: map) -> map`: Generic configurable argv parser. Returns `{"positional": list[string], "options": map, "plus"?: map, "at_servers"?: list}`. Supports GNU coreutils style (aliases, short clusters, long options `--k=v` or `--k v`, optional values, accumulate), dnsutils/dig style (`+flag`, `+noflag`, `+key=val`, `@server`), and usbutils style (colon-compound short values). See `CHEATSHEET.md` for the full config key reference.
+* `args.scan(argv: list) -> map`: Zero-config wrapper around `args.parse` for backward compatibility. Returns `{"positional": list[string], "options": map}`.
 * `math.add(a: number, b: number) -> number`
 * `math.sub(a: number, b: number) -> number`
 * `math.mul(a: number, b: number) -> number`
 * `math.div(a: number, b: number) -> number`
 * `math.mod(a: number, b: number) -> number`
+* `math.max(a: number, b: number, ...numbers) -> number`
+* `math.human_bytes(bytes: number, si?: boolean) -> string`: Human-readable byte size (binary prefixes by default; `si: true` uses decimal SI prefixes).
+
+### Time (`time`)
+* `time.format_local(seconds: number, nanoseconds?: number, format: string) -> string`: `strftime` in the local timezone (honours `TZ`).
+* `time.unix_now() -> number`: Seconds since the Unix epoch.
 
 ### Hashing & Encryption (`crypto`)
 * `crypto.hash(algorithm: string, data: string) -> string` (Supports "md5", "sha256", "sha512")
@@ -235,12 +247,22 @@ match(<expr>) {
 * `fs.copy(src: string, dest: string) -> boolean`
 * `fs.move(src: string, dest: string) -> boolean`
 * `fs.stat(path: string) -> map`: Returns `{"size": number, "is_dir": boolean, "permissions": string, "modified_at": number}`.
+* `fs.read_meta(path: string, follow_symlinks?: boolean) -> map`: Rich metadata for a path (mode, inode, nlink, uid/gid, user/group names on Unix, symlink target, block count, timestamp fields, etc.). Non-Unix builds use placeholders for unavailable fields.
+* `fs.read_dir_meta(path: string, follow_symlinks?: boolean) -> list`: Directory listing; each entry is a map with the same shape as `fs.read_meta`.
+* `fs.read_link(path: string) -> string`: Symlink target.
 
-### Networking & Web (`http`, `dns`)
+### Networking & Web (`http`, `net`, `dns`)
 * `http.get(url: string, headers: map) -> map`: Returns `{"status_code": number, "response_body": string, "headers": map}`.
 * `http.post(url: string, body: string, headers: map) -> map`
 * `http.put(url: string, body: string, headers: map) -> map`
 * `http.delete(url: string, headers: map) -> map`
+* `net.tcp_listen(address: string) -> map`: Returns a `tcp_listener` handle (`kind`, `id`, `local_addr`).
+* `net.tcp_accept(listener: map) -> map`: Blocks until a connection arrives; returns `tcp_stream` (`kind`, `id`, `local_addr`, `peer_addr`).
+* `net.tcp_close_listener(listener: map) -> null`
+* `net.tcp_connect(address: string) -> map`: Client-side `tcp_stream` handle.
+* `net.tcp_read(stream: map, max_bytes: number) -> string`: Lossy UTF-8 for arbitrary bytes.
+* `net.tcp_write(stream: map, data: string) -> null`
+* `net.tcp_close(stream: map) -> null`
 * `dns.resolve(hostname: string) -> list`: Returns list of IP addresses.
 * `dns.lookup(ip: string) -> string`: Returns hostname.
 

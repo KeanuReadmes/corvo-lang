@@ -1,0 +1,16 @@
+# net_tcp.corvo — blocking TCP handles (`net.tcp_*`)
+#
+# Listeners and streams are maps with `kind`, `id`, and address fields.
+# This script binds an ephemeral port, prints it, accepts one connection,
+# reads up to 1024 bytes, echoes them back, then shuts down.
+#
+# Try in another terminal after you see "listening on ...":
+#   echo hello | nc 127.0.0.1 <port>
+
+@ln = net.tcp_listen("127.0.0.1:0")
+sys.echo("listening on ${map.get(@ln, "local_addr")}")
+@peer = net.tcp_accept(@ln)
+@msg = net.tcp_read(@peer, 1024)
+net.tcp_write(@peer, @msg)
+net.tcp_close(@peer)
+net.tcp_close_listener(@ln)

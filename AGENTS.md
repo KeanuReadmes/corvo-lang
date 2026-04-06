@@ -16,13 +16,14 @@ src/
   lexer/             Tokeniser (tokenizer.rs) and token definitions (token.rs)
   parser/            Recursive-descent parser
   runtime/           Runtime state (variables, statics)
-  standard_lib/      Built-in modules: sys, fs, http, json, yaml, xml, csv,
+  standard_lib/      Built-in modules: sys, fs, http, net, json, yaml, xml, csv,
                      hcl, math, os, args, crypto, dns, llm
   type_system/       Value enum, type methods (list.*, map.*, string.*, …)
   diagnostic.rs      Linter + pretty error rendering
   lib.rs             Public API (run_source, run_source_with_state, …)
   main.rs            CLI entry point
-examples/            27 .corvo example scripts, one per feature area
+examples/            .corvo example scripts, one per feature area
+coreutils/           Larger stdlib-driven demos (e.g. GNU-oriented `ls.corvo`)
 tests/
   integration_test.rs  Integration test suite (≥ 60 tests)
 ```
@@ -46,7 +47,7 @@ cargo build --release # release build (used for --compile)
 ```bash
 # Build a fresh release binary first, then lint every example.
 cargo build --release
-for f in examples/*.corvo; do
+for f in examples/*.corvo coreutils/*.corvo; do
     result=$(target/release/corvo --lint "$f" 2>&1)
     if echo "$result" | grep -q "^error:"; then
         echo "LINT FAIL: $f"
@@ -55,7 +56,7 @@ for f in examples/*.corvo; do
 done
 ```
 
-All examples must report `no issues found`. If you add or rename a built-in
+All files in `examples/` and `coreutils/` must report `no issues found`. If you add or rename a built-in
 function, update `KNOWN_FUNCTIONS` in `src/diagnostic.rs` to match the
 implementations in `src/type_system/type_methods.rs` and
 `src/standard_lib/*.rs`.
@@ -97,8 +98,12 @@ Run these commands in order before every commit:
 ```bash
 cargo clippy --all-targets --all-features -- -D warnings
 cargo build --release
-for f in examples/*.corvo; do target/release/corvo --lint "$f"; done
+for f in examples/*.corvo coreutils/*.corvo; do target/release/corvo --lint "$f"; done
 cargo test --all-features
+# Optional but recommended before pushing ls changes (requires Docker):
+# ./scripts/ls-parity-docker.sh --require-docker
+# Wider flag comparison (reports PASS/FAIL per option group; may include expected gaps):
+# ./scripts/ls-parity-matrix.sh
 cargo fmt
 ```
 
@@ -113,8 +118,8 @@ cargo fmt
 
 - `src/type_system/type_methods.rs` — `list.*`, `map.*`, `string.*`,
   `number.*` methods
-- `src/standard_lib/*.rs` — every `sys.*`, `fs.*`, `http.*`, `os.*`,
-  `math.*`, `crypto.*`, `dns.*`, `json.*`, `yaml.*`, `xml.*`, `csv.*`,
+- `src/standard_lib/*.rs` — every `sys.*`, `fs.*`, `http.*`, `net.*`, `os.*`,
+  `math.*`, `time.*`, `crypto.*`, `dns.*`, `json.*`, `yaml.*`, `xml.*`, `csv.*`,
   `hcl.*`, `llm.*` function
 
 When you add, rename, or remove a built-in, update `KNOWN_FUNCTIONS`
@@ -130,9 +135,9 @@ string literals in `main.rs`. See `src/compiler/builder.rs` →
 
 ### Example files are the integration surface
 
-Every file under `examples/` must pass `corvo --lint`. They demonstrate the
-public API and are also useful for manual regression testing. Keep them in sync
-with the runtime.
+Every file under `examples/` and `coreutils/` must pass `corvo --lint`. They
+demonstrate the public API and are also useful for manual regression testing.
+Keep them in sync with the runtime.
 
 ---
 
@@ -142,7 +147,7 @@ with the runtime.
    `src/type_system/type_methods.rs` file.
 2. Add its fully-qualified name (e.g. `"list.count"`) to `KNOWN_FUNCTIONS` in
    `src/diagnostic.rs`.
-3. Add or update an example under `examples/`.
+3. Add or update an example under `examples/` (or `coreutils/` when appropriate).
 4. Add unit tests next to the implementation and integration tests in
    `tests/integration_test.rs`.
 5. Run the full pre-commit checklist above.
@@ -159,6 +164,8 @@ The `.github/workflows/ci.yml` pipeline runs on every push and PR to `main`:
 | Format | `cargo fmt --check` |
 | Clippy | `cargo clippy --all-targets --all-features -- -D warnings` |
 | Test | `cargo test --all-features` (Linux, macOS, Windows) |
+| GNU ls parity | `./scripts/ls-parity-docker.sh --require-docker` (Linux + Docker only) |
+| GNU ls matrix | `./scripts/ls-parity-matrix.sh` (optional; many flag combos vs GNU `ls`) |
 | Build | `cargo build --release --all-features` (Linux, macOS, Windows) |
 
 All jobs must be green before merging.

@@ -1,5 +1,15 @@
+use crate::strverscmp::strverscmp;
 use crate::type_system::Value;
 use crate::{CorvoError, CorvoResult};
+use regex::Regex;
+use std::cmp::Ordering;
+
+fn cmp_values_for_sort(a: &Value, b: &Value) -> Ordering {
+    match (a, b) {
+        (Value::Number(x), Value::Number(y)) => x.partial_cmp(y).unwrap_or(Ordering::Equal),
+        _ => a.to_string().cmp(&b.to_string()),
+    }
+}
 
 pub fn call_string_method(name: &str, args: &[Value]) -> CorvoResult<Value> {
     let method = name.strip_prefix("string.").unwrap();
@@ -72,6 +82,61 @@ pub fn call_string_method(name: &str, args: &[Value]) -> CorvoResult<Value> {
         "len" => Ok(Value::Number(target.len() as f64)),
         "reverse" => Ok(Value::String(target.chars().rev().collect())),
         "is_empty" => Ok(Value::Boolean(target.is_empty())),
+        "pad_start" => {
+            let width = args.get(1).and_then(|v| v.as_number()).ok_or_else(|| {
+                CorvoError::invalid_argument("string.pad_start requires width (number)")
+            })? as usize;
+            let fill_ch = args
+                .get(2)
+                .and_then(|v| v.as_string())
+                .and_then(|s| s.chars().next())
+                .unwrap_or(' ');
+            let n = target.chars().count();
+            if n >= width {
+                Ok(Value::String(target.clone()))
+            } else {
+                let pad: String = std::iter::repeat_n(fill_ch, width - n).collect();
+                Ok(Value::String(format!("{}{}", pad, target)))
+            }
+        }
+        "pad_end" => {
+            let width = args.get(1).and_then(|v| v.as_number()).ok_or_else(|| {
+                CorvoError::invalid_argument("string.pad_end requires width (number)")
+            })? as usize;
+            let fill_ch = args
+                .get(2)
+                .and_then(|v| v.as_string())
+                .and_then(|s| s.chars().next())
+                .unwrap_or(' ');
+            let n = target.chars().count();
+            if n >= width {
+                Ok(Value::String(target.clone()))
+            } else {
+                let pad: String = std::iter::repeat_n(fill_ch, width - n).collect();
+                Ok(Value::String(format!("{}{}", target, pad)))
+            }
+        }
+        "fnmatch" => {
+            let pattern = args.get(1).and_then(|v| v.as_string()).ok_or_else(|| {
+                CorvoError::invalid_argument("string.fnmatch requires a glob pattern (string)")
+            })?;
+            let mut re = String::from("^");
+            for ch in pattern.chars() {
+                match ch {
+                    '*' => re.push_str(".*"),
+                    '?' => re.push('.'),
+                    '.' | '+' | '(' | ')' | '[' | ']' | '{' | '}' | '^' | '$' | '|' | '\\' => {
+                        re.push('\\');
+                        re.push(ch);
+                    }
+                    _ => re.push(ch),
+                }
+            }
+            re.push('$');
+            let regex = Regex::new(&re)
+                .map_err(|e| CorvoError::runtime(format!("invalid glob pattern: {}", e)))?;
+            Ok(Value::Boolean(regex.is_match(target)))
+        }
         _ => Err(CorvoError::unknown_function(format!("string.{}", method))),
     }
 }
@@ -109,6 +174,97 @@ pub fn call_number_method(name: &str, args: &[Value]) -> CorvoResult<Value> {
         }
         _ => Err(CorvoError::unknown_function(format!("number.{}", method))),
     }
+}
+
+/// GNU `ls -C` output: coreutils `print_many_per_line` with `calculate_columns(true)`.
+fn gnu_ls_column_format(names: &[String], line_length: usize, tabsize: usize) -> String {
+    const MIN_COLUMN_WIDTH: usize = 3;
+    let n = names.len();
+    if n == 0 {
+        return String::new();
+    }
+    let lens: Vec<usize> = names.iter().map(|s| s.chars().count()).collect();
+
+    let max_idx =
+        line_length / MIN_COLUMN_WIDTH + usize::from(!line_length.is_multiple_of(MIN_COLUMN_WIDTH));
+    let max_cols = if max_idx > 0 && max_idx < n {
+        max_idx
+    } else {
+        n
+    };
+
+    #[derive(Clone)]
+    struct ColInfo {
+        valid_len: bool,
+        line_len: usize,
+        col_arr: Vec<usize>,
+    }
+
+    let mut column_info: Vec<ColInfo> = (0..max_cols)
+        .map(|i| {
+            let cols = i + 1;
+            ColInfo {
+                valid_len: true,
+                line_len: cols * MIN_COLUMN_WIDTH,
+                col_arr: vec![MIN_COLUMN_WIDTH; cols],
+            }
+        })
+        .collect();
+
+    for (filesno, name_length) in lens.iter().copied().enumerate() {
+        for (i, ci) in column_info.iter_mut().enumerate().take(max_cols) {
+            if ci.valid_len {
+                let denom = (n + i) / (i + 1);
+                let idx = filesno / denom;
+                let real_length = name_length + if idx == i { 0 } else { 2 };
+                if ci.col_arr[idx] < real_length {
+                    ci.line_len += real_length - ci.col_arr[idx];
+                    ci.col_arr[idx] = real_length;
+                    ci.valid_len = ci.line_len < line_length;
+                }
+            }
+        }
+    }
+
+    let mut cols = max_cols;
+    while cols > 1 && !column_info[cols - 1].valid_len {
+        cols -= 1;
+    }
+
+    let line_fmt = &column_info[cols - 1];
+    let rows = n / cols + usize::from(!n.is_multiple_of(cols));
+
+    let mut line_strs: Vec<String> = Vec::with_capacity(rows);
+    for row in 0..rows {
+        let mut col_ix = 0usize;
+        let mut filesno = row;
+        let mut pos = 0usize;
+        let mut line = String::new();
+        loop {
+            let name_length = lens[filesno];
+            let max_name_length = line_fmt.col_arr[col_ix];
+            line.push_str(&names[filesno]);
+            col_ix += 1;
+            if n - rows <= filesno {
+                break;
+            }
+            filesno += rows;
+            let mut from = pos + name_length;
+            let to = pos + max_name_length;
+            while from < to {
+                if tabsize != 0 && to / tabsize > (from + 1) / tabsize {
+                    line.push('\t');
+                    from += tabsize - from % tabsize;
+                } else {
+                    line.push(' ');
+                    from += 1;
+                }
+            }
+            pos += max_name_length;
+        }
+        line_strs.push(line);
+    }
+    line_strs.join("\n")
 }
 
 pub fn call_list_method(name: &str, args: &[Value]) -> CorvoResult<Value> {
@@ -192,6 +348,100 @@ pub fn call_list_method(name: &str, args: &[Value]) -> CorvoResult<Value> {
             let mut new_list = target.clone();
             new_list.sort_by_key(|a| a.to_string());
             Ok(Value::List(new_list))
+        }
+        "sort_version" => {
+            let mut new_list = target.clone();
+            new_list.sort_by(|a, b| strverscmp(&a.to_string(), &b.to_string()));
+            Ok(Value::List(new_list))
+        }
+        "sort_maps_by_key" => {
+            let key = args
+                .get(1)
+                .and_then(|v| v.as_string())
+                .map(|s| s.to_string())
+                .ok_or_else(|| {
+                    CorvoError::invalid_argument(
+                        "list.sort_maps_by_key requires key name (string) as second argument",
+                    )
+                })?;
+            let reverse = args.get(2).and_then(|v| v.as_bool()).unwrap_or(false);
+            let tie_key = args
+                .get(3)
+                .and_then(|v| v.as_string())
+                .map(|s| s.to_string());
+            let secondary_key = args
+                .get(4)
+                .and_then(|v| v.as_string())
+                .map(|s| s.to_string());
+            let mut new_list = target.clone();
+            new_list.sort_by(|a, b| {
+                let va = a
+                    .as_map()
+                    .and_then(|m| m.get(&key))
+                    .cloned()
+                    .unwrap_or(Value::Null);
+                let vb = b
+                    .as_map()
+                    .and_then(|m| m.get(&key))
+                    .cloned()
+                    .unwrap_or(Value::Null);
+                let ord = cmp_values_for_sort(&va, &vb);
+                let ord = if reverse { ord.reverse() } else { ord };
+                if ord != Ordering::Equal {
+                    return ord;
+                }
+                if let Some(ref sk) = secondary_key {
+                    let sa = a
+                        .as_map()
+                        .and_then(|m| m.get(sk))
+                        .cloned()
+                        .unwrap_or(Value::Null);
+                    let sb = b
+                        .as_map()
+                        .and_then(|m| m.get(sk))
+                        .cloned()
+                        .unwrap_or(Value::Null);
+                    let ord_s = cmp_values_for_sort(&sa, &sb);
+                    let ord_s = if reverse { ord_s.reverse() } else { ord_s };
+                    if ord_s != Ordering::Equal {
+                        return ord_s;
+                    }
+                }
+                if let Some(ref tk) = tie_key {
+                    let ta = a
+                        .as_map()
+                        .and_then(|m| m.get(tk))
+                        .cloned()
+                        .unwrap_or(Value::Null);
+                    let tb = b
+                        .as_map()
+                        .and_then(|m| m.get(tk))
+                        .cloned()
+                        .unwrap_or(Value::Null);
+                    // GNU ls uses ascending name (etc.) as the final tie-break regardless of -r.
+                    cmp_values_for_sort(&ta, &tb)
+                } else {
+                    Ordering::Equal
+                }
+            });
+            Ok(Value::List(new_list))
+        }
+        "columnate" => {
+            let width = args
+                .get(1)
+                .and_then(|v| v.as_number())
+                .unwrap_or(80.0)
+                .max(1.0) as usize;
+            let tabsize = args
+                .get(2)
+                .and_then(|v| v.as_number())
+                .unwrap_or(8.0)
+                .max(0.0) as usize;
+            let names: Vec<String> = target
+                .iter()
+                .filter_map(|v| v.as_string().cloned())
+                .collect();
+            Ok(Value::String(gnu_ls_column_format(&names, width, tabsize)))
         }
         "find" => {
             let item = args.get(1).cloned().unwrap_or(Value::Null);
@@ -334,8 +584,126 @@ pub fn call_map_method(name: &str, args: &[Value]) -> CorvoResult<Value> {
             Ok(Value::List(entries))
         }
         "new" => Ok(Value::Map(std::collections::HashMap::new())),
+        "column" => map_column(&target, args),
         _ => Err(CorvoError::unknown_function(format!("map.{}", method))),
     }
+}
+
+fn map_cell_width(s: &str) -> usize {
+    s.chars().count()
+}
+
+fn map_pad_cell(s: &str, width: usize) -> String {
+    let w = map_cell_width(s);
+    if w >= width {
+        s.to_string()
+    } else {
+        format!("{}{}", s, " ".repeat(width - w))
+    }
+}
+
+fn map_format_row(cells: &[String], widths: &[usize], gap: &str) -> String {
+    let parts: Vec<String> = cells
+        .iter()
+        .enumerate()
+        .map(|(i, c)| map_pad_cell(c, widths[i]))
+        .collect();
+    parts.join(gap)
+}
+
+/// Formats a map as plain-text columns (similar to the `column` utility).
+///
+/// If every value is a list, keys are column headers and each list is one column (all lists must be the same length). Otherwise keys and values are printed as two aligned columns. Optional second argument: gap width in spaces between columns (default 2, max 64).
+fn map_column(
+    target: &std::collections::HashMap<String, Value>,
+    args: &[Value],
+) -> CorvoResult<Value> {
+    if target.is_empty() {
+        return Ok(Value::String(String::new()));
+    }
+
+    let gap_n = args
+        .get(1)
+        .and_then(|v| v.as_number())
+        .map(|n| n.clamp(1.0, 64.0) as usize)
+        .unwrap_or(2);
+    let gap = " ".repeat(gap_n);
+
+    let mut keys: Vec<&String> = target.keys().collect();
+    keys.sort();
+
+    let all_lists = keys
+        .iter()
+        .all(|k| matches!(target.get(*k).unwrap_or(&Value::Null), Value::List(_)));
+    let any_list = keys
+        .iter()
+        .any(|k| matches!(target.get(*k).unwrap_or(&Value::Null), Value::List(_)));
+
+    if any_list && !all_lists {
+        return Err(CorvoError::invalid_argument(
+            "map.column: either all values must be lists (same length per column) or none may be lists (key/value table)",
+        ));
+    }
+
+    if all_lists {
+        let row_counts: Vec<usize> = keys
+            .iter()
+            .map(|k| {
+                target
+                    .get(*k)
+                    .and_then(|v| v.as_list())
+                    .map(|l| l.len())
+                    .unwrap_or(0)
+            })
+            .collect();
+        let nrows = *row_counts.first().unwrap_or(&0);
+        if row_counts.iter().any(|&c| c != nrows) {
+            return Err(CorvoError::invalid_argument(
+                "map.column: all list values must have the same length",
+            ));
+        }
+
+        let ncol = keys.len();
+        let mut widths = vec![0usize; ncol];
+        for (j, k) in keys.iter().enumerate() {
+            widths[j] = widths[j].max(map_cell_width(k.as_str()));
+        }
+        let mut grid: Vec<Vec<String>> = vec![vec![String::new(); ncol]; nrows];
+        for (j, k) in keys.iter().enumerate() {
+            let list = target.get(*k).unwrap().as_list().unwrap();
+            for (row, v) in list.iter().enumerate() {
+                let cell = v.to_string();
+                widths[j] = widths[j].max(map_cell_width(&cell));
+                grid[row][j] = cell;
+            }
+        }
+
+        let header_cells: Vec<String> = keys.iter().map(|k| (*k).clone()).collect();
+        let mut lines = vec![map_format_row(&header_cells, &widths, &gap)];
+        for row_cells in grid {
+            lines.push(map_format_row(&row_cells, &widths, &gap));
+        }
+        return Ok(Value::String(lines.join("\n")));
+    }
+
+    let mut kw = 0usize;
+    let mut vw = 0usize;
+    let rows: Vec<(String, String)> = keys
+        .iter()
+        .map(|k| {
+            let val = target.get(*k).unwrap();
+            let vs = val.to_string();
+            kw = kw.max(map_cell_width(k.as_str()));
+            vw = vw.max(map_cell_width(&vs));
+            ((*k).clone(), vs)
+        })
+        .collect();
+
+    let lines: Vec<String> = rows
+        .iter()
+        .map(|(k, v)| format!("{}{}{}", map_pad_cell(k, kw), gap, map_pad_cell(v, vw)))
+        .collect();
+    Ok(Value::String(lines.join("\n")))
 }
 
 pub fn call_re_method(name: &str, args: &[Value]) -> CorvoResult<Value> {
@@ -936,5 +1304,48 @@ mod tests {
     fn test_unknown_map_method() {
         let args = vec![Value::Map(std::collections::HashMap::new())];
         assert!(call_map_method("map.unknown", &args).is_err());
+    }
+
+    #[test]
+    fn test_map_column_key_value() {
+        let mut map = std::collections::HashMap::new();
+        map.insert("b".to_string(), Value::String("2".to_string()));
+        map.insert("a".to_string(), Value::String("100".to_string()));
+        let s = call_map_method("map.column", &[Value::Map(map)])
+            .unwrap()
+            .as_string()
+            .unwrap()
+            .clone();
+        assert_eq!(s, "a  100\nb  2  ");
+    }
+
+    #[test]
+    fn test_map_column_tabular() {
+        let mut map = std::collections::HashMap::new();
+        map.insert(
+            "name".to_string(),
+            Value::List(vec![
+                Value::String("Ann".to_string()),
+                Value::String("Bob".to_string()),
+            ]),
+        );
+        map.insert(
+            "id".to_string(),
+            Value::List(vec![Value::Number(1.0), Value::Number(10.0)]),
+        );
+        let s = call_map_method("map.column", &[Value::Map(map)])
+            .unwrap()
+            .as_string()
+            .unwrap()
+            .clone();
+        assert_eq!(s, "id  name\n1   Ann \n10  Bob ");
+    }
+
+    #[test]
+    fn test_map_column_mixed_lists_errors() {
+        let mut map = std::collections::HashMap::new();
+        map.insert("a".to_string(), Value::List(vec![Value::Number(1.0)]));
+        map.insert("b".to_string(), Value::String("x".to_string()));
+        assert!(call_map_method("map.column", &[Value::Map(map)]).is_err());
     }
 }
