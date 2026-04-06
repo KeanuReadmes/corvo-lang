@@ -484,6 +484,9 @@ fn value_to_json_value(v: &Value) -> serde_json::Value {
         Value::Regex(pattern, flags) => {
             serde_json::json!({"__corvo_regex": {"pattern": pattern, "flags": flags}})
         }
+        Value::Procedure(_) => {
+            panic!("procedures cannot be serialized as statics")
+        }
     }
 }
 
@@ -691,6 +694,9 @@ fn value_to_rust_code(value: &Value) -> String {
             escape_for_rust(pattern),
             flags
         ),
+        Value::Procedure(_) => {
+            panic!("procedures cannot be compiled to Rust source literals")
+        }
     }
 }
 

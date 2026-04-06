@@ -2,6 +2,11 @@
 # NOTE: llm functions are placeholder implementations that return stub values.
 #       Wire up a real provider to get live responses.
 
+@section = procedure(@title) {
+    sys.echo("")
+    sys.echo(@title)
+}
+
 sys.echo("=== llm.model ===")
 # Returns a "provider:model" identifier string
 @model_id = llm.model("gpt-4o", "openai")
@@ -10,21 +15,18 @@ sys.echo("Model ID: ${@model_id}")
 @local_model = llm.model("llama3", "ollama")
 sys.echo("Local model: ${@local_model}")
 
-sys.echo("")
-sys.echo("=== llm.prompt ===")
+@section.call("=== llm.prompt ===")
 # Sends a prompt to a model and returns the text response
 @response = llm.prompt(@model_id, "What is the capital of France?")
 sys.echo("Response: ${@response}")
 
-sys.echo("")
-sys.echo("=== llm.embed ===")
+@section.call("=== llm.embed ===")
 # Returns a list of numbers (embedding vector) for the given text
 @embedding = llm.embed(@model_id, "Hello, world!")
 sys.echo("Embedding dimensions: ${list.len(@embedding)}")
 sys.echo("First value: ${list.get(@embedding, 0)}")
 
-sys.echo("")
-sys.echo("=== llm.chat ===")
+@section.call("=== llm.chat ===")
 # Multi-turn chat: provide a session ID, model, and list of message maps
 @messages = [{"role": "user", "content": "Tell me a joke."}]
 @reply = llm.chat("session-1", @model_id, @messages)

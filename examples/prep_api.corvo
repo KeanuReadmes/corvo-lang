@@ -47,6 +47,11 @@ prep {
     static.set("BUILD_STAMP", @stamp)
 }
 
+@section = procedure(@title) {
+    sys.echo("")
+    sys.echo(@title)
+}
+
 # Runtime code uses the baked-in constants
 
 sys.echo("=== Application Bootstrap ===")
@@ -54,14 +59,12 @@ sys.echo("App         : ${static.get("APP_NAME")} v${static.get("APP_VERSION")}"
 sys.echo("Build stamp : ${static.get("BUILD_STAMP")}")
 sys.echo("API base    : ${static.get("API_BASE")}")
 
-sys.echo("")
-sys.echo("=== Baked-in Config (from config.json or defaults) ===")
+@section.call("=== Baked-in Config (from config.json or defaults) ===")
 sys.echo("Timeout         : ${static.get("TIMEOUT")}s")
 sys.echo("Max connections : ${static.get("MAX_CONNECTIONS")}")
 sys.echo("Retry delay     : ${static.get("RETRY_DELAY")}s")
 
-sys.echo("")
-sys.echo("=== Feature Flags (fetched in prep, baked in) ===")
+@section.call("=== Feature Flags (fetched in prep, baked in) ===")
 @flags = static.get("FEATURE_FLAGS")
 sys.echo("dark_mode      : ${map.get(@flags, "dark_mode",      false)}")
 sys.echo("new_dashboard  : ${map.get(@flags, "new_dashboard",  false)}")
@@ -69,8 +72,7 @@ sys.echo("beta_api       : ${map.get(@flags, "beta_api",       false)}")
 
 # Feature-flag-driven behaviour
 
-sys.echo("")
-sys.echo("=== Applying Feature Flags ===")
+@section.call("=== Applying Feature Flags ===")
 try {
     assert_eq(map.get(@flags, "dark_mode", false), true)
     sys.echo("UI: dark mode enabled")
@@ -87,8 +89,7 @@ try {
 
 # Simulated retry loop using baked-in config
 
-sys.echo("")
-sys.echo("=== Simulated Connection Retry (delay: ${static.get("RETRY_DELAY")}s) ===")
+@section.call("=== Simulated Connection Retry (delay: ${static.get("RETRY_DELAY")}s) ===")
 @max_retries = 3
 @attempt = 0
 @connected = false

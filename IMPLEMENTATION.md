@@ -2,7 +2,7 @@
 
 ## 1. AI Generation Directives
 When generating Corvo code, you **must** strictly adhere to the following language rules:
-* **NO USER-DEFINED FUNCTIONS:** Do not generate `def`, `fn`, `function`, or lambda expressions. All operations must use the built-in library calls.
+* **NO USER-DEFINED FUNCTIONS:** Do not generate `def`, `fn`, `function`, or lambda expressions. All operations must use the built-in library calls. Use `procedure` blocks when reusable logic is needed (see Section 3).
 * **NO IF/ELSE STATEMENTS:** Do not generate `if`, `elif`, `else`, or `switch`. For simple value-based branching, use the `match` expression. For error handling and complex conditional logic, use `try { ... } fallback { ... }` combined with `assert_*` commands.
 * **NO ASSIGNMENT OPERATORS:** Do not use `=` for assignment. State is strictly managed via `var.set()` and `static.set()` (the latter only inside a `prep` block).
 * **STRING INTERPOLATION:** Use `${}` for string interpolation (e.g., `sys.echo("Value: ${var.get("key")}")`).
@@ -299,3 +299,40 @@ match(<expr>) {
 * `llm.prompt(model: string, prompt: string, tokens: number) -> string`: Executes a prompt against the specified model (the connection string returned by `llm.model`) and returns the generated text.
 * `llm.embed(model: string, text: string) -> list`: Returns a vector embedding for the given text using the specified model.
 * `llm.chat(id: string, model: string, messages: list, tokens: number) -> map`: Executes a chat conversation with the specified model. The `messages` parameter is a list of maps, each containing `{"role": "user|assistant|system", "content": string}`. The function returns the assistant's response.
+
+## 3. Procedures
+
+Corvo does not have user-defined functions. Instead it has **procedures** — named, callable blocks that operate on variables by reference. Procedures are ideal for eliminating code duplication without introducing return values or closures.
+
+### Syntax
+
+```
+@proc_name = procedure(@param1, @param2, ...) {
+    # body — may contain any statements except prep blocks
+}
+@proc_name.call(@arg1, @arg2, ...)
+```
+
+### Semantics
+
+* **Definition**: `procedure(@p1, @p2, ...) { body }` evaluates to a `procedure` value and is assigned to a variable with `@` like any other value.
+* **Invocation**: `.call(...)` must be used as a **statement** (not in an expression context). It accepts the same number of arguments as the parameter list.
+* **Pass-by-reference (copy-in / copy-out)**: Each argument that is a plain `@variable` is copied into the corresponding parameter name before the body runs. After the body finishes, the updated parameter value is written back to the caller's variable. Arguments that are literals or expressions are copied in but not written back.
+* **Parameter isolation**: Parameter variable names are removed from state after the call returns. They do not leak into the outer scope.
+* **No return value**: Procedures return `null` and cannot be used on the right-hand side of an assignment.
+
+### Example
+
+```corvo
+@add = procedure(@a, @b, @out) {
+    @out = math.add(@a, @b)
+}
+
+@n1 = 10
+@n2 = 21
+@total = 0
+@add.call(@n1, @n2, @total)
+sys.echo(@total)   # 31
+```
+
+See [`examples/procedure.corvo`](examples/procedure.corvo) for more examples.

@@ -1,5 +1,10 @@
 # match expression: assign a value based on the matched value
 
+@section = procedure(@title) {
+    sys.echo("")
+    sys.echo(@title)
+}
+
 @file = "hosts"
 
 @description = match(@file) {
@@ -11,6 +16,7 @@
 sys.echo(@description)
 
 # match with @shorthand syntax
+@section.call("=== match with @file ===")
 @status = match(@file) {
     "hosts" => "found",
     _ => "not found"
@@ -19,6 +25,7 @@ sys.echo(@description)
 sys.echo(@status)
 
 # match with number patterns
+@section.call("=== number patterns ===")
 @code = 200
 
 @message = match(@code) {

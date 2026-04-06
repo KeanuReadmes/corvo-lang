@@ -1,5 +1,10 @@
 # env_example.corvo - env.parse for .env file format
 
+@section = procedure(@title) {
+    sys.echo("")
+    sys.echo(@title)
+}
+
 sys.echo("=== env.parse ===")
 @dotenv = "DB_HOST=localhost\nDB_PORT=5432\nDB_NAME=myapp\nDB_USER=admin\nDB_PASS=secret\n"
 @config = env.parse(@dotenv)
@@ -9,8 +14,7 @@ sys.echo("DB_PORT: ${map.get(@config, "DB_PORT")}")
 sys.echo("DB_NAME: ${map.get(@config, "DB_NAME")}")
 
 # Comments and blank lines are ignored
-sys.echo("")
-sys.echo("=== env.parse with comments and quoted values ===")
+@section.call("=== env.parse with comments and quoted values ===")
 @dotenv2 = "# Application settings\nAPP_NAME=\"My Corvo App\"\nAPP_ENV='production'\nAPP_PORT=8080\n\n# Database\nDB_URL=postgres://localhost/mydb\n"
 @cfg = env.parse(@dotenv2)
 

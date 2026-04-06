@@ -2,86 +2,75 @@
 
 @fruits = ["apple", "banana", "cherry"]
 
+@section = procedure(@title) {
+    sys.echo("")
+    sys.echo(@title)
+}
+
 sys.echo("=== list.len ===")
 sys.echo("Length: ${list.len(@fruits)}")
 
-sys.echo("")
-sys.echo("=== list.get ===")
+@section.call("=== list.get ===")
 sys.echo("Index 0: ${list.get(@fruits, 0)}")
 sys.echo("Index 2: ${list.get(@fruits, 2)}")
 
-sys.echo("")
-sys.echo("=== list.first / list.last ===")
+@section.call("=== list.first / list.last ===")
 sys.echo("First: ${list.first(@fruits)}")
 sys.echo("Last:  ${list.last(@fruits)}")
 
-sys.echo("")
-sys.echo("=== list.push ===")
+@section.call("=== list.push ===")
 @fruits = list.push(@fruits, "date")
 sys.echo("After push: ${list.join(@fruits, ", ")}")
 
-sys.echo("")
-sys.echo("=== list.pop ===")
+@section.call("=== list.pop ===")
 @fruits = list.pop(@fruits)
 sys.echo("After pop: ${list.join(@fruits, ", ")}")
 
-sys.echo("")
-sys.echo("=== list.set ===")
+@section.call("=== list.set ===")
 @fruits = list.set(@fruits, 1, "blueberry")
 sys.echo("After set index 1 to 'blueberry': ${list.join(@fruits, ", ")}")
 
-sys.echo("")
-sys.echo("=== @var[idx] = val (index shorthand) ===")
+@section.call("=== @var[idx] = val (index shorthand) ===")
 @fruits[0] = "avocado"
 sys.echo("fruits[0] after shorthand set: ${@fruits[0]}")
 
-sys.echo("")
-sys.echo("=== list.delete ===")
+@section.call("=== list.delete ===")
 @fruits = list.delete(@fruits, 0)
 sys.echo("After delete index 0: ${list.join(@fruits, ", ")}")
 
-sys.echo("")
-sys.echo("=== list.contains ===")
+@section.call("=== list.contains ===")
 sys.echo("Contains 'blueberry': ${list.contains(@fruits, "blueberry")}")
 sys.echo("Contains 'mango': ${list.contains(@fruits, "mango")}")
 
-sys.echo("")
-sys.echo("=== list.find ===")
+@section.call("=== list.find ===")
 sys.echo("Index of 'blueberry': ${list.find(@fruits, "blueberry")}")
 sys.echo("Index of 'mango' (not found): ${list.find(@fruits, "mango")}")
 
-sys.echo("")
-sys.echo("=== list.is_empty ===")
+@section.call("=== list.is_empty ===")
 sys.echo("Is fruits empty: ${list.is_empty(@fruits)}")
 sys.echo("Is [] empty: ${list.is_empty([])}")
 
-sys.echo("")
-sys.echo("=== list.sort ===")
+@section.call("=== list.sort ===")
 @sorted = list.sort(@fruits)
 sys.echo("Sorted: ${list.join(@sorted, ", ")}")
 
-sys.echo("")
-sys.echo("=== list.reverse ===")
+@section.call("=== list.reverse ===")
 @reversed = list.reverse(@fruits)
 sys.echo("Reversed: ${list.join(@reversed, ", ")}")
 
-sys.echo("")
-sys.echo("=== list.slice ===")
+@section.call("=== list.slice ===")
 @nums = [1, 2, 3, 4, 5]
 @sliced = list.slice(@nums, 1, 4)
 sys.echo("Slice [1..4]: ${list.join(@sliced, ", ")}")
 
-sys.echo("")
-sys.echo("=== list.unique ===")
+@section.call("=== list.unique ===")
 @dupes = ["a", "b", "a", "c", "b"]
 sys.echo("Unique: ${list.join(list.unique(@dupes), ", ")}")
 
-sys.echo("")
-sys.echo("=== list.flatten ===")
+@section.call("=== list.flatten ===")
 @nested = [[1, 2], [3, 4], [5]]
 sys.echo("Flattened: ${list.join(list.flatten(@nested), ", ")}")
 
-sys.echo("")
-sys.echo("=== list.join ===")
+@section.call("=== list.join ===")
 @nums = [1, 2, 3, 4, 5]
 sys.echo("Joined with '-': ${list.join(@nums, "-")}")

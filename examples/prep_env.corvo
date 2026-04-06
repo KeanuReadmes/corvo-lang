@@ -31,6 +31,11 @@ prep {
     static.set("DEBUG", @is_dev)
 }
 
+@section = procedure(@title) {
+    sys.echo("")
+    sys.echo(@title)
+}
+
 # ── Runtime code uses the baked-in constants ───────────────────────────────────
 
 sys.echo("=== Application Configuration ===")
@@ -39,8 +44,7 @@ sys.echo("Port        : ${static.get("APP_PORT")}")
 sys.echo("Log level   : ${static.get("LOG_LEVEL")}")
 sys.echo("Debug mode  : ${static.get("DEBUG")}")
 
-sys.echo("")
-sys.echo("=== Database ===")
+@section.call("=== Database ===")
 sys.echo("DATABASE_URL: ${static.get("DATABASE_URL")}")
 
 # Use the connection string — parse the protocol as a sanity check
@@ -57,16 +61,14 @@ try {
     }
 }
 
-sys.echo("")
-sys.echo("=== Host Info ===")
+@section.call("=== Host Info ===")
 sys.echo("OS          : ${static.get("HOST_OS")}")
 sys.echo("Arch        : ${static.get("HOST_ARCH")}")
 sys.echo("Hostname    : ${static.get("HOSTNAME")}")
 
 # ── Conditional behaviour driven by the baked-in env ──────────────────────────
 
-sys.echo("")
-sys.echo("=== Environment-Specific Behaviour ===")
+@section.call("=== Environment-Specific Behaviour ===")
 try {
     assert_eq(static.get("APP_ENV"), "production")
     sys.echo("Running in PRODUCTION mode — verbose logging suppressed")

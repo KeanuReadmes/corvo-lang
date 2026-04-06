@@ -254,6 +254,11 @@ fn lint_expr(expr: &Expr, out: &mut Vec<LintDiagnostic>) {
                 lint_expr(a, out);
             }
         }
+        Expr::ProcedureLiteral { body, .. } => {
+            for stmt in body {
+                lint_stmt(stmt, out);
+            }
+        }
         Expr::Literal { .. } | Expr::VarGet { .. } | Expr::StaticGet { .. } => {}
     }
 }

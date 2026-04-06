@@ -1,13 +1,17 @@
 # number_methods.corvo - All number.* type methods
 
+@section = procedure(@title) {
+    sys.echo("")
+    sys.echo(@title)
+}
+
 sys.echo("=== number.to_string ===")
 @n = 42
 @as_str = number.to_string(@n)
 sys.echo("42 as string: '${@as_str}'")
 sys.echo("Type check — concat works: ${string.concat("value=", @as_str)}")
 
-sys.echo("")
-sys.echo("=== number.parse ===")
+@section.call("=== number.parse ===")
 @parsed = number.parse(0, "3.14")
 sys.echo("Parsed '3.14': ${@parsed}")
 
@@ -17,31 +21,26 @@ try {
     sys.echo("number.parse of 'not-a-number' raised an error (caught)")
 }
 
-sys.echo("")
-sys.echo("=== number.abs ===")
+@section.call("=== number.abs ===")
 @neg = math.sub(0, 7)
 sys.echo("abs(-7): ${number.abs(@neg)}")
 sys.echo("abs(7):  ${number.abs(7)}")
 
-sys.echo("")
-sys.echo("=== number.floor ===")
+@section.call("=== number.floor ===")
 @neg_small = math.sub(0, 3.1)
 sys.echo("floor(3.9): ${number.floor(3.9)}")
 sys.echo("floor(-3.1): ${number.floor(@neg_small)}")
 
-sys.echo("")
-sys.echo("=== number.ceil ===")
+@section.call("=== number.ceil ===")
 @neg_large = math.sub(0, 3.9)
 sys.echo("ceil(3.1): ${number.ceil(3.1)}")
 sys.echo("ceil(-3.9): ${number.ceil(@neg_large)}")
 
-sys.echo("")
-sys.echo("=== number.round ===")
+@section.call("=== number.round ===")
 sys.echo("round(3.5): ${number.round(3.5)}")
 sys.echo("round(3.4): ${number.round(3.4)}")
 
-sys.echo("")
-sys.echo("=== number.sqrt ===")
+@section.call("=== number.sqrt ===")
 sys.echo("sqrt(9):  ${number.sqrt(9)}")
 sys.echo("sqrt(2):  ${number.sqrt(2)}")
 
@@ -51,14 +50,11 @@ try {
     sys.echo("sqrt(-1) raises an error (caught)")
 }
 
-sys.echo("")
-sys.echo("=== number.is_nan ===")
+@section.call("=== number.is_nan ===")
 sys.echo("is_nan(0):   ${number.is_nan(0)}")
 
-sys.echo("")
-sys.echo("=== number.is_finite ===")
+@section.call("=== number.is_finite ===")
 sys.echo("is_finite(42): ${number.is_finite(42)}")
 
-sys.echo("")
-sys.echo("=== number.is_infinite ===")
+@section.call("=== number.is_infinite ===")
 sys.echo("is_infinite(42): ${number.is_infinite(42)}")

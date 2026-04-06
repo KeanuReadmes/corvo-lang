@@ -1,5 +1,12 @@
 # hello.corvo - Hello World example
+
+@welcome = procedure(@who, @line) {
+    @line = string.concat("Welcome to ", @who, "!")
+}
+
 sys.echo("Hello, World!")
 
 @name = "Corvo"
-sys.echo("Welcome to ${@name}!")
+@msg = ""
+@welcome.call(@name, @msg)
+sys.echo(@msg)

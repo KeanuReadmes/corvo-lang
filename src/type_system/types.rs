@@ -9,6 +9,7 @@ pub enum Type {
     Map,
     Regex,
     Null,
+    Procedure,
 }
 
 impl Type {
@@ -25,6 +26,7 @@ impl Type {
             "map" => Some(Self::Map),
             "regex" => Some(Self::Regex),
             "null" => Some(Self::Null),
+            "procedure" => Some(Self::Procedure),
             _ => None,
         }
     }
@@ -38,6 +40,7 @@ impl Type {
             Self::Map => "map",
             Self::Regex => "regex",
             Self::Null => "null",
+            Self::Procedure => "procedure",
         }
     }
 }

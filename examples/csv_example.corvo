@@ -1,5 +1,9 @@
 # csv_example.corvo - csv.parse
 
+@emit_row = procedure(@idx, @name, @age, @city) {
+    sys.echo("Row ${@idx}: name=${@name}, age=${@age}, city=${@city}")
+}
+
 sys.echo("=== csv.parse ===")
 @csv_data = "name,age,city\nAlice,30,Tokyo\nBob,25,London\nCarol,35,New York\n"
 @rows = csv.parse(@csv_data)
@@ -9,5 +13,5 @@ browse(@rows, idx, row) {
     @name = list.get(@row, 0)
     @age = list.get(@row, 1)
     @city = list.get(@row, 2)
-    sys.echo("Row ${@idx}: name=${@name}, age=${@age}, city=${@city}")
+    @emit_row.call(@idx, @name, @age, @city)
 }

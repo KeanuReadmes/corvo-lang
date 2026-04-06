@@ -1,5 +1,10 @@
 # crypto_example.corvo - Hashing, file hashing, checksums, and encryption
 
+@section = procedure(@title) {
+    sys.echo("")
+    sys.echo(@title)
+}
+
 sys.echo("=== Crypto Example ===")
 
 # Hashing strings
@@ -9,9 +14,7 @@ sys.echo("MD5: ${crypto.hash("md5", @data)}")
 sys.echo("SHA-256: ${crypto.hash("sha256", @data)}")
 sys.echo("SHA-512: ${crypto.hash("sha512", @data)}")
 
-# Hashing a file's contents
-sys.echo("")
-sys.echo("=== File Hashing ===")
+@section.call("=== File Hashing ===")
 @file_path = "/tmp/corvo_hash_demo.txt"
 fs.write(@file_path, "Hello, Corvo!")
 sys.echo("File: ${@file_path}")
@@ -19,9 +22,7 @@ sys.echo("MD5:    ${crypto.hash_file("md5", @file_path)}")
 sys.echo("SHA-256: ${crypto.hash_file("sha256", @file_path)}")
 sys.echo("SHA-512: ${crypto.hash_file("sha512", @file_path)}")
 
-# Checksum (SHA-256) of a file
-sys.echo("")
-sys.echo("=== File Checksum ===")
+@section.call("=== File Checksum ===")
 @checksum = crypto.checksum(@file_path)
 sys.echo("SHA-256 checksum: ${@checksum}")
 
@@ -35,17 +36,13 @@ try {
 
 fs.delete(@file_path)
 
-# UUID generation
-sys.echo("")
-sys.echo("=== UUID Generation ===")
+@section.call("=== UUID Generation ===")
 @id1 = crypto.uuid()
 @id2 = crypto.uuid()
 sys.echo("UUID 1: ${@id1}")
 sys.echo("UUID 2: ${@id2}")
 
-# Encrypt and decrypt
-sys.echo("")
-sys.echo("=== Encrypt/Decrypt ===")
+@section.call("=== Encrypt/Decrypt ===")
 @secret = "my secret message"
 @key = "encryption_key_123"
 sys.echo("Original: ${@secret}")

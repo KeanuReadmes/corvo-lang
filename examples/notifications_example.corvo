@@ -3,6 +3,11 @@
 #       Each call is wrapped in try/fallback so the file runs cleanly offline
 #       or without real credentials.
 
+@section = procedure(@title) {
+    sys.echo("")
+    sys.echo(@title)
+}
+
 sys.echo("=== notifications.smtp ===")
 try {
     @smtp_result = notifications.smtp(
@@ -20,8 +25,7 @@ try {
     sys.echo("(skipped — no SMTP server configured)")
 }
 
-sys.echo("")
-sys.echo("=== notifications.slack ===")
+@section.call("=== notifications.slack ===")
 try {
     @slack_result = notifications.slack(
         "https://hooks.slack.com/services/YOUR/WEBHOOK/URL",
@@ -32,8 +36,7 @@ try {
     sys.echo("(skipped — no Slack webhook configured)")
 }
 
-sys.echo("")
-sys.echo("=== notifications.telegram ===")
+@section.call("=== notifications.telegram ===")
 try {
     @tg_result = notifications.telegram(
         "123456:ABC-YOUR-BOT-TOKEN",
@@ -45,8 +48,7 @@ try {
     sys.echo("(skipped — no Telegram bot configured)")
 }
 
-sys.echo("")
-sys.echo("=== notifications.mattermost ===")
+@section.call("=== notifications.mattermost ===")
 try {
     @mm_result = notifications.mattermost(
         "https://mattermost.example.com/hooks/YOUR_HOOK_ID",
@@ -57,8 +59,7 @@ try {
     sys.echo("(skipped — no Mattermost webhook configured)")
 }
 
-sys.echo("")
-sys.echo("=== notifications.gitter ===")
+@section.call("=== notifications.gitter ===")
 try {
     @gitter_result = notifications.gitter(
         "your-gitter-token",
@@ -70,8 +71,7 @@ try {
     sys.echo("(skipped — no Gitter token configured)")
 }
 
-sys.echo("")
-sys.echo("=== notifications.messenger ===")
+@section.call("=== notifications.messenger ===")
 try {
     @fb_result = notifications.messenger(
         "your-page-access-token",
@@ -83,8 +83,7 @@ try {
     sys.echo("(skipped — no Messenger token configured)")
 }
 
-sys.echo("")
-sys.echo("=== notifications.discord ===")
+@section.call("=== notifications.discord ===")
 try {
     @discord_result = notifications.discord(
         "https://discord.com/api/webhooks/YOUR_ID/YOUR_TOKEN",
@@ -95,8 +94,7 @@ try {
     sys.echo("(skipped — no Discord webhook configured)")
 }
 
-sys.echo("")
-sys.echo("=== notifications.teams ===")
+@section.call("=== notifications.teams ===")
 try {
     @teams_result = notifications.teams(
         "https://outlook.office.com/webhook/YOUR_WEBHOOK_URL",
@@ -107,8 +105,7 @@ try {
     sys.echo("(skipped — no Teams webhook configured)")
 }
 
-sys.echo("")
-sys.echo("=== notifications.x ===")
+@section.call("=== notifications.x ===")
 try {
     @x_result = notifications.x(
         "your-api-key",
@@ -122,8 +119,7 @@ try {
     sys.echo("(skipped — no X/Twitter credentials configured)")
 }
 
-sys.echo("")
-sys.echo("=== notifications.os ===")
+@section.call("=== notifications.os ===")
 try {
     @os_result = notifications.os("Corvo", "Hello from Corvo!")
     sys.echo("OS notification sent: ${map.get(@os_result, "success")}")
@@ -131,8 +127,7 @@ try {
     sys.echo("(skipped — no desktop notification support available)")
 }
 
-sys.echo("")
-sys.echo("=== notifications.irc ===")
+@section.call("=== notifications.irc ===")
 try {
     @irc_result = notifications.irc(
         "irc.libera.chat",

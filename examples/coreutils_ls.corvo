@@ -4,6 +4,13 @@
 #
 # Full listing implementation: corvo coreutils/ls.corvo …
 
+@dump_positionals = procedure(@positional) {
+    sys.echo("operands (${list.len(@positional)}):")
+    browse(@positional, _i, p) {
+        sys.echo("  - ${@p}")
+    }
+}
+
 @argv = os.argv()
 
 @ls_spec = {
@@ -27,7 +34,4 @@ sys.echo("almost-all (-A): ${map.get(@opts, "almost_all", false)}")
 sys.echo("human-readable (-h): ${map.get(@opts, "human_readable", false)}")
 
 @positional = map.get(@parsed, "positional")
-sys.echo("operands (${list.len(@positional)}):")
-browse(@positional, _i, p) {
-    sys.echo("  - ${@p}")
-}
+@dump_positionals.call(@positional)

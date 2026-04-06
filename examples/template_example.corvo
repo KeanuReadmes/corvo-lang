@@ -1,5 +1,10 @@
 # template_example.corvo - Handlebars template rendering
 
+@section = procedure(@title) {
+    sys.echo("")
+    sys.echo(@title)
+}
+
 sys.echo("=== Template Example ===")
 
 # Basic variable substitution
@@ -11,7 +16,7 @@ sys.echo("=== Template Example ===")
 @result = template.render(@tmpl, @data)
 sys.echo(@result)
 
-# Multi-field template
+@section.call("Multi-field template")
 @report_tmpl = "Project: {{name}}\nVersion: {{version}}\nLanguage: {{language}}"
 @report_data = map.new()
 @report_data = map.set(@report_data, "name", "corvo-lang")

@@ -7,6 +7,13 @@
 # long options are boolean flags; use args.parse with long_values to consume
 # the next token as a value. Use aliases and accumulate for richer parsing.
 
+@dump_positionals = procedure(@positional) {
+    sys.echo("positionals (${list.len(@positional)}):")
+    browse(@positional, _i, p) {
+        sys.echo("  - ${@p}")
+    }
+}
+
 @argv = os.argv()
 sys.echo("argc (script args): ${list.len(@argv)}")
 
@@ -15,10 +22,7 @@ sys.echo("argc (script args): ${list.len(@argv)}")
 @positional = map.get(@parsed, "positional")
 @options = map.get(@parsed, "options")
 
-sys.echo("positionals (${list.len(@positional)}):")
-browse(@positional, _i, p) {
-    sys.echo("  - ${@p}")
-}
+@dump_positionals.call(@positional)
 
 sys.echo("options (sample):")
 sys.echo("  verbose: ${map.get(@options, "verbose", false)}")

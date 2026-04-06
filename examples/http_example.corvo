@@ -2,6 +2,11 @@
 # NOTE: These examples require an active internet connection.
 #       Each request is wrapped in try/fallback so the file runs cleanly offline.
 
+@section = procedure(@title) {
+    sys.echo("")
+    sys.echo(@title)
+}
+
 sys.echo("=== http.get ===")
 try {
     @res = http.get("https://httpbin.org/get")
@@ -12,9 +17,7 @@ try {
     sys.echo("(skipped — no network access)")
 }
 
-# http.get with custom headers
-sys.echo("")
-sys.echo("=== http.get with headers ===")
+@section.call("=== http.get with headers ===")
 try {
     @headers = {"Accept": "application/json", "X-Custom": "corvo"}
     @res2 = http.get("https://httpbin.org/headers", @headers)
@@ -23,8 +26,7 @@ try {
     sys.echo("(skipped — no network access)")
 }
 
-sys.echo("")
-sys.echo("=== http.post ===")
+@section.call("=== http.post ===")
 try {
     @payload = json.stringify({"name": "Corvo", "type": "language"})
     @post_res = http.post("https://httpbin.org/post", @payload)
@@ -33,8 +35,7 @@ try {
     sys.echo("(skipped — no network access)")
 }
 
-sys.echo("")
-sys.echo("=== http.put ===")
+@section.call("=== http.put ===")
 try {
     @put_res = http.put("https://httpbin.org/put", json.stringify({"updated": true}))
     sys.echo("Status: ${map.get(@put_res, "status_code")}")
@@ -42,8 +43,7 @@ try {
     sys.echo("(skipped — no network access)")
 }
 
-sys.echo("")
-sys.echo("=== http.delete ===")
+@section.call("=== http.delete ===")
 try {
     @del_res = http.delete("https://httpbin.org/delete")
     sys.echo("Status: ${map.get(@del_res, "status_code")}")

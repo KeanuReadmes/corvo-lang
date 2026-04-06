@@ -1,7 +1,7 @@
 use crate::ast::{AssertKind, Expr, MatchPattern, Program, Stmt};
 use crate::runtime::RuntimeState;
 use crate::standard_lib;
-use crate::type_system::Value;
+use crate::type_system::{ProcedureValue, Value};
 use crate::{CorvoError, CorvoResult};
 
 #[derive(Debug)]
@@ -108,6 +108,21 @@ impl Evaluator {
                 Ok(())
             }
             Stmt::ExprStmt { expr } => {
+                // Intercept procedure.call(...) so we can run the body with &mut state.
+                if let Expr::MethodCall {
+                    target,
+                    method,
+                    args,
+                    ..
+                } = expr
+                {
+                    if method == "call" {
+                        let target_val = self.eval_expr(target, state)?;
+                        if let Value::Procedure(proc) = target_val {
+                            return self.exec_procedure_call(&proc, args, state);
+                        }
+                    }
+                }
                 self.eval_expr(expr, state)?;
                 Ok(())
             }
@@ -195,6 +210,69 @@ impl Evaluator {
         Ok(())
     }
 
+    /// Execute a procedure call with copy-in / copy-out pass-by-reference semantics.
+    ///
+    /// For each argument that is a plain `@variable` reference the corresponding
+    /// outer variable is updated with the (possibly modified) parameter value
+    /// after the body has run.  Non-variable arguments are copied in but never
+    /// written back.  Parameter names are restored to their pre-call values (or
+    /// removed if they did not exist before the call) once execution finishes.
+    fn exec_procedure_call(
+        &mut self,
+        proc: &ProcedureValue,
+        call_args: &[Expr],
+        state: &mut RuntimeState,
+    ) -> CorvoResult<()> {
+        if call_args.len() != proc.params.len() {
+            return Err(CorvoError::runtime(format!(
+                "procedure expected {} argument(s), got {}",
+                proc.params.len(),
+                call_args.len()
+            )));
+        }
+
+        // Evaluate all arguments and note which are plain variable references.
+        let mut arg_values: Vec<Value> = Vec::with_capacity(call_args.len());
+        let mut outer_names: Vec<Option<String>> = Vec::with_capacity(call_args.len());
+        for arg_expr in call_args {
+            let val = self.eval_expr(arg_expr, state)?;
+            arg_values.push(val);
+            if let Expr::VarGet { name } = arg_expr {
+                outer_names.push(Some(name.clone()));
+            } else {
+                outer_names.push(None);
+            }
+        }
+
+        // Save any pre-existing values for the parameter names so we can restore
+        // them after the call (prevents param names from leaking into outer scope).
+        let saved: Vec<Option<Value>> = proc.params.iter().map(|p| state.var_remove(p)).collect();
+
+        // Bind parameters.
+        for (param, val) in proc.params.iter().zip(arg_values) {
+            state.var_set(param.to_string(), val);
+        }
+
+        // Execute the body.
+        let body = proc.body.clone();
+        let result = self.execute_block(&body, state);
+
+        // Copy-back: write updated param values back to the caller's variables.
+        for (i, param) in proc.params.iter().enumerate() {
+            if let Some(outer_name) = &outer_names[i] {
+                let updated = state.var_get(param.as_str()).unwrap_or(Value::Null);
+                state.var_set(outer_name.clone(), updated);
+            }
+            // Restore param var to its pre-call state.
+            state.var_remove(param.as_str());
+            if let Some(prev) = saved[i].clone() {
+                state.var_set(param.to_string(), prev);
+            }
+        }
+
+        result
+    }
+
     fn eval_expr(&self, expr: &Expr, state: &RuntimeState) -> CorvoResult<Value> {
         match expr {
             Expr::Literal { value } => Ok(value.clone()),
@@ -255,6 +333,12 @@ impl Evaluator {
                     matched
                 )))
             }
+            Expr::ProcedureLiteral { params, body } => {
+                Ok(Value::Procedure(Box::new(ProcedureValue {
+                    params: params.clone(),
+                    body: body.clone(),
+                })))
+            }
             Expr::MethodCall {
                 target,
                 method,
@@ -268,6 +352,9 @@ impl Evaluator {
                     Value::Number(_) => "number",
                     Value::List(_) => "list",
                     Value::Map(_) => "map",
+                    Value::Procedure(_) => return Err(CorvoError::runtime(
+                        "procedure.call must be used as a statement, not in an expression context",
+                    )),
                     other => {
                         return Err(CorvoError::r#type(format!(
                             "Cannot call method '{}' on type {}",

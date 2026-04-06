@@ -2,44 +2,48 @@
 # Syntax: @name[start:end], @name[:end], @name[start:], @name[:]
 # Negative indices count from the end (pass as a variable via math.sub).
 
+@show = procedure(@label, @value) {
+    sys.echo("${@label}: ${@value}")
+}
+
 @fruits = ["apple", "banana", "cherry", "date", "elderberry"]
 
 # [start:end] — elements from index 1 up to (not including) 3
 @mid = @fruits[1:3]
-sys.echo("mid slice [1:3]: ${@mid}")
+@show.call("mid slice [1:3]", @mid)
 
 # [:end] — first two elements
 @first_two = @fruits[:2]
-sys.echo("first two [:2]: ${@first_two}")
+@show.call("first two [:2]", @first_two)
 
 # [start:] — everything from index 3 onwards
 @tail = @fruits[3:]
-sys.echo("tail [3:]: ${@tail}")
+@show.call("tail [3:]", @tail)
 
 # [:] — a full copy
 @all = @fruits[:]
-sys.echo("all [:]: ${@all}")
+@show.call("all [:]", @all)
 
 # Negative index: store -2 in a variable to get the last two elements
 @neg2 = math.sub(0, 2)
 @last_two = @fruits[@neg2:]
-sys.echo("last two [-2:]: ${@last_two}")
+@show.call("last two [-2:]", @last_two)
 
 # Slicing also works on strings
 @lang = "Corvo-Lang"
 
 @prefix = @lang[:5]
-sys.echo("string prefix [:5]: ${@prefix}")
+@show.call("string prefix [:5]", @prefix)
 
 @suffix = @lang[6:]
-sys.echo("string suffix [6:]: ${@suffix}")
+@show.call("string suffix [6:]", @suffix)
 
 @inner = @lang[1:4]
-sys.echo("string inner [1:4]: ${@inner}")
+@show.call("string inner [1:4]", @inner)
 
 # Slice works on inline list literals too
 @two_three = [10, 20, 30, 40][1:3]
-sys.echo("inline list [1:3]: ${@two_three}")
+@show.call("inline list [1:3]", @two_three)
 
 assert_eq(@prefix, "Corvo")
 assert_eq(@suffix, "Lang")

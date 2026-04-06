@@ -52,6 +52,10 @@ pub enum Expr {
         args: Vec<Expr>,
         named_args: HashMap<String, Expr>,
     },
+    ProcedureLiteral {
+        params: Vec<String>,
+        body: Vec<crate::ast::stmt::Stmt>,
+    },
 }
 
 impl Expr {

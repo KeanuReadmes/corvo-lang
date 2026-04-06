@@ -39,10 +39,15 @@
 @paths = map.get(@parsed, "positional")
 @cwd = os.getcwd()
 
-try {
-  assert_eq(list.len(@paths), 0)
-  @paths = ["."]
-} fallback {}
+@default_to_dot_if_empty = procedure(@paths_in, @paths_out) {
+  @paths_out = @paths_in
+  try {
+    assert_eq(list.len(@paths_out), 0)
+    @paths_out = ["."]
+  } fallback {}
+}
+
+@default_to_dot_if_empty.call(@paths, @paths)
 
 try {
   assert_eq(map.get(@o, "help", false), true)

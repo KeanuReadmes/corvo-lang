@@ -1,12 +1,16 @@
 # os_example.corvo - All os.* functions
 
+@section = procedure(@title) {
+    sys.echo("")
+    sys.echo(@title)
+}
+
 sys.echo("=== os.set_env ===")
 os.set_env("CORVO_APP", "my-app")
 os.set_env("CORVO_ENV", "development")
 sys.echo("Set CORVO_APP and CORVO_ENV")
 
-sys.echo("")
-sys.echo("=== os.get_env ===")
+@section.call("=== os.get_env ===")
 @app = os.get_env("CORVO_APP")
 sys.echo("CORVO_APP = ${@app}")
 
@@ -14,8 +18,7 @@ sys.echo("CORVO_APP = ${@app}")
 @missing = os.get_env("CORVO_UNDEFINED_XYZ", "default-value")
 sys.echo("CORVO_UNDEFINED_XYZ (with default) = ${@missing}")
 
-sys.echo("")
-sys.echo("=== os.exec ===")
+@section.call("=== os.exec ===")
 # os.exec runs a command through sh -c and returns stdout, stderr, code
 @result = os.exec("echo hello from os.exec")
 sys.echo("stdout: ${map.get(@result, "stdout")}")
@@ -24,14 +27,12 @@ sys.echo("exit code: ${map.get(@result, "code")}")
 @pwd_result = os.exec("pwd")
 sys.echo("Working dir: ${string.trim(map.get(@pwd_result, "stdout"))}")
 
-sys.echo("")
-sys.echo("=== os.argv ===")
+@section.call("=== os.argv ===")
 # Arguments after the script path (interpreter) or after the executable (compiled).
 @av = os.argv()
 sys.echo("script argv count: ${list.len(@av)}")
 
-sys.echo("")
-sys.echo("=== os.info ===")
+@section.call("=== os.info ===")
 @info = os.info()
 sys.echo("OS: ${map.get(@info, "os")}")
 sys.echo("Arch: ${map.get(@info, "arch")}")

@@ -501,6 +501,10 @@ impl Parser {
                 self.advance(); // consume 'match'
                 self.parse_match_expr()
             }
+            TokenType::Procedure => {
+                self.advance(); // consume 'procedure'
+                self.parse_procedure_literal()
+            }
             TokenType::Regex(pattern, flags) => {
                 let pattern = pattern.clone();
                 let flags = flags.clone();
@@ -640,6 +644,35 @@ impl Parser {
                 token.token_type
             ))),
         }
+    }
+
+    fn parse_procedure_literal(&mut self) -> CorvoResult<Expr> {
+        // procedure(@param1, @param2, ...) { body }
+        self.consume(TokenType::LeftParen, "Expected '(' after 'procedure'")?;
+
+        let mut params = Vec::new();
+        if !self.check(TokenType::RightParen) {
+            loop {
+                self.consume(TokenType::At, "Expected '@' before parameter name")?;
+                let name = match &self.peek().token_type {
+                    TokenType::Identifier(s) => s.clone(),
+                    _ => return Err(self.error("Expected parameter name after '@'")),
+                };
+                self.advance();
+                params.push(name);
+                if !self.match_token(TokenType::Comma) {
+                    break;
+                }
+            }
+        }
+        self.consume(
+            TokenType::RightParen,
+            "Expected ')' after procedure parameters",
+        )?;
+        self.consume(TokenType::LeftBrace, "Expected '{' before procedure body")?;
+        let body = self.parse_block_body("procedure body")?;
+
+        Ok(Expr::ProcedureLiteral { params, body })
     }
 
     fn parse_list_literal(&mut self) -> CorvoResult<Expr> {

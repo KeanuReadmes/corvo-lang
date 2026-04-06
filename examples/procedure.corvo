@@ -1,0 +1,45 @@
+# Procedures — callable blocks assigned to variables.
+#
+# Procedures are defined with the `procedure` keyword and invoked via `.call()`.
+# All arguments are passed by reference: modifications to a parameter inside the
+# body are written back to the caller's variable once the call completes.
+
+@section = procedure(@title) {
+    sys.echo("")
+    sys.echo(@title)
+}
+
+# Basic arithmetic procedure
+@add = procedure(@a, @b, @out) {
+    @out = math.add(@a, @b)
+}
+
+@n1 = 10
+@n2 = 21
+@total = 0
+@add.call(@n1, @n2, @total)
+sys.echo(@total) # 31
+
+@section.call("# Procedures can be called multiple times")
+@add.call(@total, @n2, @total)
+sys.echo(@total) # 52
+
+@section.call("# Greeting procedure")
+@greet = procedure(@name, @msg) {
+    @msg = "Hello, ${@name}!"
+}
+
+@greeting = ""
+@greet.call("World", @greeting)
+sys.echo(@greeting) # Hello, World!
+
+@section.call("# Input-only parameter (caller variable unchanged)")
+@double = procedure(@x, @result) {
+    @result = math.mul(@x, 2)
+}
+
+@value = 7
+@doubled = 0
+@double.call(@value, @doubled)
+sys.echo(@value)   # 7  — unchanged
+sys.echo(@doubled) # 14
