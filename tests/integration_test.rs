@@ -2649,3 +2649,145 @@ fn test_fs_read_meta_tmp() {
         corvo_lang::type_system::Value::Boolean(true)
     );
 }
+
+// ---------------------------------------------------------------------------
+// Procedure tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_procedure_basic_call() {
+    let state = run_with_state(
+        r#"
+        @add = procedure(@a, @b, @out) {
+            @out = math.add(@a, @b)
+        }
+        @n1 = 10
+        @n2 = 21
+        @total = 0
+        @add.call(@n1, @n2, @total)
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("total").unwrap(),
+        corvo_lang::type_system::Value::Number(31.0)
+    );
+}
+
+#[test]
+fn test_procedure_output_param_updated() {
+    // Only @result should be changed; @value should remain 7.
+    let state = run_with_state(
+        r#"
+        @double = procedure(@x, @result) {
+            @result = math.mul(@x, 2)
+        }
+        @value = 7
+        @doubled = 0
+        @double.call(@value, @doubled)
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("value").unwrap(),
+        corvo_lang::type_system::Value::Number(7.0)
+    );
+    assert_eq!(
+        state.var_get("doubled").unwrap(),
+        corvo_lang::type_system::Value::Number(14.0)
+    );
+}
+
+#[test]
+fn test_procedure_called_multiple_times() {
+    let state = run_with_state(
+        r#"
+        @add = procedure(@a, @b, @out) {
+            @out = math.add(@a, @b)
+        }
+        @acc = 0
+        @add.call(@acc, 10, @acc)
+        @add.call(@acc, 5, @acc)
+        @add.call(@acc, 1, @acc)
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("acc").unwrap(),
+        corvo_lang::type_system::Value::Number(16.0)
+    );
+}
+
+#[test]
+fn test_procedure_param_names_do_not_leak() {
+    // After the procedure call, the parameter-named vars must not be visible.
+    let state = run_with_state(
+        r#"
+        @proc = procedure(@p1, @p2) {
+            @p2 = math.add(@p1, 1)
+        }
+        @x = 5
+        @y = 0
+        @proc.call(@x, @y)
+        "#,
+    )
+    .unwrap();
+    assert!(!state.has_var("p1"));
+    assert!(!state.has_var("p2"));
+    assert_eq!(
+        state.var_get("y").unwrap(),
+        corvo_lang::type_system::Value::Number(6.0)
+    );
+}
+
+#[test]
+fn test_procedure_wrong_arg_count_errors() {
+    let result = run_with_state(
+        r#"
+        @proc = procedure(@a, @b) {
+            @b = math.add(@a, 1)
+        }
+        @x = 5
+        @proc.call(@x)
+        "#,
+    );
+    assert!(result.is_err());
+    let msg = format!("{}", result.unwrap_err());
+    assert!(msg.contains("expected") && msg.contains("argument"));
+}
+
+#[test]
+fn test_procedure_stored_and_reassigned() {
+    // A procedure can be reassigned to a different variable and still called.
+    let state = run_with_state(
+        r#"
+        @inc = procedure(@n, @out) {
+            @out = math.add(@n, 1)
+        }
+        @also_inc = @inc
+        @val = 0
+        @also_inc.call(9, @val)
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("val").unwrap(),
+        corvo_lang::type_system::Value::Number(10.0)
+    );
+}
+
+#[test]
+fn test_procedure_is_truthy() {
+    let state = run_with_state(
+        r#"
+        @p = procedure(@x) {
+            @x = math.add(@x, 0)
+        }
+        @v = 0
+        @p.call(@v)
+        "#,
+    )
+    .unwrap();
+    let proc_val = state.var_get("p").unwrap();
+    assert!(proc_val.is_truthy());
+}

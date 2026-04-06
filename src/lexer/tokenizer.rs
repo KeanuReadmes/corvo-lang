@@ -464,6 +464,7 @@ impl<'a> Lexer<'a> {
             "assert_gt" => TokenType::AssertGt,
             "assert_lt" => TokenType::AssertLt,
             "assert_match" => TokenType::AssertMatch,
+            "procedure" => TokenType::Procedure,
             "true" => TokenType::Boolean(true),
             "false" => TokenType::Boolean(false),
             _ => TokenType::Identifier(name),

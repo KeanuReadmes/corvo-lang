@@ -4,6 +4,31 @@ use std::fmt;
 
 use crate::type_system::Type;
 
+/// A procedure definition captured at the point of `@proc = procedure(...) { ... }`.
+/// Procedures are not serialisable (they hold AST nodes), so manual impls are used
+/// to make `Value` serde-compatible while preventing procedures from being stored as statics.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProcedureValue {
+    pub params: Vec<String>,
+    pub body: Vec<crate::ast::stmt::Stmt>,
+}
+
+impl Serialize for ProcedureValue {
+    fn serialize<S: serde::Serializer>(&self, _serializer: S) -> Result<S::Ok, S::Error> {
+        Err(serde::ser::Error::custom(
+            "procedures cannot be serialized as statics",
+        ))
+    }
+}
+
+impl<'de> Deserialize<'de> for ProcedureValue {
+    fn deserialize<D: serde::Deserializer<'de>>(_deserializer: D) -> Result<Self, D::Error> {
+        Err(serde::de::Error::custom(
+            "procedures cannot be deserialized",
+        ))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub enum Value {
     String(String),
@@ -14,6 +39,7 @@ pub enum Value {
     Regex(String, String), // pattern, flags
     #[default]
     Null,
+    Procedure(Box<ProcedureValue>),
 }
 
 impl Value {
@@ -26,6 +52,7 @@ impl Value {
             Self::Map(_) => Type::Map,
             Self::Regex(_, _) => Type::Regex,
             Self::Null => Type::Null,
+            Self::Procedure(_) => Type::Procedure,
         }
     }
 
@@ -80,6 +107,7 @@ impl Value {
             Self::List(l) => !l.is_empty(),
             Self::Map(m) => !m.is_empty(),
             Self::Regex(pattern, _) => !pattern.is_empty(),
+            Self::Procedure(_) => true,
         }
     }
 }
@@ -107,6 +135,7 @@ impl fmt::Display for Value {
             }
             Self::Regex(pattern, flags) => write!(f, "/{}/{}", pattern, flags),
             Self::Null => write!(f, "null"),
+            Self::Procedure(_) => write!(f, "<procedure>"),
         }
     }
 }

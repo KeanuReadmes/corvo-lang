@@ -19,6 +19,7 @@ pub enum TokenType {
     AssertGt,
     AssertLt,
     AssertMatch,
+    Procedure,
 
     // Literals
     String(String),
@@ -66,6 +67,7 @@ impl fmt::Display for TokenType {
             Self::AssertGt => write!(f, "assert_gt"),
             Self::AssertLt => write!(f, "assert_lt"),
             Self::AssertMatch => write!(f, "assert_match"),
+            Self::Procedure => write!(f, "procedure"),
             Self::String(s) => write!(f, "\"{}\"", s),
             Self::Regex(pattern, flags) => write!(f, "/{}/{}", pattern, flags),
             Self::Number(n) => {

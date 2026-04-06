@@ -3,4 +3,4 @@ pub mod types;
 pub mod value;
 
 pub use types::Type;
-pub use value::Value;
+pub use value::{ProcedureValue, Value};

@@ -90,5 +90,8 @@ fn value_to_yaml_value(value: &Value) -> CorvoResult<serde_yaml::Value> {
         Value::Regex(pattern, flags) => {
             Ok(serde_yaml::Value::String(format!("/{}/{}", pattern, flags)))
         }
+        Value::Procedure(_) => Err(CorvoError::r#type(
+            "procedures cannot be serialized to YAML",
+        )),
     }
 }

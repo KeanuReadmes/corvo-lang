@@ -419,4 +419,14 @@ prep {
     static.set("version", "1.0.0")
 }
 sys.echo(static.get("version"))
+
+# Procedures — reusable callable blocks (pass-by-reference via copy-in/copy-out)
+@add = procedure(@a, @b, @out) {
+    @out = math.add(@a, @b)
+}
+@n1 = 10
+@n2 = 21
+@total = 0
+@add.call(@n1, @n2, @total)
+sys.echo(@total)   # 31
 ```
