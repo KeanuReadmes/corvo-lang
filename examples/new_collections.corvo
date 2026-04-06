@@ -1,5 +1,10 @@
 # new_collections.corvo - Create empty list and map with list.new() and map.new()
 
+@section = procedure(@title) {
+    sys.echo("")
+    sys.echo(@title)
+}
+
 sys.echo("=== list.new ===")
 @items = list.new()
 sys.echo("Is empty: ${list.is_empty(@items)}")
@@ -9,8 +14,7 @@ sys.echo("Is empty: ${list.is_empty(@items)}")
 sys.echo("After push: ${list.join(@items, ", ")}")
 sys.echo("Length: ${list.len(@items)}")
 
-sys.echo("")
-sys.echo("=== map.new ===")
+@section.call("=== map.new ===")
 @config = map.new()
 sys.echo("Is empty: ${map.is_empty(@config)}")
 @config = map.set(@config, "host", "localhost")

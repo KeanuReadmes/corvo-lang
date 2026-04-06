@@ -9,6 +9,11 @@
 #
 # No actual network or USB calls are made; the examples only show parsing.
 
+@section = procedure(@title) {
+    sys.echo("")
+    sys.echo(@title)
+}
+
 # ────────────────────────────────────────────────────────────────────────────
 # 1. GNU coreutils style
 #    Simulates: grep -rni --include=*.rs --include=*.toml -- pattern /src
@@ -53,7 +58,7 @@ sys.echo("  positional:   ${map.get(@g, "positional")}")
 
 @d = args.parse(@dig_argv, @dig_spec)
 @dplus = map.get(@d, "plus")
-sys.echo("=== dnsutils dig-style ===")
+@section.call("=== dnsutils dig-style ===")
 sys.echo("  +short:       ${map.get(@dplus, "short", false)}")
 sys.echo("  +tcp:         ${map.get(@dplus, "tcp", false)}")
 sys.echo("  +retry:       ${map.get(@dplus, "retry", "")}")
@@ -78,7 +83,7 @@ sys.echo("  positional:   ${map.get(@d, "positional")}")
 
 @u = args.parse(@lsusb_argv, @lsusb_spec)
 @uopts = map.get(@u, "options")
-sys.echo("=== usbutils lsusb-style ===")
+@section.call("=== usbutils lsusb-style ===")
 sys.echo("  verbose:      ${map.get(@uopts, "verbose", false)}")
 sys.echo("  -s (bus:dev): ${map.get(@uopts, "s", "")}")
 sys.echo("  -d (vid:pid): ${map.get(@uopts, "d", "")}")
@@ -99,7 +104,7 @@ sys.echo("  -d (vid:pid): ${map.get(@uopts, "d", "")}")
 
 @c = args.parse(@combined_argv, @combined_spec)
 @copts = map.get(@c, "options")
-sys.echo("=== combined style ===")
+@section.call("=== combined style ===")
 sys.echo("  verbose:    ${map.get(@copts, "verbose", false)}")
 sys.echo("  timeout:    ${map.get(@copts, "timeout", "")}")
 sys.echo("  +retry:     ${map.get(map.get(@c, "plus"), "retry", "")}")

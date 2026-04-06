@@ -7,8 +7,12 @@
 # Try in another terminal after you see "listening on ...":
 #   echo hello | nc 127.0.0.1 <port>
 
+@announce_listen = procedure(@handle) {
+    sys.echo("listening on ${map.get(@handle, "local_addr")}")
+}
+
 @ln = net.tcp_listen("127.0.0.1:0")
-sys.echo("listening on ${map.get(@ln, "local_addr")}")
+@announce_listen.call(@ln)
 @peer = net.tcp_accept(@ln)
 @msg = net.tcp_read(@peer, 1024)
 net.tcp_write(@peer, @msg)

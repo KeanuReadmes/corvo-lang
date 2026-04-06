@@ -7,6 +7,11 @@
 @language = "Corvo"
 sys.echo("Language: ${@language}")
 
+# Param names must differ from outer vars (here @total) so copy-back is not clobbered.
+@add_price = procedure(@acc, @delta) {
+    @acc = math.add(@acc, @delta)
+}
+
 # --- browse over a list ---
 # The key and value bindings declared in browse(expr, key, val) are accessed
 # inside the block with the @ prefix: @key, @val (same as var.get).
@@ -66,7 +71,7 @@ browse(@matrix, row_idx, row) {
 @total = 0
 
 browse(@prices, item, price) {
-    @total = math.add(@total, @price)
+    @add_price.call(@total, @price)
 }
 
 sys.echo("Total: ${@total}")

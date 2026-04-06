@@ -1,5 +1,10 @@
 # data_structures.corvo - Lists and Maps
 
+@section = procedure(@title) {
+    sys.echo("")
+    sys.echo(@title)
+}
+
 # Working with lists
 sys.echo("=== Lists ===")
 @fruits = ["apple", "banana", "cherry"]
@@ -10,9 +15,7 @@ sys.echo("First: ${list.get(@fruits, 0)}")
 @fruits = list.push(@fruits, "date")
 sys.echo("After push: ${list.join(@fruits, ", ")}")
 
-# Working with maps
-sys.echo("")
-sys.echo("=== Maps ===")
+@section.call("=== Maps ===")
 @person = {"name": "Alice", "age": 30, "city": "Tokyo"}
 sys.echo("Name: ${map.get(@person, "name")}")
 sys.echo("Age: ${map.get(@person, "age")}")

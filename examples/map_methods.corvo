@@ -2,62 +2,57 @@
 
 @person = {"name": "Alice", "age": 30, "city": "Tokyo"}
 
+@section = procedure(@title) {
+    sys.echo("")
+    sys.echo(@title)
+}
+
 sys.echo("=== map.len ===")
 sys.echo("Number of keys: ${map.len(@person)}")
 
-sys.echo("")
-sys.echo("=== map.is_empty ===")
+@section.call("=== map.is_empty ===")
 sys.echo("Is person empty: ${map.is_empty(@person)}")
 sys.echo("Is {} empty: ${map.is_empty({})}")
 
-sys.echo("")
-sys.echo("=== map.has_key / map.has ===")
+@section.call("=== map.has_key / map.has ===")
 sys.echo("Has 'name': ${map.has_key(@person, "name")}")
 sys.echo("Has 'email': ${map.has_key(@person, "email")}")
 sys.echo("has alias: ${map.has(@person, "name")}")
 
-sys.echo("")
-sys.echo("=== map.get ===")
+@section.call("=== map.get ===")
 sys.echo("name: ${map.get(@person, "name")}")
 sys.echo("age:  ${map.get(@person, "age")}")
 
 # map.get with a default value
 sys.echo("email (default): ${map.get(@person, "email", "not set")}")
 
-sys.echo("")
-sys.echo("=== map.keys ===")
+@section.call("=== map.keys ===")
 @keys = map.keys(@person)
 sys.echo("Keys: ${list.join(@keys, ", ")}")
 
-sys.echo("")
-sys.echo("=== map.values ===")
+@section.call("=== map.values ===")
 @vals = map.values(@person)
 sys.echo("Values: ${list.join(@vals, ", ")}")
 
-sys.echo("")
-sys.echo("=== map.entries ===")
+@section.call("=== map.entries ===")
 @entries = map.entries(@person)
 sys.echo("Entry count: ${list.len(@entries)}")
 
-sys.echo("")
-sys.echo("=== map.set ===")
+@section.call("=== map.set ===")
 @person = map.set(@person, "email", "alice@example.com")
 sys.echo("After set 'email': ${map.get(@person, "email")}")
 
-sys.echo("")
-sys.echo("=== @var[key] = val (index shorthand) ===")
+@section.call("=== @var[key] = val (index shorthand) ===")
 @person["city"] = "Osaka"
 sys.echo("city after shorthand set: ${@person["city"]}")
 
-sys.echo("")
-sys.echo("=== map.remove / map.delete ===")
+@section.call("=== map.remove / map.delete ===")
 @person = map.remove(@person, "city")
 sys.echo("After remove 'city'. Has 'city': ${map.has_key(@person, "city")}")
 @person = map.delete(@person, "email")
 sys.echo("After delete 'email'. Has 'email': ${map.has_key(@person, "email")}")
 
-sys.echo("")
-sys.echo("=== map.merge ===")
+@section.call("=== map.merge ===")
 @extra = {"country": "Japan", "age": 31}
 @merged = map.merge(@person, @extra)
 sys.echo("Merged age (overwritten): ${map.get(@merged, "age")}")

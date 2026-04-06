@@ -1,5 +1,10 @@
 # yaml_example.corvo - yaml.parse and yaml.stringify
 
+@section = procedure(@title) {
+    sys.echo("")
+    sys.echo(@title)
+}
+
 sys.echo("=== yaml.parse ===")
 @yaml_str = "name: Corvo\nversion: 1\nfeatures:\n  - lexer\n  - parser\n  - evaluator\n"
 @data = yaml.parse(@yaml_str)
@@ -8,15 +13,14 @@ sys.echo("version: ${map.get(@data, "version")}")
 @features = map.get(@data, "features")
 sys.echo("features: ${list.join(@features, ", ")}")
 
-sys.echo("")
-sys.echo("=== yaml.stringify ===")
+@section.call("=== yaml.stringify ===")
 @config = {"host": "localhost", "port": 5432, "ssl": true}
 @yaml_out = yaml.stringify(@config)
 sys.echo("Serialized to YAML:")
 sys.echo(@yaml_out)
 
 # Round-trip: parse → modify → stringify
-sys.echo("=== Round-trip ===")
+@section.call("=== Round-trip ===")
 @parsed_back = yaml.parse(@yaml_out)
 sys.echo("host: ${map.get(@parsed_back, "host")}")
 sys.echo("port: ${map.get(@parsed_back, "port")}")

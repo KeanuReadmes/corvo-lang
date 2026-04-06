@@ -1,5 +1,10 @@
 # error_handling.corvo - try/fallback patterns
 
+@section = procedure(@title) {
+    sys.echo("")
+    sys.echo(@title)
+}
+
 sys.echo("=== Error Handling ===")
 
 # Simple try/fallback
@@ -22,8 +27,7 @@ try {
 sys.echo("Failed try: ${@result}")
 
 # Multiple fallbacks
-sys.echo("")
-sys.echo("=== Multiple Fallbacks ===")
+@section.call("=== Multiple Fallbacks ===")
 @step = 0
 try {
     @step = math.add(@step, 1)
@@ -36,9 +40,7 @@ try {
     sys.echo("Third fallback executed, step=${@step}")
 }
 
-# Safe variable access
-sys.echo("")
-sys.echo("=== Safe Access ===")
+@section.call("=== Safe Access ===")
 @config = {"host": "localhost", "port": 8080}
 try {
     @timeout = map.get(@config, "timeout")

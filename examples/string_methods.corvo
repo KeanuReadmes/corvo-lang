@@ -2,59 +2,53 @@
 
 @s = "Hello, World!"
 
+@section = procedure(@title) {
+    sys.echo("")
+    sys.echo(@title)
+}
+
 sys.echo("=== string.concat ===")
 @joined = string.concat("Hello, ", "Corvo!")
 sys.echo(@joined)
 
-sys.echo("")
-sys.echo("=== string.len ===")
+@section.call("=== string.len ===")
 sys.echo("Length of '${@s}': ${string.len(@s)}")
 
-sys.echo("")
-sys.echo("=== string.to_upper ===")
+@section.call("=== string.to_upper ===")
 sys.echo(string.to_upper(@s))
 
-sys.echo("")
-sys.echo("=== string.to_lower ===")
+@section.call("=== string.to_lower ===")
 sys.echo(string.to_lower(@s))
 
-sys.echo("")
-sys.echo("=== string.trim ===")
+@section.call("=== string.trim ===")
 @padded = "   spaces around   "
 sys.echo("Before trim: '${@padded}'")
 sys.echo("After trim:  '${string.trim(@padded)}'")
 
-sys.echo("")
-sys.echo("=== string.replace ===")
+@section.call("=== string.replace ===")
 @replaced = string.replace(@s, "World", "Corvo")
 sys.echo(@replaced)
 
-sys.echo("")
-sys.echo("=== string.split ===")
+@section.call("=== string.split ===")
 @csv_line = "one,two,three,four"
 @parts = string.split(@csv_line, ",")
 sys.echo("Split '${@csv_line}' by ',': ${list.join(@parts, " | ")}")
 
-sys.echo("")
-sys.echo("=== string.contains ===")
+@section.call("=== string.contains ===")
 sys.echo("Contains 'World': ${string.contains(@s, "World")}")
 sys.echo("Contains 'Python': ${string.contains(@s, "Python")}")
 
-sys.echo("")
-sys.echo("=== string.starts_with ===")
+@section.call("=== string.starts_with ===")
 sys.echo("Starts with 'Hello': ${string.starts_with(@s, "Hello")}")
 sys.echo("Starts with 'World': ${string.starts_with(@s, "World")}")
 
-sys.echo("")
-sys.echo("=== string.ends_with ===")
+@section.call("=== string.ends_with ===")
 sys.echo("Ends with '!': ${string.ends_with(@s, "!")}")
 sys.echo("Ends with 'Hello': ${string.ends_with(@s, "Hello")}")
 
-sys.echo("")
-sys.echo("=== string.reverse ===")
+@section.call("=== string.reverse ===")
 sys.echo("Reversed: ${string.reverse(@s)}")
 
-sys.echo("")
-sys.echo("=== string.is_empty ===")
+@section.call("=== string.is_empty ===")
 sys.echo("Is '' empty: ${string.is_empty("")}")
 sys.echo("Is 'hi' empty: ${string.is_empty("hi")}")

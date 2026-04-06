@@ -1,5 +1,10 @@
 # xml_example.corvo - xml.parse
 
+@section = procedure(@title) {
+    sys.echo("")
+    sys.echo(@title)
+}
+
 sys.echo("=== xml.parse ===")
 @xml_str = "<person><name>Alice</name><age>30</age><city>Tokyo</city></person>"
 @data = xml.parse(@xml_str)
@@ -16,6 +21,5 @@ sys.echo("age:  ${@age_val}")
 sys.echo("city: ${@city_val}")
 
 # Inspect the full structure as JSON
-sys.echo("")
-sys.echo("Full structure (JSON):")
+@section.call("Full structure (JSON)")
 sys.echo(json.stringify(@data))

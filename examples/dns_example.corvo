@@ -1,6 +1,11 @@
 # dns_example.corvo - dns.resolve and dns.lookup
 # NOTE: These examples require an active internet/DNS connection.
 
+@section = procedure(@title) {
+    sys.echo("")
+    sys.echo(@title)
+}
+
 sys.echo("=== dns.resolve ===")
 # Resolves a hostname to one or more IP addresses
 @ips = dns.resolve("localhost")
@@ -9,8 +14,7 @@ browse(@ips, idx, ip) {
     sys.echo("  ${@ip}")
 }
 
-sys.echo("")
-sys.echo("=== dns.lookup ===")
+@section.call("=== dns.lookup ===")
 # Reverse DNS: looks up the hostname for an IP address
 @hostname = dns.lookup("127.0.0.1")
 sys.echo("Hostname for 127.0.0.1: ${@hostname}")

@@ -1,5 +1,10 @@
 # regex.corvo - Regex type examples
 
+@section = procedure(@title) {
+    sys.echo("")
+    sys.echo(@title)
+}
+
 sys.echo("=== Regex Literals ===")
 
 # Create a regex value using /pattern/flags literal syntax
@@ -10,8 +15,7 @@ sys.echo("Regex value: ${@digits}")
 
 # --- re.match ---
 
-sys.echo("")
-sys.echo("=== re.match ===")
+@section.call("=== re.match ===")
 
 @result = re.match(@digits, "9283")
 sys.echo("Matches digits in 9283: ${@result}")
@@ -25,8 +29,7 @@ sys.echo("Case-insensitive match: ${@result}")
 
 # --- re.find ---
 
-sys.echo("")
-sys.echo("=== re.find ===")
+@section.call("=== re.find ===")
 
 @first = re.find(@digits, "abc123def456")
 sys.echo("First number found: ${@first}")
@@ -36,16 +39,14 @@ sys.echo("Not found returns null: ${@missing}")
 
 # --- re.find_all ---
 
-sys.echo("")
-sys.echo("=== re.find_all ===")
+@section.call("=== re.find_all ===")
 
 @matches = re.find_all(@digits, "abc123def456ghi789")
 sys.echo("All numbers found: ${@matches}")
 
 # --- re.replace / re.replace_all ---
 
-sys.echo("")
-sys.echo("=== re.replace / re.replace_all ===")
+@section.call("=== re.replace / re.replace_all ===")
 
 @replaced = re.replace(@digits, "abc123def456", "NUM")
 sys.echo("Replace first: ${@replaced}")
@@ -55,8 +56,7 @@ sys.echo("Replace all: ${@replaced_all}")
 
 # --- re.split ---
 
-sys.echo("")
-sys.echo("=== re.split ===")
+@section.call("=== re.split ===")
 
 @sep = /,\s*/
 @parts = re.split(@sep, "apple, banana, cherry")
@@ -64,8 +64,7 @@ sys.echo("Split result: ${@parts}")
 
 # --- re.new ---
 
-sys.echo("")
-sys.echo("=== re.new ===")
+@section.call("=== re.new ===")
 
 @dyn_re = re.new("[a-z]+", "i")
 @found = re.find(@dyn_re, "Hello World")
@@ -73,8 +72,7 @@ sys.echo("Dynamic regex find: ${@found}")
 
 # --- Method call style ---
 
-sys.echo("")
-sys.echo("=== Method call style ===")
+@section.call("=== Method call style ===")
 
 @expression = /[0-9]+/gi
 @matched = @expression.match("9283")
@@ -85,8 +83,7 @@ sys.echo("Method call find: ${@found2}")
 
 # --- Regex patterns in match expressions ---
 
-sys.echo("")
-sys.echo("=== Regex in match expressions ===")
+@section.call("=== Regex in match expressions ===")
 
 @my_number = "9123"
 @result = match(@my_number) {
@@ -105,8 +102,7 @@ sys.echo("Email category: ${@category}")
 
 # --- Inline regex literal ---
 
-sys.echo("")
-sys.echo("=== Inline regex ===")
+@section.call("=== Inline regex ===")
 
 @ok = re.match(/[0-9]{4}-[0-9]{2}-[0-9]{2}/, "2026-03-26")
 sys.echo("Date format valid: ${@ok}")
