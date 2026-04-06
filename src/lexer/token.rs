@@ -41,6 +41,10 @@ pub enum TokenType {
     At,
     Equals,
     FatArrow,
+    PlusEqual,
+    MinusEqual,
+    Increment,
+    Decrement,
 
     // Special
     StringInterpolation(Vec<Token>),
@@ -91,6 +95,10 @@ impl fmt::Display for TokenType {
             Self::At => write!(f, "@"),
             Self::Equals => write!(f, "="),
             Self::FatArrow => write!(f, "=>"),
+            Self::PlusEqual => write!(f, "+="),
+            Self::MinusEqual => write!(f, "-="),
+            Self::Increment => write!(f, "++"),
+            Self::Decrement => write!(f, "--"),
             Self::StringInterpolation(_) => write!(f, "string(...)"),
             Self::Comment(text) => write!(f, "#{}", text),
             Self::Eof => write!(f, "EOF"),

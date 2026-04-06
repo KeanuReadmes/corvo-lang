@@ -2791,3 +2791,134 @@ fn test_procedure_is_truthy() {
     let proc_val = state.var_get("p").unwrap();
     assert!(proc_val.is_truthy());
 }
+
+// --- Shorthand compound assignment operators ---
+
+#[test]
+fn test_at_var_increment() {
+    let state = run_with_state(
+        r#"
+        @counter = 5
+        @counter++
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("counter").unwrap(),
+        corvo_lang::type_system::Value::Number(6.0)
+    );
+}
+
+#[test]
+fn test_at_var_decrement() {
+    let state = run_with_state(
+        r#"
+        @counter = 10
+        @counter--
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("counter").unwrap(),
+        corvo_lang::type_system::Value::Number(9.0)
+    );
+}
+
+#[test]
+fn test_at_var_add_assign_number() {
+    let state = run_with_state(
+        r#"
+        @n = 3
+        @n += 7
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("n").unwrap(),
+        corvo_lang::type_system::Value::Number(10.0)
+    );
+}
+
+#[test]
+fn test_at_var_sub_assign_number() {
+    let state = run_with_state(
+        r#"
+        @n = 20
+        @n -= 8
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("n").unwrap(),
+        corvo_lang::type_system::Value::Number(12.0)
+    );
+}
+
+#[test]
+fn test_at_var_add_assign_string() {
+    let state = run_with_state(
+        r#"
+        @s = "hello"
+        @s += " world"
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("s").unwrap(),
+        corvo_lang::type_system::Value::String("hello world".to_string())
+    );
+}
+
+#[test]
+fn test_at_var_sub_assign_string_removes_all_occurrences() {
+    let state = run_with_state(
+        r#"
+        @s = "foo bar foo baz foo"
+        @s -= "foo"
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("s").unwrap(),
+        corvo_lang::type_system::Value::String(" bar  baz ".to_string())
+    );
+}
+
+#[test]
+fn test_at_var_increment_multiple_times() {
+    let state = run_with_state(
+        r#"
+        @i = 0
+        @i++
+        @i++
+        @i++
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        state.var_get("i").unwrap(),
+        corvo_lang::type_system::Value::Number(3.0)
+    );
+}
+
+#[test]
+fn test_at_var_add_assign_type_mismatch_errors() {
+    let result = run_with_state(
+        r#"
+        @n = 5
+        @n += "hello"
+        "#,
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_at_var_sub_assign_type_mismatch_errors() {
+    let result = run_with_state(
+        r#"
+        @s = "hello"
+        @s -= 3
+        "#,
+    );
+    assert!(result.is_err());
+}

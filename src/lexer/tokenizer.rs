@@ -496,6 +496,28 @@ impl<'a> Lexer<'a> {
                     TokenType::Equals
                 }
             }
+            '+' => {
+                if self.peek() == '+' {
+                    self.advance(); // consume second '+'
+                    TokenType::Increment
+                } else if self.peek() == '=' {
+                    self.advance(); // consume '='
+                    TokenType::PlusEqual
+                } else {
+                    TokenType::Illegal(ch.to_string())
+                }
+            }
+            '-' => {
+                if self.peek() == '-' {
+                    self.advance(); // consume second '-'
+                    TokenType::Decrement
+                } else if self.peek() == '=' {
+                    self.advance(); // consume '='
+                    TokenType::MinusEqual
+                } else {
+                    TokenType::Illegal(ch.to_string())
+                }
+            }
             '/' => {
                 // Regex literal: /pattern/flags
                 return self.scan_regex();

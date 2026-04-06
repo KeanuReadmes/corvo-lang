@@ -23,6 +23,14 @@ pub enum Stmt {
         index: Expr,
         value: Expr,
     },
+    VarAddAssign {
+        name: String,
+        value: Expr,
+    },
+    VarSubAssign {
+        name: String,
+        value: Expr,
+    },
     ExprStmt {
         expr: Expr,
     },

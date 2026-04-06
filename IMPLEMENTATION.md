@@ -74,6 +74,18 @@ var.set("target_dir", string.concat(var.get("target_dir"), "/public"))
 # @ shorthand: @name = var.get("name"), @name = val = var.set("name", val)
 @target_dir = "/var/www/html"
 sys.echo(@target_dir)
+
+# Compound assignment shorthands (number)
+@count = 0
+@count++        # @count = @count + 1
+@count--        # @count = @count - 1
+@count += 5     # @count = @count + 5
+@count -= 2     # @count = @count - 2
+
+# Compound assignment shorthands (string)
+@msg = "hello"
+@msg += " world"   # concatenate
+@msg -= "hello"    # remove all occurrences
 ```
 
 ### 3.2 Compile-Time Constants (`static`)

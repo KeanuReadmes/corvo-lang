@@ -107,6 +107,30 @@ impl Evaluator {
                 state.var_set(name.clone(), updated);
                 Ok(())
             }
+            Stmt::VarAddAssign { name, value } => {
+                let current = state.var_get(name)?;
+                let rhs = self.eval_expr(value, state)?;
+                let updated = match (current, rhs) {
+                    (Value::Number(a), Value::Number(b)) => Value::Number(a + b),
+                    (Value::String(a), Value::String(b)) => Value::String(format!("{}{}", a, b)),
+                    _ => return Err(CorvoError::r#type("+= requires two numbers or two strings")),
+                };
+                state.var_set(name.clone(), updated);
+                Ok(())
+            }
+            Stmt::VarSubAssign { name, value } => {
+                let current = state.var_get(name)?;
+                let rhs = self.eval_expr(value, state)?;
+                let updated = match (current, rhs) {
+                    (Value::Number(a), Value::Number(b)) => Value::Number(a - b),
+                    (Value::String(a), Value::String(b)) => {
+                        Value::String(a.replace(b.as_str(), ""))
+                    }
+                    _ => return Err(CorvoError::r#type("-= requires two numbers or two strings")),
+                };
+                state.var_set(name.clone(), updated);
+                Ok(())
+            }
             Stmt::ExprStmt { expr } => {
                 // Intercept procedure.call(...) so we can run the body with &mut state.
                 if let Expr::MethodCall {
