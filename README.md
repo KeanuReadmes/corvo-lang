@@ -1,78 +1,84 @@
 # Corvo
 
 ![corvo-logo](./corvo.jpg)
-**A scripting language designed to be ultra simple.**
 
-Corvo is a modern scripting language designed to be a direct alternative to Bash, Zsh, and Coreutils. It comes with a rich standard library for filesystem operations, HTTP requests, JSON/YAML parsing, cryptography, DNS, and subprocess management -- all built in, no imports needed.
+**Write scripts like prose. Ship them like binaries. Trust them like Rust.**
+
+Corvo is a modern scripting language that compiles to standalone Rust binaries. It is deliberately stripped of the things that make scripting languages fragile — no package manager, no dependency graph, no `import` statement, no `if/else` tangles, no function signatures to maintain. What remains is a language that is easy to read, audit, and ship anywhere.
 
 ```corvo
-# Fetch an API, parse the response, write to disk
-var.set("res", http.get(url: "https://api.example.com/data"))
-var.set("data", json.parse(map.get(var.get("res"), "response_body")))
-fs.write("/tmp/output.json", json.stringify(var.get("data")))
-sys.echo("Written ${map.len(var.get("data"))} entries")
+# Fetch an API, parse JSON, write to disk — no imports, no setup, just script
+@res  = http.get(url: "https://api.example.com/data")
+@data = json.parse(map.get(@res, "response_body"))
+fs.write("/tmp/output.json", json.stringify(@data))
+sys.echo("Written ${map.len(@data)} entries")
 ```
 
 ---
 
-## What makes Corvo different
+## Three ideas that set Corvo apart
 
-### No functions. No if/else. No assignment operator.
+### 1 · Zero dependencies. Zero supply-chain risk.
 
-Corvo deliberately omits three things most languages take for granted. This is not a limitation -- it's the design.
+Most scripting ecosystems hand you a package manager on day one. Corvo does the opposite: there is no `import`, no `require`, no `pip install`, no `npm install`, no lock file, no vulnerability scanner to run before you can ship.
 
-| What's gone | What replaces it |
+Every capability — HTTP, JSON, YAML, CSV, XML, HCL, cryptography, DNS, SSH, rsync, LLM prompts, filesystem, subprocesses — lives in the standard library that ships with the interpreter. A Corvo script is always a single `.corvo` file with zero external dependencies. There is no supply chain to attack.
+
+| Module | What you get |
 |---|---|
-| `if` / `else` / `elif` | `match(expr) { pat => val, _ => default }` for value branching; `try { } fallback { }` with `assert_*` for error handling |
-| `def` / `fn` / `function` | Built-in library calls only |
+| `http` | GET, POST, PUT, DELETE |
+| `fs` | read, write, append, delete, copy, move, stat, list_dir |
+| `json` / `yaml` / `csv` / `xml` / `hcl` | parse + stringify |
+| `crypto` | sha256/md5/sha512 hashing, AES-GCM encrypt/decrypt, UUID |
+| `dns` | resolve, reverse lookup |
+| `ssh` | remote exec, SCP upload/download |
+| `rsync` | directory sync |
+| `llm` | prompt, embed, chat against any model/provider |
+| `os` | env vars, OS info, shell exec |
+| `sys` | echo, read_line, sleep, subprocess, exit |
+| `math` | add, sub, mul, div, mod, max, human_bytes |
+| `time` | unix_now, format_local |
+| `string` | concat, split, replace, trim, upper, lower, contains, … |
+| `list` | push, pop, get, set, join, sort, filter, map, … |
+| `map` | get, set, keys, values, merge, remove, … |
+| `args` | GNU-style and dig-style argument parser |
 
-The result is a language with zero ambiguity, no hidden control flow, and scripts that are trivial to read, audit, and maintain.
+### 2 · No if/else. No function declarations. All in one go.
 
-### Try/Fallback: one construct, two jobs
+Corvo is a procedural language in the truest sense: execution starts at line one and ends at the last line. There is no `def`, no `fn`, no `function`, no recursion, no hidden call stack. The control flow you see is the control flow you get.
 
-Corvo uses `try/fallback` for both error handling and conditional logic. Assertions trigger fallback blocks on failure.
+Branching is handled by two constructs:
+
+**`try / fallback`** — for error-driven and assertion-driven branching. Assertions fire the fallback on failure:
 
 ```corvo
-# Conditional branching via assertions
-var.set("port", 8080)
+@port = 8080
 
 try {
     assert_eq(os.get_env("ENV"), "production")
-    var.set("host", "api.prod.example.com")
+    @host = "api.prod.example.com"
 } fallback {
-    var.set("host", "localhost")
+    @host = "localhost"
 }
 
-sys.echo("Connecting to ${var.get("host")}:${var.get("port")}")
+sys.echo("Connecting to ${@host}:${@port}")
 ```
 
+Chain as many fallbacks as you need:
+
 ```corvo
-# Chained fallbacks for multiple recovery paths
 try {
-    var.set("config", fs.read("/etc/app/config.json"))
+    @config = fs.read("/etc/app/config.json")
 } fallback {
-    var.set("config", fs.read("~/.config/app/config.json"))
+    @config = fs.read("~/.config/app/config.json")
 } fallback {
-    var.set("config", json.stringify({"mode": "default"}))
+    @config = json.stringify({"mode": "default"})
 }
 ```
 
-```corvo
-# Safe operations: error in try block jumps to fallback
-try {
-    var.set("data", json.parse(fs.read("input.json")))
-    var.set("name", map.get(var.get("data"), "user", "anonymous"))
-} fallback {
-    var.set("name", "anonymous")
-}
-```
-
-### Match: the if/else replacement for value branching
-
-The `match` expression assigns a value based on a matched literal, replacing `if/else` chains and `switch` statements cleanly.
+**`match`** — for clean value-based switching without chains of `if / else if`:
 
 ```corvo
-# Replace a long if/else chain with a readable match
 @label = match(os.get_env("ENV", "dev")) {
     "prod"    => "Production",
     "staging" => "Staging",
@@ -81,73 +87,78 @@ The `match` expression assigns a value based on a matched literal, replacing `if
 sys.echo("Environment: ${@label}")
 ```
 
+Reusable logic lives in **procedures** — blocks stored in variables and invoked via `.call()`. No global namespace pollution, no recursion, no surprises:
+
 ```corvo
-# HTTP status code to human-readable message
-var.set("code", 404)
-@message = match(@code) {
-    200 => "OK",
-    201 => "Created",
-    400 => "Bad Request",
-    404 => "Not Found",
-    500 => "Internal Server Error",
-    _   => "Unknown Status"
+@greet = procedure(@name, @msg) {
+    @msg = "Hello, ${@name}!"
 }
-sys.echo("Status: ${@message}")
+
+@out = ""
+@greet.call("World", @out)
+sys.echo(@out)   # Hello, World!
 ```
 
-### Compile to a standalone binary
+### 3 · Real async, backed by Rust
 
-Shell scripts are interpreted. Corvo compiles to a self-contained executable with no runtime dependencies.
+`async_browse` spawns one OS thread per list item and runs a procedure on each concurrently. Shared accumulator variables are mutex-protected; list appends use an atomic delta-merge so every thread's contributions land without data races.
+
+```corvo
+@urls = [
+    "https://api.example.com/users",
+    "https://api.example.com/orders",
+    "https://api.example.com/products"
+]
+@results = list.new()
+
+@fetch = procedure(@url, @acc) {
+    @res = http.get(url: @url)
+    @acc = list.push(@acc, map.get(@res, "status_code"))
+}
+
+async_browse(@urls, @fetch, @url, shared @results)
+
+sys.echo("Status codes: ${@results}")
+```
+
+All threads complete before execution continues — no callbacks, no `await`, no event loop to reason about. The parallelism is structural, not syntactic noise.
+
+---
+
+## Compile to a standalone binary
+
+Corvo scripts can be compiled into self-contained executables with no runtime dependency:
 
 ```bash
-# Write your script
-cat > deploy.corvo << 'EOF'
-var.set("env", os.get_env("DEPLOY_ENV", "staging"))
-sys.echo("Deploying to ${var.get("env")}...")
-sys.exec(["rsync", "-avz", "./build/", "server:/app/"], check: true)
-sys.echo("Done.")
-EOF
-
-# Compile it
 corvo --compile deploy.corvo --output deploy
-
-# Run it anywhere, no interpreter needed
-./deploy
+./deploy   # runs anywhere, no interpreter needed
 ```
 
-Static variables are pre-executed at compile time and baked into the binary.
+Use a `prep` block to bake compile-time constants — including remote API responses, environment variables, or config files — directly into the binary:
 
-### Everything is built in
+```corvo
+prep {
+    static.set("VERSION", os.get_env("APP_VERSION", "1.0.0"))
+    static.set("API_BASE", os.get_env("API_BASE", "https://api.example.com"))
 
-No `import`. No package manager. No dependency hell.
+    # Feature flags fetched once at compile time, encrypted into the binary
+    @ff = http.get(string.concat(static.get("API_BASE"), "/feature-flags"))
+    try {
+        assert_eq(map.get(@ff, "status_code"), 200)
+        static.set("FLAGS", json.parse(map.get(@ff, "response_body")))
+    } fallback {
+        static.set("FLAGS", {"dark_mode": false, "beta_api": false})
+    }
+}
 
-| Module | Functions |
-|---|---|
-| `sys` | echo, read_line, sleep, panic, **exec** |
-| `fs` | read, write, append, delete, exists, mkdir, list_dir, copy, move, stat |
-| `http` | get, post, put, delete |
-| `json` | parse, stringify |
-| `yaml` | parse, stringify |
-| `csv` | parse |
-| `xml` | parse |
-| `hcl` | parse, stringify |
-| `crypto` | hash, hash_file, checksum, encrypt, decrypt, uuid |
-| `dns` | resolve, lookup |
-| `math` | add, sub, mul, div, mod |
-| `os` | get_env, set_env, exec, info |
-| `ssh` | exec, scp_upload, scp_download |
-| `rsync` | sync |
-| `llm` | model, prompt, embed, chat |
-| `string` | 12 methods (concat, replace, split, trim, ...) |
-| `list` | 11 methods (push, pop, get, join, ...) |
-| `map` | 9 methods (keys, values, merge, ...) |
-| `number` | 9 methods (abs, floor, ceil, round, sqrt, ...) |
+sys.echo("v${static.get("VERSION")} — ${static.get("API_BASE")}")
+```
+
+Static values are XOR-encrypted and stored as raw byte arrays in the compiled binary — they never appear as readable strings.
 
 ---
 
 ## Quick start
-
-### Install
 
 ```bash
 git clone https://github.com/KeanuReadmes/corvo-lang
@@ -156,184 +167,96 @@ cargo build --release
 # Binary is at target/release/corvo
 ```
 
-### Hello world
-
 ```bash
-corvo -e 'sys.echo("Hello, World!")'
-```
-
-### Run a script
-
-```bash
-corvo script.corvo
-```
-
-### REPL
-
-```bash
-corvo --repl
-```
-
-### Check syntax
-
-```bash
-corvo --check script.corvo
+corvo -e 'sys.echo("Hello, World!")'   # one-liner
+corvo script.corvo                      # run a file
+corvo --repl                            # interactive REPL
+corvo --lint script.corvo               # lint without running
+corvo --compile script.corvo -o out     # compile to binary
 ```
 
 ---
 
 ## Language guide
 
-### Types
+### Variables and shorthand
 
-Six types, inferred at first assignment:
-
-```corvo
-var.set("name", "Alice")         # string
-var.set("age", 30)                # number
-var.set("active", true)           # boolean
-var.set("tags", ["dev", "ops"])   # list
-var.set("meta", {"key": "val"})   # map
-```
-
-Type is fixed after first `var.set`. Reassigning with a different type is an error.
-
-### Variables
-
-No `=` sign. Two namespaces:
+Two namespaces, no assignment operator:
 
 ```corvo
-# Compile-time constants (baked into binary when compiling)
-# static.set() is only allowed inside a prep block, which must come first.
-prep {
-    static.set("VERSION", "1.0.0")
-}
-
-# Runtime variables (mutable)
+# Runtime variable — long form
 var.set("counter", 0)
 var.set("counter", math.add(var.get("counter"), 1))
-sys.echo(var.get("counter"))          # prints 1
-sys.echo(static.get("VERSION"))       # prints 1.0.0
-```
 
-#### The `prep` block
+# Runtime variable — shorthand (@name = value, @name reads the value)
+@counter = 0
+@counter++
+@counter += 5
+sys.echo(@counter)   # 6
 
-The `prep` block is used for compile-time setup. It has three strict rules:
-
-1. **Must appear before all other statements.** It is a parse error to place code before a `prep` block.
-2. **`static.set()` is only allowed inside `prep`.** Calling `static.set()` anywhere else is a parse error.
-3. **Variables created inside `prep` are not available outside it.** Use `static.set()` to pass values to the rest of the program.
-
-```corvo
+# Compile-time constant (inside prep only)
 prep {
-    static.set("host", os.get_env("APP_HOST"))
-    static.set("port", 8080)
-    var.set("tmp", "only visible inside prep")  # not available after prep
+    static.set("HOST", os.get_env("HOST", "localhost"))
 }
-
-# static values are accessible everywhere after prep
-sys.echo("Connecting to ${static.get("host")}:${static.get("port")}")
+sys.echo(static.get("HOST"))
 ```
 
-#### Variable shorthand
+| Syntax | Meaning |
+|---|---|
+| `@name = val` | `var.set("name", val)` |
+| `@name` | `var.get("name")` |
+| `@name++` / `@name--` | increment / decrement by 1 |
+| `@name += x` | add number or append string |
+| `@name -= x` | subtract number or remove string occurrences |
 
-`@name` is a shorthand for `var.get("name")`, and `@name = value` is a shorthand for `var.set("name", value)`:
+### Types
+
+Six types, inferred on first assignment and fixed thereafter:
 
 ```corvo
-# Long form
-var.set("host", "localhost")
-sys.echo(var.get("host"))
-
-# Equivalent short form using @
-@host = "localhost"
-sys.echo(@host)
-
-# Shorthand works anywhere var.get() can appear
-sys.echo("Connecting to ${@host}:${@port}")
-http.get(url: @host)
+@name   = "Alice"              # string
+@age    = 30                   # number
+@active = true                 # boolean
+@tags   = ["dev", "ops"]       # list
+@meta   = {"region": "us-east"} # map
 ```
-
-Inside a `browse` block, the key and value bindings are accessed with the `$` prefix instead of `@`, because they are block-scoped and not regular runtime variables:
-
-```corvo
-var.set("items", ["a", "b", "c"])
-
-browse(var.get("items"), idx, item) {
-    # $idx and $item are the browse-bound bindings — use $ not @
-    sys.echo("${$idx}: ${$item}")
-}
-```
-
-| Shorthand | Equivalent | Scope |
-|---|---|---|
-| `@name` | `var.get("name")` | runtime variable |
-| `@name = val` | `var.set("name", val)` | runtime variable |
-| `$name` | browse-bound variable | inside `browse` block only |
 
 ### String interpolation
 
-Expressions inside `${...}`:
+Any expression inside `${...}`:
 
 ```corvo
-var.set("user", "Alice")
-var.set("items", [10, 20, 30])
-sys.echo("Hello ${var.get("user")}, you have ${list.len(var.get("items"))} items")
-sys.echo("Sum: ${math.add(10, 20)}")
-sys.echo("Upper: ${string.to_upper("hello")}")
+@user  = "Alice"
+@items = [10, 20, 30]
+sys.echo("Hello ${@user}, you have ${list.len(@items)} items")
+sys.echo("SHA-256: ${crypto.hash("sha256", @user)}")
 ```
 
 ### Loops
 
-Only `loop` (infinite) with `terminate` to exit:
+`loop` runs forever; `terminate` exits:
 
 ```corvo
-var.set("i", 0)
-var.set("sum", 0)
+@i   = 0
+@sum = 0
 
 loop {
-    var.set("sum", math.add(var.get("sum"), var.get("i")))
-    var.set("i", math.add(var.get("i"), 1))
-
+    @sum += @i
+    @i++
     try {
-        assert_gt(var.get("i"), 10)
+        assert_gt(@i, 10)
         terminate
-    } fallback {
-        # continue looping
-    }
+    } fallback {}
 }
 
-sys.echo("Sum of 1..10 = ${var.get("sum")}")
+sys.echo("Sum 1..10 = ${@sum}")
 ```
 
-### Browse
+### Browse (iteration)
 
-`browse` iterates over a list or map, binding a key and value variable for each element. Inside the block, those bindings are accessed with the `$` prefix:
-
-```corvo
-# Iterating a list — $idx is the zero-based index, $fruit is the element
-var.set("fruits", ["apple", "banana", "cherry"])
-
-browse(var.get("fruits"), idx, fruit) {
-    sys.echo("${$idx}: ${$fruit}")
-}
-# 0: apple
-# 1: banana
-# 2: cherry
-```
+Iterate lists or maps with bound key/value variables (accessed with `$`):
 
 ```corvo
-# Iterating a map — $key is the string key, $val is the associated value
-var.set("config", {"host": "localhost", "port": 8080})
-
-browse(var.get("config"), key, val) {
-    sys.echo("${$key} = ${$val}")
-}
-# host = localhost
-# port = 8080
-```
-
-```corvo
-# Using the @ shorthand to pass a regular variable as the iterable
 @scores = {"alice": 95, "bob": 87, "carol": 92}
 
 browse(@scores, name, score) {
@@ -341,466 +264,188 @@ browse(@scores, name, score) {
 }
 ```
 
-Browse blocks can be nested and support `terminate` to exit early. Pass a browse-bound value to a nested browse using `$name`:
-
 ```corvo
-@matrix = [[1, 2], [3, 4]]
+@files = fs.list_dir("/var/log")
 
-browse(@matrix, row_idx, row) {
-    browse($row, col_idx, cell) {
-        sys.echo("[${$row_idx}][${$col_idx}] = ${$cell}")
-    }
+browse(@files, idx, fname) {
+    try {
+        assert_match("\.log$", $fname)
+        sys.echo("Log file: ${$fname}")
+    } fallback {}
 }
 ```
-
-| Iterable type | `key` binding | `value` binding |
-|---|---|---|
-| `list` | numeric index (0, 1, 2, …) | element value |
-| `map` | string key | associated value |
 
 ### Assertions
 
-Trigger fallback on failure:
+Used inside `try` blocks to trigger the `fallback`:
 
-| Assertion | Purpose |
+| Assertion | Condition |
 |---|---|
-| `assert_eq(a, b)` | a == b |
-| `assert_neq(a, b)` | a != b |
-| `assert_gt(a, b)` | a > b |
-| `assert_lt(a, b)` | a < b |
-| `assert_match(regex, target)` | target matches regex pattern |
-
-```corvo
-try {
-    assert_eq(os.get_env("USER"), "root")
-    sys.echo("Running as root")
-} fallback {
-    sys.panic("Must run as root")
-}
-```
-
-### Data structures
-
-Lists and maps with full method support:
-
-```corvo
-# Lists
-var.set("nums", [3, 1, 4, 1, 5])
-var.set("nums", list.push(var.get("nums"), 9))
-sys.echo(list.join(var.get("nums"), ", "))    # "3, 1, 4, 1, 5, 9"
-sys.echo(list.len(var.get("nums")))            # 6
-
-# Create an empty list with list.new()
-var.set("items", list.new())
-var.set("items", list.push(var.get("items"), "first"))
-
-# Maps
-var.set("config", {"host": "localhost", "port": 8080})
-sys.echo(map.get(var.get("config"), "host"))   # "localhost"
-var.set("config", map.set(var.get("config"), "debug", true))
-sys.echo(json.stringify(var.get("config")))
-
-# Create an empty map with map.new()
-var.set("data", map.new())
-var.set("data", map.set(var.get("data"), "key", "value"))
-```
+| `assert_eq(a, b)` | `a == b` |
+| `assert_neq(a, b)` | `a != b` |
+| `assert_gt(a, b)` | `a > b` |
+| `assert_lt(a, b)` | `a < b` |
+| `assert_match(regex, s)` | `s` matches regex |
 
 ### Subprocess execution
 
-Inspired by Python's `subprocess.run`, `sys.exec` accepts a list of strings where the first element is the program and the remaining elements are its arguments. This avoids shell injection and makes argument passing explicit:
+No shell injection: pass a list of strings, get `{stdout, stderr, code}` back:
 
 ```corvo
-# Basic command execution
-var.set("result", sys.exec(["ls", "-la", "/tmp"]))
-sys.echo(map.get(var.get("result"), "stdout"))
+@result = sys.exec(["git", "log", "--oneline", "-5"])
+sys.echo(map.get(@result, "stdout"))
 
-# With input piped to stdin
-var.set("upper", sys.exec(["tr", "[:lower:]", "[:upper:]"], input: "hello world"))
-sys.echo(map.get(var.get("upper"), "stdout"))  # "HELLO WORLD"
-
-# With working directory and environment
-sys.exec(["make", "build"], cwd: "/src/project", env: {"CC": "clang"})
-
-# Timeout protection: timeout causes a runtime error that triggers fallback
-try {
-    var.set("result", sys.exec(["slow-command"], timeout: 30))
-    assert_eq(map.get(var.get("result"), "code"), 0)
-    sys.echo("Command succeeded")
-} fallback {
-    sys.echo("Command timed out or failed")
-}
-
-# Strict mode: error on non-zero exit
-sys.exec(["deploy.sh"], check: true)
-
-# When shell features like pipelines are needed, pass them via sh -c
-var.set("result", sys.exec(["sh", "-c", "df -h / | tail -1"]))
-```
-
-| Named arg | Type | Description |
-|---|---|---|
-| `input` | string | Data piped to stdin |
-| `check` | bool | Error if exit code != 0 |
-| `timeout` | number | Kill after N seconds |
-| `cwd` | string | Working directory |
-| `env` | map | Environment variables |
-
-Returns: `{stdout: "...", stderr: "...", code: 0}`
-
-### Named parameters
-
-Python-style keyword arguments for clarity:
-
-```corvo
-# Positional
-http.get("https://example.com")
-
-# Named (equivalent, clearer)
-http.get(url: "https://example.com")
-
-# Mixed
-http.post("https://api.example.com", body: '{"key": "val"}', headers: {"Content-Type": "application/json"})
+# Timeout, working directory, env vars
+sys.exec(["make", "build"], cwd: "/src", env: {"CC": "clang"}, timeout: 60, check: true)
 ```
 
 ---
 
-## Standard library reference
+## Example: parallel URL health checker
 
-### `sys` -- Core system
+```corvo
+@endpoints = [
+    "https://api.example.com/health",
+    "https://api.example.com/ready",
+    "https://api.example.com/metrics"
+]
+@statuses = list.new()
 
-| Function | Description |
-|---|---|
-| `sys.echo(msg...)` | Print to stdout with newline |
-| `sys.read_line(prompt?)` | Read a line from stdin |
-| `sys.sleep(ms)` | Pause for milliseconds |
-| `sys.panic(msg?)` | Raise a runtime error |
-| `sys.exec(cmd, ...)` | Execute a process from a list of strings |
+@check = procedure(@url, @out) {
+    try {
+        @res = http.get(url: @url)
+        @line = string.concat(@url, string.concat(" → ", number.to_string(map.get(@res, "status_code"))))
+        @out = list.push(@out, @line)
+    } fallback {
+        @out = list.push(@out, string.concat(@url, " → ERROR"))
+    }
+}
 
-### `fs` -- File system
+async_browse(@endpoints, @check, @url, shared @statuses)
 
-| Function | Description |
-|---|---|
-| `fs.read(path)` | Read file to string |
-| `fs.write(path, content)` | Write/overwrite file |
-| `fs.append(path, content)` | Append to file |
-| `fs.delete(path)` | Delete file or directory |
-| `fs.exists(path)` | Check if path exists |
-| `fs.mkdir(path, recursive?)` | Create directory |
-| `fs.list_dir(path)` | List directory contents |
-| `fs.copy(src, dest)` | Copy file |
-| `fs.move(src, dest)` | Move/rename file |
-| `fs.stat(path)` | File metadata: `{size, is_dir, permissions, modified_at}` |
+browse(@statuses, i, line) {
+    sys.echo($line)
+}
+```
 
-### `http` -- HTTP client
+## Example: deploy script compiled to a binary
 
-| Function | Description |
-|---|---|
-| `http.get(url, headers?)` | GET request |
-| `http.post(url, body, headers?)` | POST request |
-| `http.put(url, body, headers?)` | PUT request |
-| `http.delete(url, headers?)` | DELETE request |
+```corvo
+prep {
+    static.set("ENV",  os.get_env("DEPLOY_ENV",  "staging"))
+    static.set("DEST", os.get_env("DEPLOY_DEST", "server:/app"))
+    static.set("HOOK", os.get_env("SLACK_HOOK",  ""))
+}
 
-All return `{status_code, response_body, headers}`.
+sys.echo("Deploying to ${static.get("ENV")}...")
 
-### `json` -- JSON
+try {
+    sys.exec(
+        ["rsync", "-avz", "--delete", "./build/", static.get("DEST")],
+        timeout: 300,
+        check: true
+    )
+    sys.echo("Deploy complete.")
+} fallback {
+    sys.echo("Deploy failed — sending alert...")
+    try {
+        assert_neq(static.get("HOOK"), "")
+        http.post(
+            url: static.get("HOOK"),
+            body: json.stringify({"text": "Deploy to ${static.get("ENV")} failed!"})
+        )
+    } fallback {}
+}
+```
 
-| Function | Description |
-|---|---|
-| `json.parse(str)` | Parse JSON string to Corvo value |
-| `json.stringify(value)` | Serialize to pretty-printed JSON |
+## Example: grep errors from a log file
 
-### `yaml` -- YAML
+```corvo
+@lines  = string.split(fs.read("access.log"), "\n")
+@errors = list.new()
 
-| Function | Description |
-|---|---|
-| `yaml.parse(str)` | Parse YAML string |
-| `yaml.stringify(value)` | Serialize to YAML |
+browse(@lines, _, line) {
+    try {
+        assert_match("ERROR", $line)
+        @errors = list.push(@errors, $line)
+    } fallback {}
+}
 
-### `csv` / `xml` / `hcl` -- Data formats
-
-| Function | Description |
-|---|---|
-| `csv.parse(str, delimiter?)` | Parse CSV with headers |
-| `xml.parse(str)` | Parse XML to Corvo value |
-| `hcl.parse(str)` | Parse HCL/Terraform config to Corvo value |
-| `hcl.stringify(value)` | Serialize to HCL |
-
-### `crypto` -- Cryptography
-
-| Function | Description |
-|---|---|
-| `crypto.hash(algorithm, data)` | Hash: `md5`, `sha256`, `sha512` |
-| `crypto.encrypt(data, key)` | Encrypt (AES-GCM) |
-| `crypto.decrypt(data, key)` | Decrypt |
-| `crypto.uuid()` | Generate UUID v4 |
-
-### `dns` -- DNS resolution
-
-| Function | Description |
-|---|---|
-| `dns.resolve(hostname)` | Resolve to list of IPs |
-| `dns.lookup(ip)` | Reverse DNS lookup |
-
-### `math` -- Arithmetic
-
-| Function | Description |
-|---|---|
-| `math.add(a, b)` | a + b |
-| `math.sub(a, b)` | a - b |
-| `math.mul(a, b)` | a * b |
-| `math.div(a, b)` | a / b (errors on zero) |
-| `math.mod(a, b)` | a % b (errors on zero) |
-
-### `os` -- Operating system
-
-| Function | Description |
-|---|---|
-| `os.get_env(key, default?)` | Get environment variable |
-| `os.set_env(key, value)` | Set environment variable |
-| `os.exec(cmd, args?)` | Simple process execution |
-| `os.info()` | Returns `{os, arch, hostname}` |
-
-### `ssh` -- Remote shell
-
-| Function | Description |
-|---|---|
-| `ssh.exec(host, user, key_path, cmd)` | Execute command on remote host |
-| `ssh.scp_upload(host, user, key_path, local_path, remote_path)` | Upload file via SCP |
-| `ssh.scp_download(host, user, key_path, remote_path, local_path)` | Download file via SCP |
-
-### `rsync` -- File synchronization
-
-| Function | Description |
-|---|---|
-| `rsync.sync(source, dest, options?)` | Synchronize files/directories |
-
-### `llm` -- AI language models
-
-| Function | Description |
-|---|---|
-| `llm.model(name, provider, options?)` | Build a model connection string |
-| `llm.prompt(model, prompt, tokens?)` | Execute a prompt against a model |
-| `llm.embed(model, text)` | Generate a vector embedding |
-| `llm.chat(id, model, messages, tokens?)` | Execute a chat conversation |
-
-### `string` methods
-
-`concat`, `replace`, `split`, `trim`, `contains`, `starts_with`, `ends_with`, `to_lower`, `to_upper`, `len`, `reverse`, `is_empty`
-
-### `list` methods
-
-`push`, `pop`, `get`, `set`, `first`, `last`, `len`, `is_empty`, `contains`, `reverse`, `join`
-
-### `map` methods
-
-`keys`, `values`, `len`, `is_empty`, `has_key`, `get`, `set`, `remove`, `merge`
-
-### `number` methods
-
-`to_string`, `parse`, `is_nan`, `is_infinite`, `is_finite`, `abs`, `floor`, `ceil`, `round`, `sqrt`
+sys.echo("${list.len(@errors)} error lines found")
+```
 
 ---
 
 ## CLI reference
 
-```
-corvo [OPTIONS] [FILE]
-```
-
-| Flag | Short | Description |
-|---|---|---|
-| `<file>` | | Execute a `.corvo` file |
-| `--repl` | `-r` | Interactive REPL |
-| `--eval <expr>` | `-e` | Evaluate inline expression |
-| `--check <file>` | | Syntax check (no execution) |
-| `--compile <file>` | `-c` | Compile to standalone binary |
-| `--output <path>` | `-o` | Output path for compiled binary |
-| `--debug` | | Use debug build (faster compile) |
-| `--version` | `-v` | Print version |
+| Flag | Description |
+|---|---|
+| `corvo <file>` | Run a script |
+| `corvo -e '<expr>'` | Evaluate an inline expression |
+| `corvo --repl` | Interactive REPL |
+| `corvo --lint <file>` | Lint without executing |
+| `corvo --compile <file> -o <out>` | Compile to a standalone binary |
+| `corvo --debug` | Use a debug build (faster compile time) |
+| `corvo --version` | Print version |
 
 ---
 
-## Error system
+## Error codes
 
-Corvo has 14 distinct error types, each with a unique exit code:
+Every error carries a source location and a unique exit code:
 
-| Exit code | Error | Trigger |
+| Code | Error | When |
 |---|---|---|
-| 1 | Lexing | Invalid tokens |
-| 2 | Parsing | Syntax errors |
+| 1 | Lexing | Invalid token |
+| 2 | Parsing | Syntax error |
 | 3 | Type | Type mismatch |
-| 4 | Runtime | General runtime errors |
-| 5 | Assertion | `assert_*` failure |
-| 6 | FileSystem | File I/O errors |
-| 7 | Network | HTTP/DNS errors |
-| 8 | UnknownFunction | Undefined function call |
-| 9 | StaticModification | Modifying static at runtime |
+| 4 | Runtime | General runtime failure |
+| 5 | Assertion | `assert_*` outside a try block |
+| 6 | FileSystem | File I/O failure |
+| 7 | Network | HTTP / DNS failure |
+| 8 | UnknownFunction | Undefined function called |
+| 9 | StaticModification | `static.set` outside `prep` |
 | 10 | DivisionByZero | Division by zero |
 | 11 | VariableNotFound | Undefined variable |
 | 12 | StaticNotFound | Undefined static |
-| 13 | Io | General I/O errors |
-| 14 | InvalidArgument | Bad function arguments |
-
-All errors include source location (span) information.
+| 13 | Io | General I/O error |
+| 14 | InvalidArgument | Bad function argument |
 
 ---
 
-## More examples
+## Install
 
-### File processing pipeline
-
-```corvo
-var.set("lines", string.split(fs.read("access.log"), "\n"))
-var.set("count", 0)
-
-loop {
-    try {
-        assert_gt(list.len(var.get("lines")), 0)
-    } fallback {
-        terminate
-    }
-
-    var.set("line", list.first(var.get("lines")))
-    var.set("lines", list.pop(var.get("lines")))
-
-    try {
-        assert_match("ERROR", var.get("line"))
-        var.set("count", math.add(var.get("count"), 1))
-    } fallback {
-        # not an error line, skip
-    }
-}
-
-sys.echo("Found ${var.get("count")} error lines")
+```bash
+git clone https://github.com/KeanuReadmes/corvo-lang
+cd corvo-lang
+cargo build --release
+sudo cp target/release/corvo /usr/local/bin/
 ```
 
-### JSON API consumer
+Or use the install script:
 
-```corvo
-var.set("res", http.get(url: "https://api.github.com/repos/rust-lang/rust"))
-
-try {
-    assert_eq(map.get(var.get("res"), "status_code"), 200)
-} fallback {
-    sys.panic("API request failed")
-}
-
-var.set("repo", json.parse(map.get(var.get("res"), "response_body")))
-sys.echo("Name: ${map.get(var.get("repo"), "full_name")}")
-sys.echo("Stars: ${map.get(var.get("repo"), "stargazers_count")}")
-sys.echo("Language: ${map.get(var.get("repo"), "language")}")
-```
-
-### Iterating over a collection with browse
-
-```corvo
-# Print every field of a JSON object
-var.set("user", json.parse(fs.read("user.json")))
-
-browse(var.get("user"), field, value) {
-    sys.echo("${$field}: ${$value}")
-}
-
-# Count errors in a log file
-var.set("lines", string.split(fs.read("access.log"), "\n"))
-var.set("count", 0)
-
-browse(var.get("lines"), idx, line) {
-    try {
-        assert_match("ERROR", $line)
-        var.set("count", math.add(var.get("count"), 1))
-    } fallback {
-        # not an error line, skip
-    }
-}
-
-sys.echo("Found ${var.get("count")} error lines")
-```
-
-### System health check
-
-```corvo
-var.set("info", os.info())
-sys.echo("Host: ${map.get(var.get("info"), "hostname")}")
-sys.echo("OS: ${map.get(var.get("info"), "os")}/${map.get(var.get("info"), "arch")}")
-
-var.set("disk", sys.exec(["sh", "-c", "df -h / | tail -1"]))
-sys.echo("Disk: ${string.trim(map.get(var.get("disk"), "stdout"))}")
-
-var.set("mem", sys.exec(["sh", "-c", "free -h | grep Mem | awk '{print $3 \"/\" $2}'"]))
-sys.echo("Memory: ${string.trim(map.get(var.get("mem"), "stdout"))}")
-
-var.set("result", sys.exec(["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", "https://example.com"], timeout: 5))
-try {
-    assert_eq(map.get(var.get("result"), "stdout"), "200")
-    sys.echo("Health: OK")
-} fallback {
-    sys.echo("Health: DEGRADED")
-}
-```
-
-### File sync with error recovery
-
-```corvo
-prep {
-    static.set("SRC", "/data/important")
-    static.set("DEST", "backup-server:/data/important")
-}
-
-try {
-    sys.exec(
-        ["rsync", "-avz", "--delete", "${static.get("SRC")}/", "${static.get("DEST")}/"],
-        timeout: 300,
-        check: true
-    )
-    sys.echo("Backup completed successfully")
-} fallback {
-    sys.echo("Backup failed, sending alert...")
-    http.post(
-        url: "https://hooks.slack.com/services/xxx",
-        body: json.stringify({"text": "Backup failed!"})
-    )
-}
+```bash
+curl -fsSL https://raw.githubusercontent.com/KeanuReadmes/corvo-lang/main/install.sh | bash
 ```
 
 ---
 
-## Design philosophy
-
-Corvo's constraints are intentional:
-
-1. **No user-defined functions** forces scripts to be flat, linear, and easy to follow from top to bottom. There is no indirection, no recursion, no call stack to trace.
-
-2. **No if/else** eliminates a class of bugs: dangling else, missing branches, complex conditionals. `match` handles value-based branching as a clean expression returning a value, while `try/fallback` with assertions handles error-driven branching and complex conditions — both force you to be explicit about every case.
-
-3. **No assignment operator** makes mutation explicit. `var.set("name", value)` is deliberately verbose so that state changes are obvious and searchable.
-
-4. **Batteries included** means no dependency management. A Corvo script is a single file. Always.
-
-5. **Compilable** means your scripts can be distributed as real binaries. No "install this runtime first."
-
----
-
-## Project structure
+## Project layout
 
 ```
-corvo-lang/
-├── src/
-│   ├── main.rs              # CLI entry point
-│   ├── lib.rs               # Library API
-│   ├── error.rs             # Error types (14 variants)
-│   ├── span.rs              # Source location tracking
-│   ├── lexer/               # Tokenizer
-│   ├── parser/              # Recursive descent parser
-│   ├── ast/                 # AST node definitions
-│   ├── type_system/         # Value type + methods
-│   ├── runtime/             # State management
-│   ├── compiler/            # Evaluator + standalone builder
-│   ├── standard_lib/        # All built-in modules
-│   └── repl/                # Interactive REPL
-├── examples/                # Example .corvo scripts
-├── tests/                   # Integration tests
-└── Cargo.toml
+src/
+  lexer/           Tokenizer
+  parser/          Recursive-descent parser
+  ast/             AST node definitions
+  type_system/     Value enum + method dispatch
+  standard_lib/    All built-in modules
+  compiler/        Evaluator + standalone binary builder
+  runtime/         Variable and static state
+  diagnostic.rs    Linter
+  main.rs          CLI entry point
+examples/          One .corvo file per feature
+coreutils/         Full GNU coreutils re-implementations (ls, …)
+tests/             Integration test suite (60+ tests)
 ```
 
 ---
