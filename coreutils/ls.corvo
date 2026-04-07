@@ -152,70 +152,91 @@
 # Default to "." when no paths were given.
 @default_to_dot_if_empty.call(@paths, @paths)
 
+# ── Skip-main flag: set to true to bypass listing logic ──────────────────────
+# Used so that --help / --version / --dired can signal early termination
+# without calling sys.exit() inside a try block (which gets swallowed by the
+# empty fallback).
+@_ls_skip = false
+@_ls_exit_code = 0
+
 # Handle --help / --version / --dired before touching the filesystem.
 try {
-  assert_eq(@o["help"], true)
+  assert_eq(map.get(@o, "help", false), true)
   sys.echo("Usage: ls [OPTION]... [FILE]...")
-  sys.exit(0)
+  @_ls_skip = true
 } fallback {}
 
 try {
-  assert_eq(@o["version"], true)
+  assert_eq(map.get(@o, "version", false), true)
   sys.echo("ls (Corvo coreutils) 0.1.0")
-  sys.exit(0)
+  @_ls_skip = true
 } fallback {}
 
 try {
-  assert_eq(@o["dired"], true)
+  assert_eq(map.get(@o, "dired", false), true)
   sys.echo("ls.corvo: --dired is not implemented")
-  sys.exit(2)
+  @_ls_exit_code = 2
+  @_ls_skip = true
 } fallback {}
 
 # ── Flag extraction ───────────────────────────────────────────────────────────
 # Flatten the most-used option flags into simple boolean variables so the rest
 # of the script can reference them without repeated map lookups.
-@follow or= (@o["dereference_command_line"], @o["dereference"], false)
+@follow = false
+try {
+  assert_eq(@_ls_skip, true)
+} fallback {
+  try {
+    assert_eq(map.get(@o, "dereference_command_line", false), true)
+    @follow = true
+  } fallback {
+    try {
+      assert_eq(map.get(@o, "dereference", false), true)
+      @follow = true
+    } fallback {}
+  }
+}
 
-@all or= (@o["all"], false)
-@almost or= (@o["almost_all"], false)
-@blocks or= (@o["blocks"], false)
-@inode_col or= (@o["inode"], false)
-@long or= (@o["long"], false)
-@omit_group or= (@o["no_group"], false)
-@numeric_ids or= (@o["numeric_uid_gid"], false)
-@classify or= (@o["classify"], false)
-@human or= (@o["human_readable"], false)
-@si or= (@o["si"], false)
-@reverse or= (@o["reverse"], false)
-@recursive or= (@o["recursive"], false)
-@dir_only or= (@o["directory"], false)
-@stream or= (@o["stream"], false)
+@all        = map.get(@o, "all",            false)
+@almost     = map.get(@o, "almost_all",     false)
+@blocks     = map.get(@o, "blocks",         false)
+@inode_col  = map.get(@o, "inode",          false)
+@long       = map.get(@o, "long",           false)
+@omit_group = map.get(@o, "no_group",       false)
+@numeric_ids = map.get(@o, "numeric_uid_gid", false)
+@classify   = map.get(@o, "classify",       false)
+@human      = map.get(@o, "human_readable", false)
+@si         = map.get(@o, "si",             false)
+@reverse    = map.get(@o, "reverse",        false)
+@recursive  = map.get(@o, "recursive",      false)
+@dir_only   = map.get(@o, "directory",      false)
+@stream     = map.get(@o, "stream",         false)
 
 # ── Output format: resolve -C / --format=vertical vs -1 ─────────────────────
 # -C (or --format=vertical) selects multi-column output; -1 overrides it back
 # to one-name-per-line mode.
-@fmt_C or= (@o["format_vertical"], false)
+@fmt_C = map.get(@o, "format_vertical", false)
 try {
-  assert_eq(@o["format"], "vertical")
+  assert_eq(map.get(@o, "format", ""), "vertical")
   @fmt_C = true
 } fallback {}
 try {
-  assert_eq(@o["one_per_line"], true)
+  assert_eq(map.get(@o, "one_per_line", false), true)
   @fmt_C = false
 } fallback {}
 
 # ── Terminal width ────────────────────────────────────────────────────────────
 # Default to 80 columns; override with -w / --width if the user supplied a value.
 @term_w = 80
-@ww or= (@o["width"], "")
+@ww = map.get(@o, "width", "")
 try {
   assert_eq(string.len(string.trim(@ww)), 0)
 } fallback {
   @term_w = number.parse(0, @ww)
 }
 
-@hides or= (@o["hide"], list.new())
-@ignores or= (@o["ignore"], list.new())
+@hides   = map.get(@o, "hide",   list.new())
+@ignores = map.get(@o, "ignore", list.new())
 
 # ── Sort key ──────────────────────────────────────────────────────────────────
 # -t sets time-sort; the specific time field (-c ctime, -u atime, else mtime).
@@ -246,12 +267,12 @@ try {
   _ => @sort_key
 }
 
-@unsorted or= (@o["unsorted"], false)
+@unsorted = map.get(@o, "unsorted", false)
 
 # ── Time-style / strftime format ──────────────────────────────────────────────
 # Resolve --time-style (falling back to the TIME_STYLE env var, then "locale").
 # Map the chosen style name to a strftime format string used later.
-@time_style or= (@o["time_style"], "")
+@time_style = map.get(@o, "time_style", "")
 try {
   assert_eq(string.len(string.trim(@time_style)), 0)
   @time_style = os.get_env("TIME_STYLE", "locale")
@@ -269,10 +290,13 @@ try {
 # directory block.  Track that requirement here.
 @need_hdr = false
 try {
-  assert_eq(list.len(@paths), 1)
-} fallback {
-  @need_hdr = true
-}
+  assert_eq(@_ls_skip, false)
+  try {
+    assert_eq(list.len(@paths), 1)
+  } fallback {
+    @need_hdr = true
+  }
+} fallback {}
 
 # ── Main processing loop ──────────────────────────────────────────────────────
 # @work is a FIFO queue of paths to process.  In recursive mode, subdirectory
@@ -281,6 +305,12 @@ try {
 @rec_first = true
 
 loop {
+  # Exit immediately when --help / --version / --dired has been handled.
+  try {
+    assert_eq(@_ls_skip, true)
+    terminate
+  } fallback {}
+
   # Terminate when the work queue is empty.
   try {
     assert_eq(list.len(@work), 0)
@@ -629,6 +659,8 @@ loop {
   @max_g = 0
   @max_sz = 0
   @max_tm = 0
+  @szm = ""
+  @tstr_m = ""
   try {
     assert_eq(@long, true)
     browse(@sorted, _mw, ee) {
@@ -699,6 +731,7 @@ loop {
   #   1. -m (stream)     — names separated by ", " on a single line
   #   2. -C (fmt_C)      — names arranged in columns sized to @term_w
   #   3. default / -l    — one name per line; long format when -l is active
+  @suf = ""
 
   # Branch 1: stream mode (-m)
   try {
@@ -762,6 +795,8 @@ loop {
           } fallback {
             # Long format (-l): assemble all columns and emit one line.
             @ino_s = ""
+            @sz_raw = ""
+            @tstr = ""
             try {
               assert_eq(@inode_col, true)
               @ino_s = string.pad_start(number.to_string(map.get(ee, "inode", 0)), @max_ino, " ")
@@ -853,3 +888,5 @@ loop {
     @work = @new_work
   } fallback {}
 }
+
+sys.exit(@_ls_exit_code)
