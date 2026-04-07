@@ -3,6 +3,7 @@ use crate::runtime::RuntimeState;
 use crate::standard_lib;
 use crate::type_system::{ProcedureValue, Value};
 use crate::{CorvoError, CorvoResult};
+use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
 pub enum ControlFlow {
@@ -235,6 +236,12 @@ impl Evaluator {
                 let _ = self.execute_block(body, state);
                 Ok(())
             }
+            Stmt::AsyncBrowse {
+                list,
+                proc_name,
+                item_param,
+                shared_vars,
+            } => self.exec_async_browse(list, proc_name, item_param, shared_vars, state),
         }
     }
 
@@ -311,6 +318,165 @@ impl Evaluator {
         result
     }
 
+    /// Execute an `async_browse` statement: iterate a list in parallel, running
+    /// the given procedure for each item on its own thread.
+    ///
+    /// # Concurrency model
+    ///
+    /// * The **item binding** (`item_param`) is unique per thread — each thread
+    ///   receives its own clone of the list element with no sharing.
+    /// * Each **shared variable** is wrapped in an `Arc<Mutex<Value>>`.  Before
+    ///   running the procedure body a thread briefly locks the mutex to take a
+    ///   snapshot of the current value.  The procedure body runs **without** any
+    ///   lock held, so I/O-bound work runs in parallel.  When the body finishes,
+    ///   the thread locks the mutex and performs a **delta-merge** write-back:
+    ///   for list values the items appended during the body are appended to
+    ///   whatever the mutex currently holds (serialising write-backs from
+    ///   concurrent threads correctly).  For all other types the thread's final
+    ///   value replaces the current mutex value.
+    /// * All other state variables are cloned into each thread and are
+    ///   independent — mutations inside one thread are not visible to others.
+    ///
+    /// After all threads finish the final value of each shared variable is
+    /// written back to the outer `RuntimeState`.
+    fn exec_async_browse(
+        &mut self,
+        list_expr: &Expr,
+        proc_name: &str,
+        item_param: &str,
+        shared_vars: &[String],
+        state: &mut RuntimeState,
+    ) -> CorvoResult<()> {
+        // 1. Evaluate the list expression.
+        let list_val = self.eval_expr(list_expr, state)?;
+        let items = match list_val {
+            Value::List(v) => v,
+            other => {
+                return Err(CorvoError::r#type(format!(
+                    "async_browse requires a list, got {}",
+                    other.r#type()
+                )))
+            }
+        };
+
+        if items.is_empty() {
+            return Ok(());
+        }
+
+        // 2. Resolve the procedure variable.
+        let proc_val = state.var_get(proc_name)?;
+        let proc = match proc_val {
+            Value::Procedure(p) => p,
+            other => {
+                return Err(CorvoError::r#type(format!(
+                    "async_browse: '{}' is not a procedure (got {})",
+                    proc_name,
+                    other.r#type()
+                )))
+            }
+        };
+
+        let expected_params = 1 + shared_vars.len();
+        if proc.params.len() != expected_params {
+            return Err(CorvoError::runtime(format!(
+                "async_browse: procedure '{}' expects {} parameter(s) ({} item + {} shared), got {}",
+                proc_name,
+                expected_params,
+                1,
+                shared_vars.len(),
+                proc.params.len()
+            )));
+        }
+
+        // 3. Wrap each shared variable's current value in Arc<Mutex<Value>>.
+        let shared_arcs: Vec<Arc<Mutex<Value>>> = shared_vars
+            .iter()
+            .map(|name| {
+                let val = state.var_get(name).unwrap_or(Value::Null);
+                Arc::new(Mutex::new(val))
+            })
+            .collect::<Vec<_>>();
+
+        // 4. Spawn one thread per list item.
+        let mut handles = Vec::with_capacity(items.len());
+        for item in items {
+            let proc_clone: ProcedureValue = (*proc).clone();
+            let item_clone = item.clone();
+            let item_param_name = item_param.to_string();
+            let arcs: Vec<Arc<Mutex<Value>>> = shared_arcs.iter().map(Arc::clone).collect();
+            let state_clone = state.clone();
+
+            let handle = std::thread::spawn(move || -> CorvoResult<()> {
+                let mut thread_state = state_clone;
+
+                // Bind the per-item parameter.
+                thread_state.var_set(item_param_name.clone(), item_clone);
+
+                // Bind shared params: record the snapshot and bind it to the param.
+                let mut snapshots: Vec<Value> = Vec::with_capacity(arcs.len());
+                for (i, arc) in arcs.iter().enumerate() {
+                    let param_name = &proc_clone.params[i + 1];
+                    let snapshot = arc.lock().unwrap().clone();
+                    snapshots.push(snapshot.clone());
+                    thread_state.var_set(param_name.clone(), snapshot);
+                }
+
+                // Run the procedure body (no locks held during execution).
+                let body = proc_clone.body.clone();
+                let mut evaluator = Evaluator::new();
+                let result = evaluator.execute_block(&body, &mut thread_state);
+
+                // Delta-merge write-back: for each shared param, hold the mutex
+                // and merge the thread's change into the current mutex value.
+                for (i, arc) in arcs.iter().enumerate() {
+                    let param_name = &proc_clone.params[i + 1];
+                    let thread_final = thread_state
+                        .var_get(param_name.as_str())
+                        .unwrap_or(Value::Null);
+
+                    let mut guard = arc.lock().unwrap();
+                    let current = guard.clone();
+                    *guard = merge_shared_writeback(&snapshots[i], &thread_final, &current);
+                }
+
+                result
+            });
+
+            handles.push(handle);
+        }
+
+        // 5. Join all threads; collect the first error if any.
+        let mut first_err: Option<CorvoError> = None;
+        for handle in handles {
+            match handle.join() {
+                Ok(Ok(())) => {}
+                Ok(Err(e)) => {
+                    if first_err.is_none() {
+                        first_err = Some(e);
+                    }
+                }
+                Err(_) => {
+                    if first_err.is_none() {
+                        first_err = Some(CorvoError::runtime(
+                            "a thread panicked during async_browse execution",
+                        ));
+                    }
+                }
+            }
+        }
+
+        // 6. Write the final shared values back to the outer state.
+        for (i, arc) in shared_arcs.iter().enumerate() {
+            let final_val = arc.lock().unwrap().clone();
+            state.var_set(shared_vars[i].clone(), final_val);
+        }
+
+        match first_err {
+            Some(e) => Err(e),
+            None => Ok(()),
+        }
+    }
+
     fn eval_expr(&self, expr: &Expr, state: &RuntimeState) -> CorvoResult<Value> {
         match expr {
             Expr::Literal { value } => Ok(value.clone()),
@@ -377,6 +543,9 @@ impl Evaluator {
                     body: body.clone(),
                 })))
             }
+            Expr::SharedArg { .. } => Err(CorvoError::runtime(
+                "shared @var is only valid inside async_browse arguments",
+            )),
             Expr::MethodCall {
                 target,
                 method,
@@ -625,6 +794,29 @@ impl Evaluator {
 impl Default for Evaluator {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Merge a thread's shared-variable write-back with the current mutex value.
+///
+/// For **list** values this implements an append-delta merge: items that the
+/// thread **added** beyond its starting snapshot are appended to whatever the
+/// mutex currently holds (which may have been updated by other threads in the
+/// meantime).  This preserves all contributions from concurrent threads when
+/// the procedure body does `@acc = list.push(@acc, item)`.
+///
+/// For all other value types the thread's final value replaces the current
+/// mutex value (last-writer-wins semantics).
+fn merge_shared_writeback(snapshot: &Value, thread_final: &Value, current: &Value) -> Value {
+    match (snapshot, thread_final, current) {
+        (Value::List(snap), Value::List(fin), Value::List(cur)) if fin.len() >= snap.len() => {
+            // Append the items the thread added on top of its snapshot.
+            let new_items = &fin[snap.len()..];
+            let mut result = cur.clone();
+            result.extend_from_slice(new_items);
+            Value::List(result)
+        }
+        _ => thread_final.clone(),
     }
 }
 

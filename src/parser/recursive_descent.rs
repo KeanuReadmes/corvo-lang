@@ -62,6 +62,7 @@ impl Parser {
             TokenType::Try => self.parse_try_block()?,
             TokenType::Loop => self.parse_loop()?,
             TokenType::Browse => self.parse_browse()?,
+            TokenType::AsyncBrowse => self.parse_async_browse()?,
             TokenType::Terminate => self.parse_terminate()?,
             TokenType::DontPanic => self.parse_dont_panic()?,
             TokenType::AssertEq
@@ -260,6 +261,75 @@ impl Parser {
     fn parse_terminate(&mut self) -> CorvoResult<Stmt> {
         self.advance(); // consume 'terminate'
         Ok(Stmt::Terminate)
+    }
+
+    fn parse_async_browse(&mut self) -> CorvoResult<Stmt> {
+        self.advance(); // consume 'async_browse'
+        self.consume(TokenType::LeftParen, "Expected '(' after 'async_browse'")?;
+
+        // First argument: the list expression
+        let list = self.parse_expression()?;
+        self.consume(TokenType::Comma, "Expected ',' after list expression")?;
+
+        // Second argument: @proc_var — the procedure variable
+        self.consume(
+            TokenType::At,
+            "Expected '@' before procedure variable name in async_browse",
+        )?;
+        let proc_name = match &self.peek().token_type {
+            TokenType::Identifier(s) => s.clone(),
+            _ => {
+                return Err(self.error("Expected procedure variable name after '@' in async_browse"))
+            }
+        };
+        self.advance(); // consume identifier
+        self.consume(TokenType::Comma, "Expected ',' after procedure variable")?;
+
+        // Third argument: @item_param — per-item binding name
+        self.consume(
+            TokenType::At,
+            "Expected '@' before item binding name in async_browse",
+        )?;
+        let item_param = match &self.peek().token_type {
+            TokenType::Identifier(s) => s.clone(),
+            _ => return Err(self.error("Expected item binding name after '@' in async_browse")),
+        };
+        self.advance(); // consume identifier
+
+        // Remaining arguments: (,shared @varname)*
+        let mut shared_vars = Vec::new();
+        while self.match_token(TokenType::Comma) {
+            self.consume(
+                TokenType::Shared,
+                "Expected 'shared' keyword before shared variable in async_browse",
+            )?;
+            self.consume(
+                TokenType::At,
+                "Expected '@' before shared variable name in async_browse",
+            )?;
+            let name = match &self.peek().token_type {
+                TokenType::Identifier(s) => s.clone(),
+                _ => {
+                    return Err(
+                        self.error("Expected shared variable name after '@' in async_browse")
+                    )
+                }
+            };
+            self.advance(); // consume identifier
+            shared_vars.push(name);
+        }
+
+        self.consume(
+            TokenType::RightParen,
+            "Expected ')' to close async_browse arguments",
+        )?;
+
+        Ok(Stmt::AsyncBrowse {
+            list,
+            proc_name,
+            item_param,
+            shared_vars,
+        })
     }
 
     fn parse_dont_panic(&mut self) -> CorvoResult<Stmt> {

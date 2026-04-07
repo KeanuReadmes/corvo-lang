@@ -171,7 +171,47 @@ browse(@matrix, row_idx, row) {
 }
 ```
 
-### 4.4 Match Expression (`match`)
+### 4.4 Async Browse (`async_browse`)
+
+`async_browse` is the parallel counterpart of `browse`.  It spawns one OS thread per list element and runs a procedure on each element concurrently.
+
+**Syntax:**
+```
+async_browse(@list, @proc, @item_binding [, shared @var1, shared @var2, ...])
+```
+
+* `@list` — any expression that evaluates to a list.
+* `@proc` — a variable holding a `procedure` value.
+* `@item_binding` — the name bound to the current list element inside each thread.
+* `shared @var` — outer variable shared between all threads (optional, can be repeated).
+
+**Procedure signature:**  the procedure must accept exactly `1 + len(shared_vars)` parameters.  The first parameter receives the item; subsequent parameters receive the shared variables in the order they are listed.
+
+**Write-back semantics for shared variables:**
+
+| Shared var type | Semantics |
+|---|---|
+| `list` | Delta-merge: items appended during the procedure body are atomically added to the mutex-protected list, so contributions from all threads are preserved. |
+| All other types | Last-writer-wins: the thread's final value replaces the current value. |
+
+The procedure body runs **without holding any lock**, so I/O-bound operations execute in true parallel.  The delta-merge step is protected by a per-variable mutex.
+
+```corvo
+@files = ["a.txt", "b.txt", "c.txt"]
+@results = list.new()
+
+@read_file = procedure(@path, @acc) {
+    @content = fs.read(@path)
+    @acc = list.push(@acc, @content)
+}
+
+async_browse(@files, @read_file, @path, shared @results)
+# @results contains all three file contents (order non-deterministic)
+```
+
+**Example file:** [`examples/async_browse.corvo`](examples/async_browse.corvo)
+
+### 4.5 Match Expression (`match`)
 `match` is the primary substitute for `if/else` chains in Corvo. It evaluates an expression against a list of literal patterns and returns the value of the first matching arm. Use `_` as a catch-all wildcard.
 
 **Syntax:**

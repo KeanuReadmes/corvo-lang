@@ -487,6 +487,9 @@ fn value_to_json_value(v: &Value) -> serde_json::Value {
         Value::Procedure(_) => {
             panic!("procedures cannot be serialized as statics")
         }
+        Value::Shared(_) => {
+            panic!("shared values cannot be serialized as statics")
+        }
     }
 }
 
@@ -696,6 +699,9 @@ fn value_to_rust_code(value: &Value) -> String {
         ),
         Value::Procedure(_) => {
             panic!("procedures cannot be compiled to Rust source literals")
+        }
+        Value::Shared(_) => {
+            panic!("shared values cannot be compiled to Rust source literals")
         }
     }
 }

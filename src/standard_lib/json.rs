@@ -77,6 +77,9 @@ pub fn value_to_json(value: &Value) -> CorvoResult<serde_json::Value> {
         Value::Procedure(_) => Err(CorvoError::r#type(
             "procedures cannot be serialized to JSON",
         )),
+        Value::Shared(_) => Err(CorvoError::r#type(
+            "shared values cannot be serialized to JSON",
+        )),
     }
 }
 

@@ -93,5 +93,8 @@ fn value_to_yaml_value(value: &Value) -> CorvoResult<serde_yaml::Value> {
         Value::Procedure(_) => Err(CorvoError::r#type(
             "procedures cannot be serialized to YAML",
         )),
+        Value::Shared(_) => Err(CorvoError::r#type(
+            "shared values cannot be serialized to YAML",
+        )),
     }
 }

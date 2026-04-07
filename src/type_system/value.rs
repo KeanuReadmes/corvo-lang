@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
+use std::sync::{Arc, Mutex};
 
 use crate::type_system::Type;
 
@@ -29,6 +30,37 @@ impl<'de> Deserialize<'de> for ProcedureValue {
     }
 }
 
+/// A mutex-protected value shared across threads during `async_browse` execution.
+///
+/// The `Arc<Mutex<Value>>` is cloned (cheaply) into each spawned thread.  Each
+/// thread briefly locks the mutex to take a snapshot of the current value before
+/// running its procedure body, and locks it again to write the updated value back
+/// when the body finishes.
+#[derive(Debug, Clone)]
+pub struct SharedValue(pub Arc<Mutex<Value>>);
+
+impl PartialEq for SharedValue {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+}
+
+impl Serialize for SharedValue {
+    fn serialize<S: serde::Serializer>(&self, _serializer: S) -> Result<S::Ok, S::Error> {
+        Err(serde::ser::Error::custom(
+            "shared values cannot be serialized as statics",
+        ))
+    }
+}
+
+impl<'de> Deserialize<'de> for SharedValue {
+    fn deserialize<D: serde::Deserializer<'de>>(_deserializer: D) -> Result<Self, D::Error> {
+        Err(serde::de::Error::custom(
+            "shared values cannot be deserialized",
+        ))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub enum Value {
     String(String),
@@ -40,6 +72,10 @@ pub enum Value {
     #[default]
     Null,
     Procedure(Box<ProcedureValue>),
+    /// A mutex-protected value created during `async_browse` to allow threads to
+    /// share a single accumulator variable safely.  This variant is internal-only
+    /// and is never produced by ordinary Corvo code.
+    Shared(Box<SharedValue>),
 }
 
 impl Value {
@@ -53,6 +89,7 @@ impl Value {
             Self::Regex(_, _) => Type::Regex,
             Self::Null => Type::Null,
             Self::Procedure(_) => Type::Procedure,
+            Self::Shared(sv) => sv.0.lock().unwrap().r#type(),
         }
     }
 
@@ -108,6 +145,7 @@ impl Value {
             Self::Map(m) => !m.is_empty(),
             Self::Regex(pattern, _) => !pattern.is_empty(),
             Self::Procedure(_) => true,
+            Self::Shared(sv) => sv.0.lock().unwrap().is_truthy(),
         }
     }
 }
@@ -136,6 +174,7 @@ impl fmt::Display for Value {
             Self::Regex(pattern, flags) => write!(f, "/{}/{}", pattern, flags),
             Self::Null => write!(f, "null"),
             Self::Procedure(_) => write!(f, "<procedure>"),
+            Self::Shared(sv) => write!(f, "{}", sv.0.lock().unwrap()),
         }
     }
 }

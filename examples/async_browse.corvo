@@ -1,0 +1,41 @@
+# async_browse.corvo — parallel iteration over a list using async_browse
+#
+# Syntax:
+#   async_browse(@list, @proc, @item_binding, shared @var1, shared @var2, ...)
+#
+# Each list item is processed on its own thread.  The item binding (@item_binding)
+# receives the current element and is unique per thread.  Variables marked with
+# `shared` are protected by a mutex: each thread takes a snapshot before running
+# the procedure body and writes its result back when the body finishes.
+#
+# IMPORTANT: write-back order between threads is non-deterministic.  Use
+# `shared` only for accumulators whose result is order-independent (e.g. a
+# growing list, a running total that is commutative).
+
+# --- Example 1: collect doubled values into a shared list ---
+
+@numbers = [1, 2, 3, 4, 5]
+@doubled = list.new()
+
+@do_double = procedure(@n, @acc) {
+    @result = math.mul(@n, 2)
+    @acc = list.push(@acc, @result)
+}
+
+async_browse(@numbers, @do_double, @n, shared @doubled)
+
+# @doubled now contains [2, 4, 6, 8, 10] in some order.
+# Sort for a stable display:
+@doubled = list.sort(@doubled)
+sys.echo("Doubled: ${@doubled}")
+# Expected: Doubled: [2, 4, 6, 8, 10]
+
+# --- Example 2: no shared variables (fire-and-forget side effects) ---
+
+@messages = ["hello", "world", "corvo"]
+@log_msg = procedure(@msg) {
+    sys.echo("Processing: ${@msg}")
+}
+
+async_browse(@messages, @log_msg, @msg)
+# Prints the three messages in an unspecified order.

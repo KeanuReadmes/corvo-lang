@@ -169,6 +169,23 @@ fn lint_stmt(stmt: &Stmt, out: &mut Vec<LintDiagnostic>) {
                 lint_stmt(s, out);
             }
         }
+        Stmt::AsyncBrowse {
+            list, shared_vars, ..
+        } => {
+            lint_expr(list, out);
+            if !shared_vars.is_empty() {
+                out.push(LintDiagnostic {
+                    message: "async_browse: shared variables are serialized at write-back"
+                        .to_string(),
+                    help: Some(
+                        "Write-back order is non-deterministic between threads. \
+                         Ensure the result accumulation is order-independent."
+                            .to_string(),
+                    ),
+                    severity: LintSeverity::Warning,
+                });
+            }
+        }
         Stmt::Terminate => {}
         Stmt::VarIndexSet { index, value, .. } => {
             lint_expr(index, out);
@@ -266,7 +283,10 @@ fn lint_expr(expr: &Expr, out: &mut Vec<LintDiagnostic>) {
                 lint_stmt(stmt, out);
             }
         }
-        Expr::Literal { .. } | Expr::VarGet { .. } | Expr::StaticGet { .. } => {}
+        Expr::Literal { .. }
+        | Expr::VarGet { .. }
+        | Expr::StaticGet { .. }
+        | Expr::SharedArg { .. } => {}
     }
 }
 

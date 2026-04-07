@@ -56,6 +56,9 @@ pub enum Expr {
         params: Vec<String>,
         body: Vec<crate::ast::stmt::Stmt>,
     },
+    SharedArg {
+        name: String,
+    },
 }
 
 impl Expr {

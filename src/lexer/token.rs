@@ -11,6 +11,7 @@ pub enum TokenType {
     Fallback,
     Loop,
     Browse,
+    AsyncBrowse,
     Terminate,
     DontPanic,
     Match,
@@ -20,6 +21,7 @@ pub enum TokenType {
     AssertLt,
     AssertMatch,
     Procedure,
+    Shared,
 
     // Literals
     String(String),
@@ -64,6 +66,7 @@ impl fmt::Display for TokenType {
             Self::Fallback => write!(f, "fallback"),
             Self::Loop => write!(f, "loop"),
             Self::Browse => write!(f, "browse"),
+            Self::AsyncBrowse => write!(f, "async_browse"),
             Self::Terminate => write!(f, "terminate"),
             Self::DontPanic => write!(f, "dont_panic"),
             Self::Match => write!(f, "match"),
@@ -73,6 +76,7 @@ impl fmt::Display for TokenType {
             Self::AssertLt => write!(f, "assert_lt"),
             Self::AssertMatch => write!(f, "assert_match"),
             Self::Procedure => write!(f, "procedure"),
+            Self::Shared => write!(f, "shared"),
             Self::String(s) => write!(f, "\"{}\"", s),
             Self::Regex(pattern, flags) => write!(f, "/{}/{}", pattern, flags),
             Self::Number(n) => {

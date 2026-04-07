@@ -59,6 +59,12 @@ pub enum Stmt {
     DontPanic {
         body: Vec<Stmt>,
     },
+    AsyncBrowse {
+        list: Expr,
+        proc_name: String,
+        item_param: String,
+        shared_vars: Vec<String>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]

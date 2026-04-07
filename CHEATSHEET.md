@@ -351,6 +351,51 @@ Functions are grouped by module. Parameter names in `[brackets]` are optional.
 
 ---
 
+## `async_browse` — Parallel Iteration
+
+`async_browse` runs a procedure on every element of a list concurrently.
+
+```
+async_browse(@list, @proc, @item_binding [, shared @var1, shared @var2, ...])
+```
+
+| Component | Description |
+|---|---|
+| `@list` | Any list expression to iterate |
+| `@proc` | Variable holding a `procedure` value |
+| `@item_binding` | Name of the per-item binding (unique per thread, immutable from other threads' perspective) |
+| `shared @var` | Outer variable shared between threads via a mutex (optional, repeatable) |
+
+### Concurrency model
+
+* Each list element is dispatched to its own OS thread.
+* The procedure body runs **without any lock held**, so I/O-bound work (HTTP requests, file operations, etc.) executes in parallel.
+* For **shared list variables** the write-back step is a **delta-merge**: items appended during the procedure are atomically added to whatever the shared list currently contains.  All items from all threads are preserved regardless of execution order.
+* For **shared variables of other types** the last thread to finish wins (the procedure's final value replaces the current value).
+
+### Example
+
+```corvo
+@urls = ["https://example.com", "https://corvo.dev"]
+@results = list.new()
+
+@fetch = procedure(@url, @acc) {
+    @resp = http.get(@url)
+    @acc = list.push(@acc, @resp)
+}
+
+async_browse(@urls, @fetch, @url, shared @results)
+sys.echo(list.len(@results))   # 2 (both responses accumulated)
+```
+
+> **Warning (lint):** When shared variables are present the linter emits a
+> `warning: async_browse: shared variables are serialized at write-back` as a
+> reminder that write-back ordering between threads is non-deterministic.
+
+**Example file:** [`examples/async_browse.corvo`](examples/async_browse.corvo)
+
+---
+
 ## `var` and `static` — Variable Storage
 
 These are language-level constructs, not stdlib functions, but are used in every program.
@@ -436,4 +481,15 @@ sys.echo(static.get("version"))
 @total = 0
 @add.call(@n1, @n2, @total)
 sys.echo(@total)   # 31
+
+# Parallel iteration with async_browse
+@files = ["/etc/hosts", "/etc/passwd"]
+@results = list.new()
+
+@check_file = procedure(@path, @acc) {
+    @acc = list.push(@acc, fs.exists(@path))
+}
+
+async_browse(@files, @check_file, @path, shared @results)
+# @results now contains the fs.exists result for each file (order not guaranteed)
 ```
