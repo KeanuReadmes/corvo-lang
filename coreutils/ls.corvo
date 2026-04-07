@@ -35,8 +35,8 @@
   "accumulate": ["ignore", "hide"]
 }
 @parsed = args.parse(os.argv(), @_ls_spec)
-@o = map.get(@parsed, "options")
-@paths = map.get(@parsed, "positional")
+@o = @parsed["options"]
+@paths = @parsed["positional"]
 @cwd = os.getcwd()
 
 @default_to_dot_if_empty = procedure(@paths_in, @paths_out) {
@@ -50,78 +50,70 @@
 @default_to_dot_if_empty.call(@paths, @paths)
 
 try {
-  assert_eq(map.get(@o, "help", false), true)
+  assert_eq(@o["help"], true)
   sys.echo("Usage: ls [OPTION]... [FILE]...")
   sys.exit(0)
 } fallback {}
 
 try {
-  assert_eq(map.get(@o, "version", false), true)
+  assert_eq(@o["version"], true)
   sys.echo("ls (Corvo coreutils) 0.1.0")
   sys.exit(0)
 } fallback {}
 
 try {
-  assert_eq(map.get(@o, "dired", false), true)
+  assert_eq(@o["dired"], true)
   sys.echo("ls.corvo: --dired is not implemented")
   sys.exit(2)
 } fallback {}
 
-@follow = map.get(@o, "dereference", false)
-try {
-  assert_eq(map.get(@o, "dereference_command_line", false), true)
-  @follow = true
-} fallback {}
+@follow or= (@o["dereference_command_line"], @o["dereference"], false)
 
-@all = map.get(@o, "all", false)
-@almost = map.get(@o, "almost_all", false)
-@blocks = map.get(@o, "blocks", false)
-@inode_col = map.get(@o, "inode", false)
-@long = map.get(@o, "long", false)
-@omit_group = map.get(@o, "no_group", false)
-@numeric_ids = map.get(@o, "numeric_uid_gid", false)
-@classify = map.get(@o, "classify", false)
-@human = map.get(@o, "human_readable", false)
-@si = map.get(@o, "si", false)
-@reverse = map.get(@o, "reverse", false)
-@recursive = map.get(@o, "recursive", false)
-@dir_only = map.get(@o, "directory", false)
-@stream = map.get(@o, "stream", false)
+@all or= (@o["all"], false)
+@almost or= (@o["almost_all"], false)
+@blocks or= (@o["blocks"], false)
+@inode_col or= (@o["inode"], false)
+@long or= (@o["long"], false)
+@omit_group or= (@o["no_group"], false)
+@numeric_ids or= (@o["numeric_uid_gid"], false)
+@classify or= (@o["classify"], false)
+@human or= (@o["human_readable"], false)
+@si or= (@o["si"], false)
+@reverse or= (@o["reverse"], false)
+@recursive or= (@o["recursive"], false)
+@dir_only or= (@o["directory"], false)
+@stream or= (@o["stream"], false)
 
-@fmt_C = false
+@fmt_C or= (@o["format_vertical"], false)
 try {
-  assert_eq(map.get(@o, "format_vertical", false), true)
+  assert_eq(@o["format"], "vertical")
   @fmt_C = true
 } fallback {}
 try {
-  assert_eq(map.get(@o, "format", ""), "vertical")
-  @fmt_C = true
-} fallback {}
-try {
-  assert_eq(map.get(@o, "one_per_line", false), true)
+  assert_eq(@o["one_per_line"], true)
   @fmt_C = false
 } fallback {}
 
 @term_w = 80
-@ww = map.get(@o, "width", "")
+@ww or= (@o["width"], "")
 try {
   assert_eq(string.len(string.trim(@ww)), 0)
 } fallback {
   @term_w = number.parse(0, @ww)
 }
 
-@hides = map.get(@o, "hide", list.new())
-@ignores = map.get(@o, "ignore", list.new())
+@hides or= (@o["hide"], list.new())
+@ignores or= (@o["ignore"], list.new())
 
 @sort_key = "name"
 try {
-  assert_eq(map.get(@o, "time_sort_modified", false), true)
+  assert_eq(@o["time_sort_modified"], true)
   try {
-    assert_eq(map.get(@o, "time_change", false), true)
+    assert_eq(@o["time_change"], true)
     @sort_key = "ctime_sec"
   } fallback {
     try {
-      assert_eq(map.get(@o, "time_access", false), true)
+      assert_eq(@o["time_access"], true)
       @sort_key = "atime_sec"
     } fallback {
       @sort_key = "mtime_sec"
@@ -138,9 +130,9 @@ try {
   _ => @sort_key
 }
 
-@unsorted = map.get(@o, "unsorted", false)
+@unsorted or= (@o["unsorted"], false)
 
-@time_style = map.get(@o, "time_style", "")
+@time_style or= (@o["time_style"], "")
 try {
   assert_eq(string.len(string.trim(@time_style)), 0)
   @time_style = os.get_env("TIME_STYLE", "locale")
@@ -173,7 +165,7 @@ loop {
   @work = list.slice(@work, 1, list.len(@work))
 
   @meta = fs.read_meta(@pth, @follow)
-  @is_dir = map.get(@meta, "is_dir")
+  @is_dir = @meta["is_dir"]
   @from_dir_read = false
 
   @entries = []
@@ -194,7 +186,8 @@ loop {
     assert_eq(@all, true)
     assert_eq(@from_dir_read, true)
     @md1 = fs.read_meta(@pth, @follow)
-    @md1 = map.set(map.set(@md1, "name", "."), "path", @pth)
+    @md1["name"] = "."
+    @md1["path"] = @pth
     @entries2 = list.new()
     @entries2 = list.push(@entries2, @md1)
     @parp = fs.path_parent(@pth)
@@ -202,7 +195,8 @@ loop {
       assert_eq(string.len(@parp), 0)
     } fallback {
       @md2 = fs.read_meta(@parp, @follow)
-      @md2 = map.set(map.set(@md2, "name", ".."), "path", @parp)
+      @md2["name"] = ".."
+      @md2["path"] = @parp
       @entries2 = list.push(@entries2, @md2)
     }
     browse(@entries, _ed, e) {
@@ -213,7 +207,7 @@ loop {
 
   @filtered = []
   browse(@entries, _ei, ee) {
-    @nm = map.get(@ee, "name")
+    @nm = @ee["name"]
     try {
       assert_eq(@dir_only, true)
       @filtered = list.push(@filtered, ee)
@@ -246,7 +240,7 @@ loop {
         assert_eq(@drop, true)
       } fallback {
         try {
-          assert_eq(map.get(@o, "ignore_backups", false), true)
+          assert_eq(@o["ignore_backups"], true)
           assert_eq(string.ends_with(@nm, "~"), true)
         } fallback {
           @filtered = list.push(@filtered, ee)
@@ -257,7 +251,7 @@ loop {
 
   @filtered2 = []
   browse(@filtered, _f2, ee) {
-    @nm2 = map.get(@ee, "name")
+    @nm2 = @ee["name"]
     @skip_h = false
     browse(@hides, _hp, pat) {
       try {
@@ -286,7 +280,7 @@ loop {
 
   @prepared = []
   browse(@filtered, _pj, ee) {
-    @nm = map.get(ee, "name")
+    @nm = ee["name"]
     @parts = string.split(@nm, ".")
     @ext = ""
     try {
@@ -294,7 +288,9 @@ loop {
     } fallback {
       @ext = list.get(@parts, math.sub(list.len(@parts), 1))
     }
-    @ee2 = map.set(map.set(ee, "extension", @ext), "_skey", map.get(ee, @sort_key, 0))
+    @ee2 = ee
+    @ee2["extension"] = @ext
+    @ee2["_skey"] = map.get(ee, @sort_key, 0)
     @prepared = list.push(@prepared, @ee2)
   }
 
@@ -338,14 +334,14 @@ loop {
         assert_eq(@sort_key, "version")
         @names = []
         browse(@prepared, _a, ee) {
-          @names = list.push(@names, map.get(ee, "name"))
+          @names = list.push(@names, ee["name"])
         }
         @ord = list.sort_version(@names)
         @sorted = []
         browse(@ord, _b, nn) {
           browse(@prepared, _c, ee) {
             try {
-              assert_eq(map.get(ee, "name"), @nn)
+              assert_eq(ee["name"], @nn)
               @sorted = list.push(@sorted, ee)
             } fallback {}
           }
@@ -403,10 +399,10 @@ loop {
       try {
         assert_eq(string.starts_with(@hpre, "./"), true)
       } fallback {
-        @hpre = string.concat("./", @hpre)
+        @hpre = "./${@hpre}"
       }
     }
-    sys.echo(string.concat(@hpre, ":"))
+    sys.echo("${@hpre}:")
   } fallback {}
 
   try {
@@ -416,7 +412,7 @@ loop {
     try {
       assert_eq(@recursive, true)
     } fallback {
-      sys.echo(string.concat(@pth, ":"))
+      sys.echo("${@pth}:")
     }
   } fallback {}
 
@@ -427,13 +423,12 @@ loop {
     browse(@sorted, _tb, ee) {
       @tblocks = math.add(@tblocks, map.get(ee, "blocks", 0))
     }
+    @tk = number.ceil(math.div(@tblocks, 2))
     try {
       assert_eq(@human, true)
-      @tk = number.ceil(math.div(@tblocks, 2))
-      sys.echo(string.concat("total ", math.human_bytes(math.mul(@tk, 1024), false)))
+      sys.echo("total ${math.human_bytes(math.mul(@tk, 1024), false)}")
     } fallback {
-      @tk = number.ceil(math.div(@tblocks, 2))
-      sys.echo(string.concat("total ", number.to_string(@tk)))
+      sys.echo("total ${@tk}")
     }
   } fallback {}
 
@@ -445,13 +440,12 @@ loop {
     browse(@sorted, _tbs, ee) {
       @tblocks = math.add(@tblocks, map.get(ee, "blocks", 0))
     }
+    @tk2 = number.ceil(math.div(@tblocks, 2))
     try {
       assert_eq(@human, true)
-      @tk2 = number.ceil(math.div(@tblocks, 2))
-      sys.echo(string.concat("total ", math.human_bytes(math.mul(@tk2, 1024), false)))
+      sys.echo("total ${math.human_bytes(math.mul(@tk2, 1024), false)}")
     } fallback {
-      @tk2 = number.ceil(math.div(@tblocks, 2))
-      sys.echo(string.concat("total ", number.to_string(@tk2)))
+      sys.echo("total ${@tk2}")
     }
   } fallback {}
 
@@ -520,15 +514,19 @@ loop {
         @max_g = math.max(@max_g, string.len(@ggm))
       } fallback {}
 
-      @ftm = map.get(ee, "file_type_char", "-")
-      @idm = map.get(ee, "is_dir", false)
+      @ftm or= (ee["file_type_char"], "-")
+      @idm or= (ee["is_dir"], false)
       try {
         assert_eq(@ftm, "b")
-        @szm = string.concat(string.concat(number.to_string(map.get(ee, "major", 0)), ", "), number.to_string(map.get(ee, "minor", 0)))
+        @_maj = number.to_string(map.get(ee, "major", 0))
+        @_min = number.to_string(map.get(ee, "minor", 0))
+        @szm = "${@_maj}, ${@_min}"
       } fallback {
         try {
           assert_eq(@ftm, "c")
-          @szm = string.concat(string.concat(number.to_string(map.get(ee, "major", 0)), ", "), number.to_string(map.get(ee, "minor", 0)))
+          @_maj = number.to_string(map.get(ee, "major", 0))
+          @_min = number.to_string(map.get(ee, "minor", 0))
+          @szm = "${@_maj}, ${@_min}"
         } fallback {
           @szm = number.to_string(map.get(ee, "size", 0))
           try {
@@ -547,12 +545,12 @@ loop {
       @tsec_m = map.get(ee, "mtime_sec", 0)
       @tnsec_m = map.get(ee, "mtime_nsec", 0)
       try {
-        assert_eq(map.get(@o, "time_access", false), true)
+        assert_eq(@o["time_access"], true)
         @tsec_m = map.get(ee, "atime_sec", 0)
         @tnsec_m = map.get(ee, "atime_nsec", 0)
       } fallback {}
       try {
-        assert_eq(map.get(@o, "time_change", false), true)
+        assert_eq(@o["time_change"], true)
         @tsec_m = map.get(ee, "ctime_sec", 0)
         @tnsec_m = map.get(ee, "ctime_nsec", 0)
       } fallback {}
@@ -582,30 +580,26 @@ loop {
     assert_eq(@stream, true)
       @names_out = []
       browse(@sorted, _so, ee) {
-        @nm = map.get(ee, "name")
+        @nm = ee["name"]
         @suf = ""
         try {
           assert_eq(@classify, true)
           try {
-            assert_eq(map.get(ee, "is_dir"), true)
+            assert_eq(ee["is_dir"], true)
             @suf = "/"
           } fallback {
             try {
-              assert_eq(map.get(ee, "is_symlink"), true)
+              assert_eq(ee["is_symlink"], true)
               @suf = "@"
             } fallback {
               try {
-                assert_eq(map.get(ee, "is_executable"), true)
+                assert_eq(ee["is_executable"], true)
                 @suf = "*"
-              } fallback {
-                @suf = ""
-              }
+              } fallback {}
             }
           }
-        } fallback {
-          @suf = ""
-        }
-        @names_out = list.push(@names_out, string.concat(@nm, @suf))
+        } fallback {}
+        @names_out = list.push(@names_out, "${@nm}${@suf}")
       }
       sys.echo(list.join(@names_out, ", "))
     } fallback {
@@ -613,65 +607,57 @@ loop {
         assert_eq(@fmt_C, true)
         @names_out2 = []
         browse(@sorted, _so2, ee) {
-          @nm = map.get(ee, "name")
+          @nm = ee["name"]
           @suf = ""
           try {
             assert_eq(@classify, true)
             try {
-              assert_eq(map.get(ee, "is_dir"), true)
+              assert_eq(ee["is_dir"], true)
               @suf = "/"
             } fallback {
               try {
-                assert_eq(map.get(ee, "is_symlink"), true)
+                assert_eq(ee["is_symlink"], true)
                 @suf = "@"
               } fallback {
                 try {
-                  assert_eq(map.get(ee, "is_executable"), true)
+                  assert_eq(ee["is_executable"], true)
                   @suf = "*"
-                } fallback {
-                  @suf = ""
-                }
+                } fallback {}
               }
             }
-          } fallback {
-            @suf = ""
-          }
-          @names_out2 = list.push(@names_out2, string.concat(@nm, @suf))
+          } fallback {}
+          @names_out2 = list.push(@names_out2, "${@nm}${@suf}")
         }
         sys.echo(list.columnate(@names_out2, @term_w))
       } fallback {
         browse(@sorted, _si, ee) {
-          @nm = map.get(ee, "name")
+          @nm = ee["name"]
           @suf = ""
           try {
             assert_eq(@classify, true)
             try {
-              assert_eq(map.get(ee, "is_dir"), true)
+              assert_eq(ee["is_dir"], true)
               @suf = "/"
             } fallback {
               try {
-                assert_eq(map.get(ee, "is_symlink"), true)
+                assert_eq(ee["is_symlink"], true)
                 @suf = "@"
               } fallback {
                 try {
-                  assert_eq(map.get(ee, "is_executable"), true)
+                  assert_eq(ee["is_executable"], true)
                   @suf = "*"
-                } fallback {
-                  @suf = ""
-                }
+                } fallback {}
               }
             }
-          } fallback {
-            @suf = ""
-          }
+          } fallback {}
 
-          @namel = string.concat(@nm, @suf)
+          @namel = "${@nm}${@suf}"
           try {
             assert_eq(@long, true)
             try {
-              assert_eq(map.get(ee, "is_symlink"), true)
-              @namel2 = string.concat(" -> ", map.get(ee, "symlink_target", ""))
-              @namel = string.concat(@namel, @namel2)
+              assert_eq(ee["is_symlink"], true)
+              @_tgt = map.get(ee, "symlink_target", "")
+              @namel = "${@namel} -> ${@_tgt}"
             } fallback {}
           } fallback {}
 
@@ -682,19 +668,22 @@ loop {
               assert_eq(@blocks, true)
               @b = map.get(ee, "blocks", 0)
               @bb = number.to_string(number.floor(math.div(@b, 2)))
-              @pre_ln = string.concat(string.pad_start(@bb, @max_blk_s, " "), " ")
+              @pre_ln = string.pad_start(@bb, @max_blk_s, " ")
+              @pre_ln += " "
             } fallback {}
             try {
               assert_eq(@inode_col, true)
-              @ipr = string.concat(string.pad_start(number.to_string(map.get(ee, "inode", 0)), @max_ino_s, " "), " ")
-              @pre_ln = string.concat(@pre_ln, @ipr)
+              @ipr = string.pad_start(number.to_string(map.get(ee, "inode", 0)), @max_ino_s, " ")
+              @ipr += " "
+              @pre_ln += @ipr
             } fallback {}
-            sys.echo(string.concat(@pre_ln, @namel))
+            sys.echo("${@pre_ln}${@namel}")
           } fallback {
             @ino_s = ""
             try {
               assert_eq(@inode_col, true)
-              @ino_s = string.concat(string.pad_start(number.to_string(map.get(ee, "inode", 0)), @max_ino, " "), " ")
+              @ino_s = string.pad_start(number.to_string(map.get(ee, "inode", 0)), @max_ino, " ")
+              @ino_s += " "
             } fallback {}
 
             @blk_s = ""
@@ -702,10 +691,11 @@ loop {
               assert_eq(@blocks, true)
               @b = map.get(ee, "blocks", 0)
               @bb = number.to_string(number.floor(math.div(@b, 2)))
-              @blk_s = string.concat(string.pad_start(@bb, @max_blk, " "), " ")
+              @blk_s = string.pad_start(@bb, @max_blk, " ")
+              @blk_s += " "
             } fallback {}
 
-            @mode = map.get(ee, "mode_string", "----------")
+            @mode or= (ee["mode_string"], "----------")
             @nl = number.to_string(map.get(ee, "nlink", 1))
             @nl_p = string.pad_start(@nl, @max_nl, " ")
             @uu = map.get(ee, "user", "")
@@ -723,15 +713,19 @@ loop {
 
             @uu_p = string.pad_end(@uu, @max_u, " ")
 
-            @ft = map.get(ee, "file_type_char", "-")
-            @id = map.get(ee, "is_dir", false)
+            @ft or= (ee["file_type_char"], "-")
+            @id or= (ee["is_dir"], false)
             try {
               assert_eq(@ft, "b")
-              @sz_raw = string.concat(string.concat(number.to_string(map.get(ee, "major", 0)), ", "), number.to_string(map.get(ee, "minor", 0)))
+              @_maj = number.to_string(map.get(ee, "major", 0))
+              @_min = number.to_string(map.get(ee, "minor", 0))
+              @sz_raw = "${@_maj}, ${@_min}"
             } fallback {
               try {
                 assert_eq(@ft, "c")
-                @sz_raw = string.concat(string.concat(number.to_string(map.get(ee, "major", 0)), ", "), number.to_string(map.get(ee, "minor", 0)))
+                @_maj = number.to_string(map.get(ee, "major", 0))
+                @_min = number.to_string(map.get(ee, "minor", 0))
+                @sz_raw = "${@_maj}, ${@_min}"
               } fallback {
                 @sz_raw = number.to_string(map.get(ee, "size", 0))
                 try {
@@ -750,12 +744,12 @@ loop {
             @tsec = map.get(ee, "mtime_sec", 0)
             @tnsec = map.get(ee, "mtime_nsec", 0)
             try {
-              assert_eq(map.get(@o, "time_access", false), true)
+              assert_eq(@o["time_access"], true)
               @tsec = map.get(ee, "atime_sec", 0)
               @tnsec = map.get(ee, "atime_nsec", 0)
             } fallback {}
             try {
-              assert_eq(map.get(@o, "time_change", false), true)
+              assert_eq(@o["time_change"], true)
               @tsec = map.get(ee, "ctime_sec", 0)
               @tnsec = map.get(ee, "ctime_nsec", 0)
             } fallback {}
@@ -763,25 +757,13 @@ loop {
             @tstr = time.format_local(@tsec, @tnsec, @tfmt)
             @t_p = string.pad_end(@tstr, @max_tm, " ")
 
-            @p1 = string.concat(@ino_s, @blk_s)
-            @p2 = string.concat(@p1, @mode)
-            @p3 = string.concat(@p2, " ")
-            @p4 = string.concat(@p3, @nl_p)
-            @p5 = string.concat(@p4, " ")
-            @p6 = string.concat(@p5, @uu_p)
             try {
               assert_eq(@omit_group, false)
               @gg_p = string.pad_end(@gg, @max_g, " ")
-              @p7 = string.concat(string.concat(@p6, " "), @gg_p)
-              @p8 = string.concat(@p7, " ")
+              @line = "${@ino_s}${@blk_s}${@mode} ${@nl_p} ${@uu_p} ${@gg_p} ${@szcol} ${@t_p} ${@namel}"
             } fallback {
-              @p8 = string.concat(@p6, " ")
+              @line = "${@ino_s}${@blk_s}${@mode} ${@nl_p} ${@uu_p} ${@szcol} ${@t_p} ${@namel}"
             }
-            @pa = string.concat(@p8, @szcol)
-            @pb = string.concat(@pa, " ")
-            @pc = string.concat(@pb, @t_p)
-            @pd = string.concat(@pc, " ")
-            @line = string.concat(@pd, @namel)
             sys.echo(@line)
           }
         }
@@ -795,15 +777,15 @@ loop {
     @kids = []
     browse(@sorted, _rj, ee) {
       try {
-        assert_eq(map.get(ee, "is_dir"), true)
-        @snm = map.get(ee, "name")
+        assert_eq(ee["is_dir"], true)
+        @snm = ee["name"]
         try {
           assert_eq(@snm, ".")
         } fallback {
           try {
             assert_eq(@snm, "..")
           } fallback {
-            @kids = list.push(@kids, map.get(ee, "path"))
+            @kids = list.push(@kids, ee["path"])
           }
         }
       } fallback {}
