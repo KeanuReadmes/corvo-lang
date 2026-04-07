@@ -147,6 +147,24 @@
   }
 }
 
+# Enrich one entry with its file extension and the pre-fetched sort-key value.
+# Extracted from the entry-enrichment pass so async_browse can parallelise it
+# when a sort will follow (making the intermediate list order irrelevant).
+@_enrich_entry = procedure(@ee, @sk, @acc) {
+  @_nm = @ee["name"]
+  @_parts = string.split(@_nm, ".")
+  @_ext = ""
+  try {
+    assert_eq(list.len(@_parts), 1)
+  } fallback {
+    @_ext = list.get(@_parts, math.sub(list.len(@_parts), 1))
+  }
+  @_ee2 = @ee
+  @_ee2["extension"] = @_ext
+  @_ee2["_skey"] = map.get(@ee, @sk, 0)
+  @acc = list.push(@acc, @_ee2)
+}
+
 # ── Initialisation ───────────────────────────────────────────────────────────
 
 # Default to "." when no paths were given.
@@ -268,6 +286,19 @@ try {
 }
 
 @unsorted = map.get(@o, "unsorted", false)
+
+# Whether a sort will be applied after enrichment.  When true the order of
+# intermediate lists does not matter and async_browse can be used safely.
+# When false (-f / -U / --sort=none) the filesystem order must be preserved.
+@_sorting_active = true
+try {
+  assert_eq(@unsorted, true)
+  @_sorting_active = false
+} fallback {}
+try {
+  assert_eq(@sort_key, "none")
+  @_sorting_active = false
+} fallback {}
 
 # ── Time-style / strftime format ──────────────────────────────────────────────
 # Resolve --time-style (falling back to the TIME_STYLE env var, then "locale").
@@ -455,20 +486,17 @@ loop {
   # Attach two synthetic fields to every entry before sorting:
   #   "extension" — the last dot-separated component of the name (for -X sort)
   #   "_skey"     — a pre-fetched copy of the active sort field value
-  @prepared = []
-  browse(@filtered, _pj, ee) {
-    @nm = ee["name"]
-    @parts = string.split(@nm, ".")
-    @ext = ""
-    try {
-      assert_eq(list.len(@parts), 1)
-    } fallback {
-      @ext = list.get(@parts, math.sub(list.len(@parts), 1))
+  # Use async_browse when a sort follows so thread-completion order is fine;
+  # fall back to a sequential browse when filesystem order must be preserved
+  # (i.e. -f / -U / --sort=none).
+  @prepared = list.new()
+  try {
+    assert_eq(@_sorting_active, true)
+    async_browse(@filtered, @_enrich_entry, @ee, shared @sort_key, shared @prepared)
+  } fallback {
+    browse(@filtered, _pj, ee) {
+      @_enrich_entry.call(ee, @sort_key, @prepared)
     }
-    @ee2 = ee
-    @ee2["extension"] = @ext
-    @ee2["_skey"] = map.get(ee, @sort_key, 0)
-    @prepared = list.push(@prepared, @ee2)
   }
 
   # ── Sort direction ────────────────────────────────────────────────────────

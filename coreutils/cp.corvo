@@ -47,6 +47,44 @@
 @o = @parsed["options"]
 @positional = @parsed["positional"]
 
+# ── Procedures ────────────────────────────────────────────────────────────────
+
+# Build one (src, eff_dest) work item from a single source path.
+# Extracts the basename (respecting a trailing slash) and resolves the
+# effective destination when the destination is a directory.
+# Used by async_browse so multiple sources are enqueued in parallel.
+@_enqueue_src = procedure(@_src, @dest_p, @dest_is_dir_p, @work_out) {
+  @_parts = string.split(@_src, "/")
+  @_sname = list.last(@_parts)
+  try {
+    assert_eq(string.is_empty(@_sname), true)
+    # Trailing slash: use the second-to-last component instead.
+    try {
+      assert_gt(list.len(@_parts), 1)
+      @_sname = list.get(@_parts, math.sub(list.len(@_parts), 2))
+    } fallback {
+      @_sname = @_src
+    }
+  } fallback {}
+
+  @_eff_dest = @dest_p
+  try {
+    assert_eq(@dest_is_dir_p, true)
+    @_eff_dest = "${@dest_p}/${@_sname}"
+  } fallback {}
+
+  @work_out = list.push(@work_out, [@_src, @_eff_dest])
+}
+
+# Enqueue one directory child as a (src, dst) work item.
+# Used by async_browse so all children of a directory are enqueued in parallel.
+@_enqueue_child = procedure(@_child, @src_p, @dst_p, @work_out) {
+  @_cname = @_child["name"]
+  @_csrc  = "${@src_p}/${@_cname}"
+  @_cdst  = "${@dst_p}/${@_cname}"
+  @work_out = list.push(@work_out, [@_csrc, @_cdst])
+}
+
 # ── Skip-main flag: set to true to bypass copy logic ─────────────────────────
 # Used so that --help/--version and validation errors can terminate the copy
 # phase without calling sys.exit() inside a try block (which gets swallowed
@@ -210,32 +248,12 @@ try {
 @work = list.new()
 
 # Enqueue each source with its effective resolved destination path.
+# async_browse processes all sources in parallel since each enqueue is
+# independent and @work uses append-delta merge for safe accumulation.
 try {
   assert_eq(@skip_main, true)
 } fallback {
-  browse(@srcs, _si, _src) {
-    # Derive the basename, handling an optional trailing slash.
-    @_parts = string.split(@_src, "/")
-    @_sname = list.last(@_parts)
-    try {
-      assert_eq(string.is_empty(@_sname), true)
-      # Trailing slash: use the second-to-last component instead.
-      try {
-        assert_gt(list.len(@_parts), 1)
-        @_sname = list.get(@_parts, math.sub(list.len(@_parts), 2))
-      } fallback {
-        @_sname = @_src
-      }
-    } fallback {}
-
-    @_eff_dest = @dest
-    try {
-      assert_eq(@dest_is_dir, true)
-      @_eff_dest = "${@dest}/${@_sname}"
-    } fallback {}
-
-    @work = list.push(@work, [@_src, @_eff_dest])
-  }
+  async_browse(@srcs, @_enqueue_src, @_src, shared @dest, shared @dest_is_dir, shared @work)
 }
 
 # ── Main copy loop ────────────────────────────────────────────────────────────
@@ -276,13 +294,10 @@ try {
             sys.echo("'${@_src}' -> '${@_dst}'")
           } fallback {}
           # Enqueue every child for subsequent processing.
+          # async_browse parallelises the enqueue since each child is
+          # independent and @work uses append-delta merge.
           @_children = fs.read_dir_meta(@_src, false)
-          browse(@_children, _ci, _child) {
-            @_cname = @_child["name"]
-            @_csrc  = "${@_src}/${@_cname}"
-            @_cdst  = "${@_dst}/${@_cname}"
-            @work   = list.push(@work, [@_csrc, @_cdst])
-          }
+          async_browse(@_children, @_enqueue_child, @_child, shared @_src, shared @_dst, shared @work)
         }
       } fallback {
         # ── Source is a regular file or symbolic link ──────────────────────
