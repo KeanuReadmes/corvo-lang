@@ -331,7 +331,7 @@ impl Evaluator {
     ///   lock held, so I/O-bound work runs in parallel.  When the body finishes,
     ///   the thread locks the mutex and performs a **delta-merge** write-back:
     ///   for list values the items appended during the body are appended to
-    ///   whatever the mutex currently holds (serialising write-backs from
+    ///   whatever the mutex currently holds (serializing write-backs from
     ///   concurrent threads correctly).  For all other types the thread's final
     ///   value replaces the current mutex value.
     /// * All other state variables are cloned into each thread and are
@@ -800,17 +800,27 @@ impl Default for Evaluator {
 /// Merge a thread's shared-variable write-back with the current mutex value.
 ///
 /// For **list** values this implements an append-delta merge: items that the
-/// thread **added** beyond its starting snapshot are appended to whatever the
-/// mutex currently holds (which may have been updated by other threads in the
-/// meantime).  This preserves all contributions from concurrent threads when
-/// the procedure body does `@acc = list.push(@acc, item)`.
+/// thread **appended** beyond its starting snapshot (i.e. elements at indices
+/// `snap.len()..fin.len()`) are appended to whatever the mutex currently holds.
+/// This preserves all contributions from concurrent threads when the procedure
+/// body exclusively uses append operations such as `@acc = list.push(@acc, item)`.
+///
+/// **Limitation**: the merge assumes items are only ever appended to the end
+/// of the list, not inserted at arbitrary positions or replaced.  If the
+/// procedure body uses `list.filter`, `list.map`, `list.set`, or any operation
+/// that changes existing elements, the slice `fin[snap.len()..]` may extract
+/// incorrect items.  In those cases — or whenever `fin.len() < snap.len()` —
+/// the thread's final value is used directly (last-writer-wins).
 ///
 /// For all other value types the thread's final value replaces the current
 /// mutex value (last-writer-wins semantics).
 fn merge_shared_writeback(snapshot: &Value, thread_final: &Value, current: &Value) -> Value {
     match (snapshot, thread_final, current) {
         (Value::List(snap), Value::List(fin), Value::List(cur)) if fin.len() >= snap.len() => {
-            // Append the items the thread added on top of its snapshot.
+            // Append only the items the thread added beyond its snapshot.
+            // This assumes the items at indices 0..snap.len() in `fin` are the
+            // same as the original snapshot elements (i.e. the thread only
+            // appended, never replaced or removed earlier items).
             let new_items = &fin[snap.len()..];
             let mut result = cur.clone();
             result.extend_from_slice(new_items);

@@ -5,12 +5,21 @@
 #
 # Each list item is processed on its own thread.  The item binding (@item_binding)
 # receives the current element and is unique per thread.  Variables marked with
-# `shared` are protected by a mutex: each thread takes a snapshot before running
-# the procedure body and writes its result back when the body finishes.
+# `shared` are mutex-protected: each thread takes a snapshot of the current value
+# before running the procedure body and writes back only the shared variables
+# when the body finishes.  Any changes to non-shared variables inside the body
+# are thread-local and discarded after the thread exits.
 #
-# IMPORTANT: write-back order between threads is non-deterministic.  Use
-# `shared` only for accumulators whose result is order-independent (e.g. a
-# growing list, a running total that is commutative).
+# For shared LIST variables, write-back uses an append-delta merge: items appended
+# during the procedure body are atomically added to the shared list.  This means
+# contributions from all threads accumulate correctly as long as the procedure
+# uses append-only operations (list.push).  Other list operations (list.filter,
+# list.map, list.set) fall back to last-writer-wins semantics.
+#
+# For all other shared variable types, last-writer-wins semantics apply.
+#
+# IMPORTANT: write-back order between threads is non-deterministic.  Ensure
+# the result accumulation is order-independent.
 
 # --- Example 1: collect doubled values into a shared list ---
 
