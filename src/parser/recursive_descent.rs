@@ -231,17 +231,25 @@ impl Parser {
 
         self.consume(TokenType::Comma, "Expected ',' after iterable")?;
 
+        self.consume(
+            TokenType::At,
+            "Expected '@' before key variable name in browse",
+        )?;
         let key = match &self.peek().token_type {
             TokenType::Identifier(s) => s.clone(),
-            _ => return Err(self.error("Expected identifier for key variable name")),
+            _ => return Err(self.error("Expected identifier for key variable name after '@'")),
         };
         self.advance(); // consume key identifier
 
         self.consume(TokenType::Comma, "Expected ',' after key name")?;
 
+        self.consume(
+            TokenType::At,
+            "Expected '@' before value variable name in browse",
+        )?;
         let value = match &self.peek().token_type {
             TokenType::Identifier(s) => s.clone(),
-            _ => return Err(self.error("Expected identifier for value variable name")),
+            _ => return Err(self.error("Expected identifier for value variable name after '@'")),
         };
         self.advance(); // consume value identifier
 
@@ -1357,7 +1365,7 @@ mod tests {
     fn test_parse_browse_list() {
         let program = parse_source(
             r#"
-            browse(var.get("items"), key, val) {
+            browse(var.get("items"), @key, @val) {
                 sys.echo("hello")
             }
             "#,
@@ -1379,7 +1387,7 @@ mod tests {
     fn test_parse_browse_with_at_var() {
         let program = parse_source(
             r#"
-            browse(@my_list, k, v) {
+            browse(@my_list, @k, @v) {
                 sys.echo(@v)
             }
             "#,

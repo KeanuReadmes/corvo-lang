@@ -13,12 +13,12 @@ sys.echo("Language: ${@language}")
 }
 
 # --- browse over a list ---
-# The key and value bindings declared in browse(expr, key, val) are accessed
+# The key and value bindings declared in browse(expr, @key, @val) are accessed
 # inside the block with the @ prefix: @key, @val (same as var.get).
 
 @fruits = ["apple", "banana", "cherry"]
 
-browse(@fruits, idx, fruit) {
+browse(@fruits, @idx, @fruit) {
     sys.echo("${@idx}: ${@fruit}")
 }
 # Prints:
@@ -30,7 +30,7 @@ browse(@fruits, idx, fruit) {
 
 @scores = {"alice": 95, "bob": 87, "carol": 92}
 
-browse(@scores, name, score) {
+browse(@scores, @name, @score) {
     sys.echo("${@name}: ${@score}")
 }
 # Prints (sorted by key):
@@ -42,7 +42,7 @@ browse(@scores, name, score) {
 
 @numbers = [10, 20, 30, 40, 50]
 
-browse(@numbers, i, n) {
+browse(@numbers, @i, @n) {
     sys.echo(@n)
     try {
         assert_eq(@n, 30)
@@ -56,8 +56,8 @@ browse(@numbers, i, n) {
 
 @matrix = [[1, 2, 3], [4, 5, 6]]
 
-browse(@matrix, row_idx, row) {
-    browse(@row, col_idx, cell) {
+browse(@matrix, @row_idx, @row) {
+    browse(@row, @col_idx, @cell) {
         sys.echo("[${@row_idx}][${@col_idx}] = ${@cell}")
     }
 }
@@ -70,7 +70,7 @@ browse(@matrix, row_idx, row) {
 @prices = {"apple": 1, "banana": 2, "cherry": 3}
 @total = 0
 
-browse(@prices, item, price) {
+browse(@prices, @item, @price) {
     @add_price.call(@total, @price)
 }
 

@@ -9,7 +9,7 @@ When generating Corvo code, you **must** strictly adhere to the following langua
 * **NAMED PARAMETERS:** Library functions support Python-like named parameters for clarity (e.g., `http.get(url: "https://...")`).
 * **IMMUTABILITY OF METHODS:** Type methods (like `string.replace`) do not mutate the variable in place; they return a new value that must be reassigned via `var.set()`.
 * **VARIABLE SHORTHAND:** `@name` is shorthand for `var.get("name")`; `@name = value` is shorthand for `var.set("name", value)`. Only use `@` for regular runtime variables.
-* **BROWSE BINDINGS:** Inside a `browse` block, the key and value bindings are accessed with the `$` prefix (e.g., `$key`, `$value`). Never use `@` or `var.get()` to read browse-bound variables; use `$name` directly or `${$name}` inside string interpolation.
+* **BROWSE BINDINGS:** Inside a `browse` block, the key and value bindings declared in the header with `@` are accessed with the `@` prefix (e.g., `@key`, `@value`), just like regular runtime variables.
 * **PREP BLOCK:** `static.set()` is **only** allowed inside a `prep { }` block. The `prep` block must appear before all other statements. Variables created inside `prep` are not available outside it.
 
 ## 2. Type System & Type Methods
@@ -102,12 +102,11 @@ prep {
 }
 ```
 
-### 3.3 Browse Bindings (`$`)
-Inside a `browse` block, the key and value names declared in the block header are accessed with the `$` prefix. They are block-scoped and must not be confused with regular runtime variables.
+### 3.3 Browse Bindings (`@`)
+Inside a `browse` block, the key and value names declared in the block header (prefixed with `@`) are accessed with the `@` prefix, just like any other runtime variable.
 ```corvo
-browse(var.get("items"), k, v) {
-    # $k and $v are browse-bound — do NOT use @k, @v, or var.get("k")
-    sys.echo("${$k} -> ${$v}")
+browse(@items, @k, @v) {
+    sys.echo("${@k} -> ${@v}")
 }
 ```
 
@@ -127,46 +126,46 @@ Conditionals and error handling are unified. Execution proceeds linearly until a
 Corvo supports a single, infinite loop construct. The only way to exit is by calling `terminate`.
 
 ### 4.3 Browse (`browse`)
-`browse` iterates over a list or map, exposing a key and value variable on each iteration. Variable names for the key and value are chosen by the caller.
+`browse` iterates over a list or map, exposing a key and value variable on each iteration. Variable names for the key and value are chosen by the caller and declared with `@`.
 
-**Syntax:** `browse(<expr>, <key_ident>, <value_ident>) { <body> }`
+**Syntax:** `browse(<expr>, @<key_ident>, @<value_ident>) { <body> }`
 
-* For a **list**: `key` is the zero-based numeric index; `value` is the element.
-* For a **map**: `key` is the string key; `value` is the associated value. Keys are visited in sorted order.
-* Inside the block, access bindings with the `$` prefix: `$key`, `$value`. Use `${$name}` for string interpolation.
-* Pass a browse-bound value to a nested `browse` (or any function) using `$name` directly.
+* For a **list**: `@key` is the zero-based numeric index; `@value` is the element.
+* For a **map**: `@key` is the string key; `@value` is the associated value. Keys are visited in sorted order.
+* Inside the block, access bindings with the `@` prefix: `@key`, `@value`. Use `${@name}` for string interpolation.
+* Pass a browse-bound value to a nested `browse` (or any function) using `@name`.
 * `terminate` exits the browse block early (same semantics as inside `loop`).
 * Browse blocks may be nested.
 * Using `browse` on a non-list/non-map value raises a type error.
 
 ```corvo
-# List example — use $idx and $fruit to access the browse bindings
-var.set("fruits", ["apple", "banana", "cherry"])
-browse(var.get("fruits"), idx, fruit) {
-    sys.echo("${$idx}: ${$fruit}")
+# List example — use @idx and @fruit to access the browse bindings
+@fruits = ["apple", "banana", "cherry"]
+browse(@fruits, @idx, @fruit) {
+    sys.echo("${@idx}: ${@fruit}")
 }
 
-# Map example — use $key and $val
-var.set("config", {"host": "localhost", "port": 8080})
-browse(var.get("config"), key, val) {
-    sys.echo("${$key} = ${$val}")
+# Map example — use @key and @val
+@config = {"host": "localhost", "port": 8080}
+browse(@config, @key, @val) {
+    sys.echo("${@key} = ${@val}")
 }
 
-# Early exit — pass $v to assert_eq, use $v in echo
-var.set("items", [1, 2, 3, 4, 5])
-browse(var.get("items"), k, v) {
-    sys.echo($v)
+# Early exit — use @v in assert_eq and echo
+@items = [1, 2, 3, 4, 5]
+browse(@items, @k, @v) {
+    sys.echo(@v)
     try {
-        assert_eq($v, 3)
+        assert_eq(@v, 3)
         terminate
     } fallback {}
 }
 
-# Nested browse — pass $row (browse-bound) to inner browse
+# Nested browse — pass @row (browse-bound) to inner browse
 @matrix = [[1, 2], [3, 4]]
-browse(@matrix, row_idx, row) {
-    browse($row, col_idx, cell) {
-        sys.echo("[${$row_idx}][${$col_idx}] = ${$cell}")
+browse(@matrix, @row_idx, @row) {
+    browse(@row, @col_idx, @cell) {
+        sys.echo("[${@row_idx}][${@col_idx}] = ${@cell}")
     }
 }
 ```

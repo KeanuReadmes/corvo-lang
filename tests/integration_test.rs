@@ -1295,7 +1295,7 @@ fn test_browse_list_collects_values() {
         @my_list = ["one", "two", "three"]
         @last_key = 0
         @last_val = ""
-        browse(@my_list, key, val) {
+        browse(@my_list, @key, @val) {
             @last_key = @key
             @last_val = @val
         }
@@ -1318,7 +1318,7 @@ fn test_browse_list_accumulates_values() {
         r#"
         @nums = [10, 20, 30]
         @sum = 0
-        browse(@nums, idx, num) {
+        browse(@nums, @idx, @num) {
             @sum = math.add(@sum, @num)
         }
         "#,
@@ -1336,7 +1336,7 @@ fn test_browse_list_key_is_numeric_index() {
         r#"
         @items = ["a", "b", "c"]
         @key_sum = 0
-        browse(@items, k, v) {
+        browse(@items, @k, @v) {
             @key_sum = math.add(@key_sum, @k)
         }
         "#,
@@ -1356,7 +1356,7 @@ fn test_browse_map_key_and_value() {
         @my_map = {"answer": 42}
         @found_key = ""
         @found_val = 0
-        browse(@my_map, prop, val) {
+        browse(@my_map, @prop, @val) {
             @found_key = @prop
             @found_val = @val
         }
@@ -1379,7 +1379,7 @@ fn test_browse_map_collects_all_keys() {
         r#"
         @m = {"a": 1, "b": 2, "c": 3}
         @key_list = []
-        browse(@m, k, v) {
+        browse(@m, @k, @v) {
             @key_list = list.push(@key_list, @k)
         }
         "#,
@@ -1402,7 +1402,7 @@ fn test_browse_empty_list() {
         r#"
         @empty = []
         @count = 0
-        browse(@empty, k, v) {
+        browse(@empty, @k, @v) {
             @count = math.add(@count, 1)
         }
         "#,
@@ -1420,8 +1420,8 @@ fn test_browse_nested() {
         r#"
         @outer = [["a", "b"], ["c", "d"]]
         @total = 0
-        browse(@outer, i, inner) {
-            browse(@inner, j, v) {
+        browse(@outer, @i, @inner) {
+            browse(@inner, @j, @v) {
                 @total = math.add(@total, 1)
             }
         }
@@ -1441,7 +1441,7 @@ fn test_browse_with_terminate() {
         r#"
         @items = [1, 2, 3, 4, 5]
         @sum = 0
-        browse(@items, k, v) {
+        browse(@items, @k, @v) {
             @sum = math.add(@sum, @v)
             try {
                 assert_eq(@v, 3)
@@ -1463,7 +1463,7 @@ fn test_browse_type_error_on_non_collection() {
     let result = run_with_state(
         r#"
         @x = "not a list"
-        browse(@x, k, v) {}
+        browse(@x, @k, @v) {}
         "#,
     );
     assert!(result.is_err());

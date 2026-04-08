@@ -56,7 +56,7 @@ sys.echo("Moved exists: ${fs.exists(@moved_path)}")
 @section.call("=== fs.list_dir ===")
 @entries = fs.list_dir(@tmp)
 sys.echo("Directory entries:")
-browse(@entries, idx, entry) {
+browse(@entries, @idx, @entry) {
     sys.echo("  ${@entry}")
 }
 

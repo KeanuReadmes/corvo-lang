@@ -10,7 +10,7 @@ sys.echo("=== dns.resolve ===")
 # Resolves a hostname to one or more IP addresses
 @ips = dns.resolve("localhost")
 sys.echo("IPs for localhost:")
-browse(@ips, idx, ip) {
+browse(@ips, @idx, @ip) {
     sys.echo("  ${@ip}")
 }
 

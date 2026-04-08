@@ -462,7 +462,7 @@ loop {
 }
 
 # Iteration over a list or map
-browse(var.get("items"), idx, item) {
+browse(@items, @idx, @item) {
     sys.echo("${@idx}: ${@item}")
 }
 

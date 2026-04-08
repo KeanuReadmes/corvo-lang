@@ -9,7 +9,7 @@
 
 @dump_positionals = procedure(@positional) {
     sys.echo("positionals (${list.len(@positional)}):")
-    browse(@positional, _i, p) {
+    browse(@positional, @_i, @p) {
         sys.echo("  - ${@p}")
     }
 }

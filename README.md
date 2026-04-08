@@ -254,23 +254,23 @@ sys.echo("Sum 1..10 = ${@sum}")
 
 ### Browse (iteration)
 
-Iterate lists or maps with bound key/value variables (accessed with `$`):
+Iterate lists or maps with bound key/value variables (accessed with `@`):
 
 ```corvo
 @scores = {"alice": 95, "bob": 87, "carol": 92}
 
-browse(@scores, name, score) {
-    sys.echo("${$name}: ${$score}")
+browse(@scores, @name, @score) {
+    sys.echo("${@name}: ${@score}")
 }
 ```
 
 ```corvo
 @files = fs.list_dir("/var/log")
 
-browse(@files, idx, fname) {
+browse(@files, @idx, @fname) {
     try {
-        assert_match("\.log$", $fname)
-        sys.echo("Log file: ${$fname}")
+        assert_match("\.log$", @fname)
+        sys.echo("Log file: ${@fname}")
     } fallback {}
 }
 ```
@@ -323,8 +323,8 @@ sys.exec(["make", "build"], cwd: "/src", env: {"CC": "clang"}, timeout: 60, chec
 
 async_browse(@endpoints, @check, @url, shared @statuses)
 
-browse(@statuses, i, line) {
-    sys.echo($line)
+browse(@statuses, @i, @line) {
+    sys.echo(@line)
 }
 ```
 
@@ -364,10 +364,10 @@ try {
 @lines  = string.split(fs.read("access.log"), "\n")
 @errors = list.new()
 
-browse(@lines, _, line) {
+browse(@lines, @_, @line) {
     try {
-        assert_match("ERROR", $line)
-        @errors = list.push(@errors, $line)
+        assert_match("ERROR", @line)
+        @errors = list.push(@errors, @line)
     } fallback {}
 }
 

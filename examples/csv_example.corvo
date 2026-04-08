@@ -9,7 +9,7 @@ sys.echo("=== csv.parse ===")
 @rows = csv.parse(@csv_data)
 sys.echo("Parsed ${list.len(@rows)} data rows (headers are consumed automatically)")
 
-browse(@rows, idx, row) {
+browse(@rows, @idx, @row) {
     @name = list.get(@row, 0)
     @age = list.get(@row, 1)
     @city = list.get(@row, 2)

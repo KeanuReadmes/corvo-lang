@@ -135,8 +135,8 @@
 # GNU ls emits before a directory listing.
 @print_total_blocks = procedure(@sorted_list, @human_flag) {
   @_tb = 0
-  browse(@sorted_list, _ptb, _pee) {
-    @_tb = math.add(@_tb, map.get(_pee, "blocks", 0))
+  browse(@sorted_list, @_ptb, @_pee) {
+    @_tb = math.add(@_tb, map.get(@_pee, "blocks", 0))
   }
   @_tk = number.ceil(math.div(@_tb, 2))
   try {
@@ -393,8 +393,8 @@ loop {
       @md2["path"] = @parp
       @entries2 = list.push(@entries2, @md2)
     }
-    browse(@entries, _ed, e) {
-      @entries2 = list.push(@entries2, e)
+    browse(@entries, @_ed, @e) {
+      @entries2 = list.push(@entries2, @e)
     }
     @entries = @entries2
   } fallback {}
@@ -407,7 +407,7 @@ loop {
   #   (default)   → hide any name that starts with "."
   #   -B          → additionally hide names ending with "~" (backup files)
   @filtered = []
-  browse(@entries, _ei, ee) {
+  browse(@entries, @_ei, @ee) {
     @nm = @ee["name"]
     try {
       assert_eq(@dir_only, true)
@@ -454,12 +454,12 @@ loop {
   # --hide patterns are applied first; entries that survive are then checked
   # against --ignore patterns.  Both use fnmatch (shell-style globbing).
   @filtered2 = []
-  browse(@filtered, _f2, ee) {
+  browse(@filtered, @_f2, @ee) {
     @nm2 = @ee["name"]
     @skip_h = false
-    browse(@hides, _hp, pat) {
+    browse(@hides, @_hp, @pat) {
       try {
-        assert_eq(string.fnmatch(@nm2, pat), true)
+        assert_eq(string.fnmatch(@nm2, @pat), true)
         @skip_h = true
       } fallback {}
     }
@@ -467,9 +467,9 @@ loop {
       assert_eq(@skip_h, true)
     } fallback {
       @skip_i = false
-      browse(@ignores, _ip, ipat) {
+      browse(@ignores, @_ip, @ipat) {
         try {
-          assert_eq(string.fnmatch(@nm2, ipat), true)
+          assert_eq(string.fnmatch(@nm2, @ipat), true)
           @skip_i = true
         } fallback {}
       }
@@ -494,8 +494,8 @@ loop {
     assert_eq(@_sorting_active, true)
     async_browse(@filtered, @_enrich_entry, @ee, shared @sort_key, shared @prepared)
   } fallback {
-    browse(@filtered, _pj, ee) {
-      @_enrich_entry.call(ee, @sort_key, @prepared)
+    browse(@filtered, @_pj, @ee) {
+      @_enrich_entry.call(@ee, @sort_key, @prepared)
     }
   }
 
@@ -547,16 +547,16 @@ loop {
       try {
         assert_eq(@sort_key, "version")
         @names = []
-        browse(@prepared, _a, ee) {
-          @names = list.push(@names, ee["name"])
+        browse(@prepared, @_a, @ee) {
+          @names = list.push(@names, @ee["name"])
         }
         @ord = list.sort_version(@names)
         @sorted = []
-        browse(@ord, _b, nn) {
-          browse(@prepared, _c, ee) {
+        browse(@ord, @_b, @nn) {
+          browse(@prepared, @_c, @ee) {
             try {
-              assert_eq(ee["name"], @nn)
-              @sorted = list.push(@sorted, ee)
+              assert_eq(@ee["name"], @nn)
+              @sorted = list.push(@sorted, @ee)
             } fallback {}
           }
         }
@@ -659,8 +659,8 @@ loop {
   try {
     assert_eq(@long, false)
     assert_eq(@inode_col, true)
-    browse(@sorted, _ix, ee) {
-      @ixs = number.to_string(map.get(ee, "inode", 0))
+    browse(@sorted, @_ix, @ee) {
+      @ixs = number.to_string(map.get(@ee, "inode", 0))
       @max_ino_s = math.max(@max_ino_s, string.len(@ixs))
     }
   } fallback {}
@@ -669,8 +669,8 @@ loop {
   try {
     assert_eq(@long, false)
     assert_eq(@blocks, true)
-    browse(@sorted, _bx, ee) {
-      @bw = map.get(ee, "blocks", 0)
+    browse(@sorted, @_bx, @ee) {
+      @bw = map.get(@ee, "blocks", 0)
       @bsw = number.to_string(number.floor(math.div(@bw, 2)))
       @max_blk_s = math.max(@max_blk_s, string.len(@bsw))
     }
@@ -691,29 +691,29 @@ loop {
   @tstr_m = ""
   try {
     assert_eq(@long, true)
-    browse(@sorted, _mw, ee) {
+    browse(@sorted, @_mw, @ee) {
       try {
         assert_eq(@inode_col, true)
-        @iw = number.to_string(map.get(ee, "inode", 0))
+        @iw = number.to_string(map.get(@ee, "inode", 0))
         @max_ino = math.max(@max_ino, string.len(@iw))
       } fallback {}
 
       try {
         assert_eq(@blocks, true)
-        @bw = map.get(ee, "blocks", 0)
+        @bw = map.get(@ee, "blocks", 0)
         @bsw = number.to_string(number.floor(math.div(@bw, 2)))
         @max_blk = math.max(@max_blk, string.len(@bsw))
       } fallback {}
 
-      @nlm = number.to_string(map.get(ee, "nlink", 1))
+      @nlm = number.to_string(map.get(@ee, "nlink", 1))
       @max_nl = math.max(@max_nl, string.len(@nlm))
 
-      @uum = map.get(ee, "user", "")
-      @ggm = map.get(ee, "group", "")
+      @uum = map.get(@ee, "user", "")
+      @ggm = map.get(@ee, "group", "")
       try {
         assert_eq(@numeric_ids, true)
-        @uum = number.to_string(map.get(ee, "uid", 0))
-        @ggm = number.to_string(map.get(ee, "gid", 0))
+        @uum = number.to_string(map.get(@ee, "uid", 0))
+        @ggm = number.to_string(map.get(@ee, "gid", 0))
       } fallback {}
       try {
         assert_eq(@omit_group, true)
@@ -726,7 +726,7 @@ loop {
         @max_g = math.max(@max_g, string.len(@ggm))
       } fallback {}
 
-      @_em = ee
+      @_em = @ee
       @get_size_string.call(@_em, @human, @si, @szm)
       @max_sz = math.max(@max_sz, string.len(@szm))
 
@@ -765,9 +765,9 @@ loop {
   try {
     assert_eq(@stream, true)
       @names_out = []
-      browse(@sorted, _so, ee) {
-        @nm = ee["name"]
-        @_e = ee
+      browse(@sorted, @_so, @ee) {
+        @nm = @ee["name"]
+        @_e = @ee
         @get_entry_suffix.call(@_e, @classify, @suf)
         @names_out = list.push(@names_out, "${@nm}${@suf}")
       }
@@ -777,18 +777,18 @@ loop {
       try {
         assert_eq(@fmt_C, true)
         @names_out2 = []
-        browse(@sorted, _so2, ee) {
-          @nm = ee["name"]
-          @_e = ee
+        browse(@sorted, @_so2, @ee) {
+          @nm = @ee["name"]
+          @_e = @ee
           @get_entry_suffix.call(@_e, @classify, @suf)
           @names_out2 = list.push(@names_out2, "${@nm}${@suf}")
         }
         sys.echo(list.columnate(@names_out2, @term_w))
       } fallback {
         # Branch 3: one name per line (default) or long format (-l)
-        browse(@sorted, _si, ee) {
-          @nm = ee["name"]
-          @_e = ee
+        browse(@sorted, @_si, @ee) {
+          @nm = @ee["name"]
+          @_e = @ee
           @get_entry_suffix.call(@_e, @classify, @suf)
 
           @namel = "${@nm}${@suf}"
@@ -796,8 +796,8 @@ loop {
           try {
             assert_eq(@long, true)
             try {
-              assert_eq(ee["is_symlink"], true)
-              @_tgt = map.get(ee, "symlink_target", "")
+              assert_eq(@ee["is_symlink"], true)
+              @_tgt = map.get(@ee, "symlink_target", "")
               @namel = "${@namel} -> ${@_tgt}"
             } fallback {}
           } fallback {}
@@ -808,14 +808,14 @@ loop {
             @pre_ln = ""
             try {
               assert_eq(@blocks, true)
-              @b = map.get(ee, "blocks", 0)
+              @b = map.get(@ee, "blocks", 0)
               @bb = number.to_string(number.floor(math.div(@b, 2)))
               @pre_ln = string.pad_start(@bb, @max_blk_s, " ")
               @pre_ln += " "
             } fallback {}
             try {
               assert_eq(@inode_col, true)
-              @ipr = string.pad_start(number.to_string(map.get(ee, "inode", 0)), @max_ino_s, " ")
+              @ipr = string.pad_start(number.to_string(map.get(@ee, "inode", 0)), @max_ino_s, " ")
               @ipr += " "
               @pre_ln += @ipr
             } fallback {}
@@ -827,28 +827,28 @@ loop {
             @tstr = ""
             try {
               assert_eq(@inode_col, true)
-              @ino_s = string.pad_start(number.to_string(map.get(ee, "inode", 0)), @max_ino, " ")
+              @ino_s = string.pad_start(number.to_string(map.get(@ee, "inode", 0)), @max_ino, " ")
               @ino_s += " "
             } fallback {}
 
             @blk_s = ""
             try {
               assert_eq(@blocks, true)
-              @b = map.get(ee, "blocks", 0)
+              @b = map.get(@ee, "blocks", 0)
               @bb = number.to_string(number.floor(math.div(@b, 2)))
               @blk_s = string.pad_start(@bb, @max_blk, " ")
               @blk_s += " "
             } fallback {}
 
-            @mode or= (ee["mode_string"], "----------")
-            @nl = number.to_string(map.get(ee, "nlink", 1))
+            @mode or= (@ee["mode_string"], "----------")
+            @nl = number.to_string(map.get(@ee, "nlink", 1))
             @nl_p = string.pad_start(@nl, @max_nl, " ")
-            @uu = map.get(ee, "user", "")
-            @gg = map.get(ee, "group", "")
+            @uu = map.get(@ee, "user", "")
+            @gg = map.get(@ee, "group", "")
             try {
               assert_eq(@numeric_ids, true)
-              @uu = number.to_string(map.get(ee, "uid", 0))
-              @gg = number.to_string(map.get(ee, "gid", 0))
+              @uu = number.to_string(map.get(@ee, "uid", 0))
+              @gg = number.to_string(map.get(@ee, "gid", 0))
             } fallback {}
 
             try {
@@ -891,27 +891,27 @@ loop {
     assert_eq(@dir_only, false)
     assert_eq(@from_dir_read, true)
     @kids = []
-    browse(@sorted, _rj, ee) {
+    browse(@sorted, @_rj, @ee) {
       try {
-        assert_eq(ee["is_dir"], true)
-        @snm = ee["name"]
+        assert_eq(@ee["is_dir"], true)
+        @snm = @ee["name"]
         try {
           assert_eq(@snm, ".")
         } fallback {
           try {
             assert_eq(@snm, "..")
           } fallback {
-            @kids = list.push(@kids, ee["path"])
+            @kids = list.push(@kids, @ee["path"])
           }
         }
       } fallback {}
     }
     @new_work = []
-    browse(@kids, _kc, kp) {
-      @new_work = list.push(@new_work, kp)
+    browse(@kids, @_kc, @kp) {
+      @new_work = list.push(@new_work, @kp)
     }
-    browse(@work, _wr, wp) {
-      @new_work = list.push(@new_work, wp)
+    browse(@work, @_wr, @wp) {
+      @new_work = list.push(@new_work, @wp)
     }
     @work = @new_work
   } fallback {}

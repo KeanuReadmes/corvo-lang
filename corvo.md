@@ -67,21 +67,21 @@ loop {
 }
 
 # Browse block — iterate over a list or map.
-# For a list: key is the zero-based index, value is the element.
-# For a map:  key is the string key, value is the associated value.
-# Inside the block, use the $ prefix to access browse-bound names.
-var.set("fruits", ["apple", "banana", "cherry"])
-browse(var.get("fruits"), idx, fruit) {
-    sys.echo("${$idx}: ${$fruit}")
+# For a list: @key is the zero-based index, @value is the element.
+# For a map:  @key is the string key, @value is the associated value.
+# Inside the block, use the @ prefix to access browse-bound names.
+@fruits = ["apple", "banana", "cherry"]
+browse(@fruits, @idx, @fruit) {
+    sys.echo("${@idx}: ${@fruit}")
 }
 # Prints:
 # 0: apple
 # 1: banana
 # 2: cherry
 
-var.set("config", {"host": "localhost", "port": 8080})
-browse(var.get("config"), key, val) {
-    sys.echo("${$key} = ${$val}")
+@config = {"host": "localhost", "port": 8080}
+browse(@config, @key, @val) {
+    sys.echo("${@key} = ${@val}")
 }
 # Prints:
 # host = localhost
