@@ -147,6 +147,7 @@ impl Evaluator {
                 )))
             }
             Stmt::ExprStmt { expr } => {
+                // Intercept special method calls that need mutable state access.
                 if let Expr::MethodCall {
                     target,
                     method,
@@ -154,7 +155,7 @@ impl Evaluator {
                     ..
                 } = expr
                 {
-                    // Intercept procedure.call(...) so we can run the body with &mut state.
+                    // procedure.call(...) runs the procedure body with &mut state.
                     if method == "call" {
                         let target_val = self.eval_expr(target, state)?;
                         if let Value::Procedure(proc) = target_val {
