@@ -54,7 +54,8 @@
 # effective destination when the destination is a directory.
 # Used by async_browse so multiple sources are enqueued in parallel.
 @_enqueue_src = procedure(@_src, @dest_p, @dest_is_dir_p, @work_out) {
-  @_parts = string.split(@_src, "/")
+  @_norm  = string.replace(@_src, "\\", "/")
+  @_parts = string.split(@_norm, "/")
   @_sname = list.last(@_parts)
   try {
     assert_eq(string.is_empty(@_sname), true)
