@@ -785,34 +785,34 @@ loop {
   # Items are separated by ", " and lines are wrapped at @term_w columns.
   try {
     assert_eq(@stream, true)
-    @_sm_line = ""
-    @_sm_first = true
+    @_stream_line = ""
+    @_stream_first = true
     browse(@sorted, @_so, @ee) {
       @nm = @ee["name"]
       @_e = @ee
       @get_entry_suffix.call(@_e, @classify, @suf)
       @_item = "${@nm}${@suf}"
       try {
-        assert_eq(@_sm_first, true)
-        @_sm_line = @_item
-        @_sm_first = false
+        assert_eq(@_stream_first, true)
+        @_stream_line = @_item
+        @_stream_first = false
       } fallback {
         # Check if adding ", item" would exceed terminal width
-        @_candidate = "${@_sm_line}, ${@_item}"
+        @_candidate = "${@_stream_line}, ${@_item}"
         try {
           assert_gt(string.len(@_candidate), @term_w)
           # Would overflow: flush current line with trailing comma and start new line
-          sys.echo("${@_sm_line},")
-          @_sm_line = @_item
+          sys.echo("${@_stream_line},")
+          @_stream_line = @_item
         } fallback {
-          @_sm_line = @_candidate
+          @_stream_line = @_candidate
         }
       }
     }
     # Print the final (or only) line — no trailing comma
     try {
-      assert_eq(@_sm_first, false)
-      sys.echo(@_sm_line)
+      assert_eq(@_stream_first, false)
+      sys.echo(@_stream_line)
     } fallback {}
   } fallback {
       # Branch 2: multi-column mode (-C)

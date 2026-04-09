@@ -138,6 +138,8 @@ pub fn call_string_method(name: &str, args: &[Value]) -> CorvoResult<Value> {
             Ok(Value::Boolean(regex.is_match(target)))
         }
         "byte_slice" => {
+            // args[0] is the target string (bound above), args[1] = start byte index,
+            // args[2] = end byte index (optional, defaults to string length).
             let bytes = target.as_bytes();
             let start = args.get(1).and_then(|v| v.as_number()).unwrap_or(0.0) as usize;
             let end = args
