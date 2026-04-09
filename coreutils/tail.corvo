@@ -169,8 +169,6 @@ try {
 # ── Procedure: print the last N bytes of a string ────────────────────────────
 @_tail_bytes = procedure(@content, @count, @from_start) {
   @_total = string.len(@content)
-  # Default: last N bytes — start offset is (total - count).
-  # "+N" mode: start from byte N (1-based), so offset is (count - 1).
   @_start = 0
 
   try {
@@ -189,26 +187,8 @@ try {
     } fallback {}
   }
 
-  # Walk lines and skip bytes until @_start, then print the rest
-  @_written = 0
-  @_past    = false
-  @_lines   = string.split(@content, "\n")
-  browse(@_lines, @_li, @_ln) {
-    @_llen = math.add(string.len(@_ln), 1)
-    try {
-      assert_eq(@_past, true)
-      sys.echo(@_ln)
-    } fallback {
-      @_next = math.add(@_written, @_llen)
-      try {
-        assert_gt(@_next, @_start)
-        @_past = true
-        sys.echo(@_ln)
-      } fallback {
-        @_written = @_next
-      }
-    }
-  }
+  @_slice = string.byte_slice(@content, @_start, @_total)
+  sys.print(@_slice)
 }
 
 # ── Helper: read content from a file path or stdin ────────────────────────────
@@ -338,7 +318,7 @@ try {
           @_tail_lines.call(@_lines, @_n_lines, @_from_start_lines)
         }
       } fallback {
-        sys.echo("tail: cannot open '${@_fname}' for reading: No such file or directory")
+        sys.eprint("tail: cannot open '${@_fname}' for reading: No such file or directory")
         @exit_code = 1
       }
     }

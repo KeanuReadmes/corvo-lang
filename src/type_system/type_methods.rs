@@ -137,6 +137,20 @@ pub fn call_string_method(name: &str, args: &[Value]) -> CorvoResult<Value> {
                 .map_err(|e| CorvoError::runtime(format!("invalid glob pattern: {}", e)))?;
             Ok(Value::Boolean(regex.is_match(target)))
         }
+        "byte_slice" => {
+            let bytes = target.as_bytes();
+            let start = args.get(1).and_then(|v| v.as_number()).unwrap_or(0.0) as usize;
+            let end = args
+                .get(2)
+                .and_then(|v| v.as_number())
+                .map(|n| n as usize)
+                .unwrap_or(bytes.len());
+            let end = end.min(bytes.len());
+            let start = start.min(end);
+            Ok(Value::String(
+                String::from_utf8_lossy(&bytes[start..end]).into_owned(),
+            ))
+        }
         _ => Err(CorvoError::unknown_function(format!("string.{}", method))),
     }
 }

@@ -169,34 +169,8 @@ try {
     @_take = @_total
   } fallback {}
 
-  # Walk lines, echoing each in full until the byte budget is reached.
-  @_written = 0
-  @_lines   = string.split(@content, "\n")
-  browse(@_lines, @_li, @_ln) {
-    try {
-      assert_lt(@_written, @_take)
-      @_llen = math.add(string.len(@_ln), 1)
-      @_next = math.add(@_written, @_llen)
-      try {
-        assert_gt(@_next, @_take)
-        # Partial line: output only the chars that fit
-        @_remaining = math.sub(@_take, @_written)
-        try {
-          assert_gt(@_remaining, 0)
-          # string.split(str, "") yields ["", c1, c2, ..., ""], so skip
-          # the leading empty element at index 0 by slicing from index 1.
-          @_chars   = string.split(@_ln, "")
-          @_partial = list.join(list.slice(@_chars, 1, math.add(@_remaining, 1)), "")
-          sys.echo(@_partial)
-        } fallback {}
-        @_written = @_take
-      } fallback {
-        # Full line fits
-        sys.echo(@_ln)
-        @_written = @_next
-      }
-    } fallback {}
-  }
+  @_slice = string.byte_slice(@content, 0, @_take)
+  sys.print(@_slice)
 }
 
 # ── Helper: read content from a file path or "/dev/stdin" ─────────────────────
@@ -333,7 +307,7 @@ try {
           @_head_lines.call(@_lines, @_n_lines, @_from_end_lines)
         }
       } fallback {
-        sys.echo("head: cannot open '${@_fname}' for reading: No such file or directory")
+        sys.eprint("head: cannot open '${@_fname}' for reading: No such file or directory")
         @exit_code = 1
       }
     }

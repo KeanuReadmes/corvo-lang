@@ -326,6 +326,8 @@ const KNOWN_NAMESPACES: &[&str] = &[
 pub const KNOWN_FUNCTIONS: &[&str] = &[
     // sys
     "sys.echo",
+    "sys.print",
+    "sys.eprint",
     "sys.read_line",
     "sys.sleep",
     "sys.panic",
@@ -449,6 +451,7 @@ pub const KNOWN_FUNCTIONS: &[&str] = &[
     "string.pad_start",
     "string.pad_end",
     "string.fnmatch",
+    "string.byte_slice",
     // number methods
     "number.to_string",
     "number.parse",
