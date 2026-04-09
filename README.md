@@ -9,7 +9,7 @@ Corvo is a modern scripting language that compiles to standalone Rust binaries. 
 ```corvo
 # Fetch an API, parse JSON, write to disk — no imports, no setup, just script
 @res  = http.get(url: "https://api.example.com/data")
-@data = json.parse(@res.get("response_body"))
+@data = json.parse(@res["response_body"])
 fs.write("/tmp/output.json", json.stringify(@data))
 sys.echo("Written ${map.len(@data)} entries")
 ```
@@ -113,7 +113,7 @@ sys.echo(@out)   # Hello, World!
 
 @fetch = procedure(@url, @acc) {
     @res = http.get(url: @url)
-    @acc = list.push(@acc, @res.get("status_code"))
+    @acc = list.push(@acc, @res["status_code"])
 }
 
 async_browse(@urls, @fetch, @url, shared @results)
@@ -144,8 +144,8 @@ prep {
     # Feature flags fetched once at compile time, encrypted into the binary
     @ff = http.get(string.concat(static.get("API_BASE"), "/feature-flags"))
     try {
-        assert_eq(@ff.get("status_code"), 200)
-        static.set("FLAGS", json.parse(@ff.get("response_body")))
+        assert_eq(@ff["status_code"], 200)
+        static.set("FLAGS", json.parse(@ff["response_body"]))
     } fallback {
         static.set("FLAGS", {"dark_mode": false, "beta_api": false})
     }
@@ -293,7 +293,7 @@ No shell injection: pass a list of strings, get `{stdout, stderr, code}` back:
 
 ```corvo
 @result = sys.exec(["git", "log", "--oneline", "-5"])
-sys.echo(@result.get("stdout"))
+sys.echo(@result["stdout"])
 
 # Timeout, working directory, env vars
 sys.exec(["make", "build"], cwd: "/src", env: {"CC": "clang"}, timeout: 60, check: true)
@@ -314,7 +314,7 @@ sys.exec(["make", "build"], cwd: "/src", env: {"CC": "clang"}, timeout: 60, chec
 @check = procedure(@url, @out) {
     try {
         @res = http.get(url: @url)
-        @line = string.concat(@url, string.concat(" → ", number.to_string(@res.get("status_code"))))
+        @line = string.concat(@url, string.concat(" → ", number.to_string(@res["status_code"])))
         @out = list.push(@out, @line)
     } fallback {
         @out = list.push(@out, string.concat(@url, " → ERROR"))
