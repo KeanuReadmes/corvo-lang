@@ -50,11 +50,11 @@ fn corvo_bin() -> PathBuf {
     PathBuf::from(env!("CARGO_BIN_EXE_corvo"))
 }
 
-/// Spawn `corvo coreutils/<script> -- <args...>` and return `(stdout, exit_code)`.
+/// Spawn `corvo coreutils/<script> -- <args...>` and return `(stdout, stderr, exit_code)`.
 ///
 /// Uses the `corvo` binary compiled by Cargo via `CARGO_BIN_EXE_corvo` so that
 /// the full CLI path (argument forwarding through `--`) is exercised.
-fn run_corvo_script(script: &str, args: &[&str]) -> (String, i32) {
+fn run_corvo_script(script: &str, args: &[&str]) -> (String, String, i32) {
     let manifest = env!("CARGO_MANIFEST_DIR");
     let script_path = PathBuf::from(manifest).join("coreutils").join(script);
     let mut cmd = std::process::Command::new(corvo_bin());
@@ -64,8 +64,9 @@ fn run_corvo_script(script: &str, args: &[&str]) -> (String, i32) {
     }
     let out = cmd.output().expect("failed to spawn corvo process");
     let stdout = String::from_utf8_lossy(&out.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&out.stderr).to_string();
     let code = out.status.code().unwrap_or(-1);
-    (stdout, code)
+    (stdout, stderr, code)
 }
 
 // ---------------------------------------------------------------------------
@@ -199,12 +200,12 @@ fn test_cp_directory_without_recursive_flag() {
     std::fs::create_dir(&src).unwrap();
     let dest = dir.path().join("dest");
 
-    let (stdout, code) =
+    let (_, stderr, code) =
         run_corvo_script("cp.corvo", &[src.to_str().unwrap(), dest.to_str().unwrap()]);
     assert_eq!(code, 1, "should exit 1 when -r is omitted for a directory");
     assert!(
-        stdout.contains("-r not specified"),
-        "expected '-r not specified' in output, got: {stdout}"
+        stderr.contains("-r not specified"),
+        "expected '-r not specified' in stderr, got: {stderr}"
     );
 }
 
@@ -315,23 +316,23 @@ fn test_cp_missing_source_error() {
     let src = dir.path().join("does_not_exist.txt");
     let dst = dir.path().join("dst.txt");
 
-    let (stdout, code) =
+    let (_, stderr, code) =
         run_corvo_script("cp.corvo", &[src.to_str().unwrap(), dst.to_str().unwrap()]);
     assert_eq!(code, 1);
     assert!(
-        stdout.contains("No such file"),
-        "expected 'No such file' in output, got: {stdout}"
+        stderr.contains("No such file"),
+        "expected 'No such file' in stderr, got: {stderr}"
     );
 }
 
 /// cp: missing operand (no arguments) → exit 1 with usage hint.
 #[test]
 fn test_cp_no_arguments_error() {
-    let (stdout, code) = run_corvo_script("cp.corvo", &[]);
+    let (_, stderr, code) = run_corvo_script("cp.corvo", &[]);
     assert_eq!(code, 1);
     assert!(
-        stdout.contains("missing file operand"),
-        "expected 'missing file operand', got: {stdout}"
+        stderr.contains("missing file operand"),
+        "expected 'missing file operand', got: {stderr}"
     );
 }
 
@@ -341,18 +342,18 @@ fn test_cp_missing_destination_error() {
     let dir = tempfile::tempdir().unwrap();
     let src = dir.path().join("src.txt");
     std::fs::write(&src, "x").unwrap();
-    let (stdout, code) = run_corvo_script("cp.corvo", &[src.to_str().unwrap()]);
+    let (_, stderr, code) = run_corvo_script("cp.corvo", &[src.to_str().unwrap()]);
     assert_eq!(code, 1);
     assert!(
-        stdout.contains("missing destination"),
-        "expected 'missing destination', got: {stdout}"
+        stderr.contains("missing destination"),
+        "expected 'missing destination', got: {stderr}"
     );
 }
 
 /// cp: --version outputs version string.
 #[test]
 fn test_cp_version() {
-    let (stdout, code) = run_corvo_script("cp.corvo", &["--version"]);
+    let (stdout, _, code) = run_corvo_script("cp.corvo", &["--version"]);
     assert_eq!(code, 0);
     assert!(
         stdout.contains("cp (Corvo coreutils)"),
@@ -363,7 +364,7 @@ fn test_cp_version() {
 /// cp: --help outputs usage string.
 #[test]
 fn test_cp_help() {
-    let (stdout, code) = run_corvo_script("cp.corvo", &["--help"]);
+    let (stdout, _, code) = run_corvo_script("cp.corvo", &["--help"]);
     assert_eq!(code, 0);
     assert!(
         stdout.contains("Usage: cp"),
@@ -383,7 +384,7 @@ fn test_cp_verbose_output() {
     let dst = dir.path().join("dst.txt");
     std::fs::write(&src, "verbose").unwrap();
 
-    let (stdout, code) = run_corvo_script(
+    let (stdout, _, code) = run_corvo_script(
         "cp.corvo",
         &["-v", src.to_str().unwrap(), dst.to_str().unwrap()],
     );
@@ -404,7 +405,7 @@ fn test_cp_multiple_sources_to_non_directory_error() {
     std::fs::write(&a, "a").unwrap();
     std::fs::write(&b, "b").unwrap();
     // dest does NOT exist yet, so it is not a directory.
-    let (stdout, code) = run_corvo_script(
+    let (_, stderr, code) = run_corvo_script(
         "cp.corvo",
         &[
             a.to_str().unwrap(),
@@ -414,8 +415,8 @@ fn test_cp_multiple_sources_to_non_directory_error() {
     );
     assert_eq!(code, 1);
     assert!(
-        stdout.contains("not a directory"),
-        "expected 'not a directory', got: {stdout}"
+        stderr.contains("not a directory"),
+        "expected 'not a directory', got: {stderr}"
     );
 }
 
@@ -454,7 +455,7 @@ fn test_ls_lists_files() {
     std::fs::write(dir.path().join("alpha.txt"), "a").unwrap();
     std::fs::write(dir.path().join("beta.txt"), "b").unwrap();
 
-    let (stdout, code) = run_corvo_script("ls.corvo", &["-1", dir.path().to_str().unwrap()]);
+    let (stdout, _, code) = run_corvo_script("ls.corvo", &["-1", dir.path().to_str().unwrap()]);
     assert_eq!(code, 0);
     assert!(stdout.contains("alpha.txt"), "expected alpha.txt in output");
     assert!(stdout.contains("beta.txt"), "expected beta.txt in output");
@@ -468,7 +469,7 @@ fn test_ls_default_alphabetical_sort() {
     std::fs::write(dir.path().join("apple.txt"), "a").unwrap();
     std::fs::write(dir.path().join("mango.txt"), "m").unwrap();
 
-    let (stdout, code) = run_corvo_script("ls.corvo", &["-1", dir.path().to_str().unwrap()]);
+    let (stdout, _, code) = run_corvo_script("ls.corvo", &["-1", dir.path().to_str().unwrap()]);
     assert_eq!(code, 0);
     let lines: Vec<&str> = stdout.lines().collect();
     let idx_apple = lines.iter().position(|l| l.contains("apple")).unwrap();
@@ -487,7 +488,8 @@ fn test_ls_reverse_sort() {
     std::fs::write(dir.path().join("aaa.txt"), "a").unwrap();
     std::fs::write(dir.path().join("zzz.txt"), "z").unwrap();
 
-    let (stdout, code) = run_corvo_script("ls.corvo", &["-1", "-r", dir.path().to_str().unwrap()]);
+    let (stdout, _, code) =
+        run_corvo_script("ls.corvo", &["-1", "-r", dir.path().to_str().unwrap()]);
     assert_eq!(code, 0);
     let lines: Vec<&str> = stdout.lines().collect();
     let idx_aaa = lines.iter().position(|l| l.contains("aaa")).unwrap();
@@ -502,7 +504,7 @@ fn test_ls_hides_dotfiles_by_default() {
     std::fs::write(dir.path().join("visible.txt"), "v").unwrap();
     std::fs::write(dir.path().join(".hidden"), "h").unwrap();
 
-    let (stdout, _) = run_corvo_script("ls.corvo", &["-1", dir.path().to_str().unwrap()]);
+    let (stdout, _, _) = run_corvo_script("ls.corvo", &["-1", dir.path().to_str().unwrap()]);
     assert!(
         stdout.contains("visible.txt"),
         "expected visible.txt in output"
@@ -520,7 +522,8 @@ fn test_ls_all_shows_dotfiles() {
     std::fs::write(dir.path().join("visible.txt"), "v").unwrap();
     std::fs::write(dir.path().join(".hidden"), "h").unwrap();
 
-    let (stdout, code) = run_corvo_script("ls.corvo", &["-1", "-a", dir.path().to_str().unwrap()]);
+    let (stdout, _, code) =
+        run_corvo_script("ls.corvo", &["-1", "-a", dir.path().to_str().unwrap()]);
     assert_eq!(code, 0);
     assert!(stdout.contains(".hidden"), "expected .hidden with -a flag");
     assert!(stdout.contains("."), "expected . entry with -a flag");
@@ -533,7 +536,8 @@ fn test_ls_almost_all_omits_dot_entries() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(dir.path().join(".hidden"), "h").unwrap();
 
-    let (stdout, code) = run_corvo_script("ls.corvo", &["-1", "-A", dir.path().to_str().unwrap()]);
+    let (stdout, _, code) =
+        run_corvo_script("ls.corvo", &["-1", "-A", dir.path().to_str().unwrap()]);
     assert_eq!(code, 0);
     let lines: Vec<&str> = stdout.lines().collect();
     assert!(stdout.contains(".hidden"), "expected .hidden with -A flag");
@@ -555,7 +559,7 @@ fn test_ls_directory_flag() {
     std::fs::write(dir.path().join("child.txt"), "c").unwrap();
     let path = dir.path().to_str().unwrap();
 
-    let (stdout, code) = run_corvo_script("ls.corvo", &["-d", path]);
+    let (stdout, _, code) = run_corvo_script("ls.corvo", &["-d", path]);
     assert_eq!(code, 0);
     // Should not list child.txt
     assert!(
@@ -572,7 +576,8 @@ fn test_ls_classify_appends_slash_to_dirs() {
     std::fs::create_dir(&sub).unwrap();
     std::fs::write(dir.path().join("file.txt"), "f").unwrap();
 
-    let (stdout, code) = run_corvo_script("ls.corvo", &["-1", "-F", dir.path().to_str().unwrap()]);
+    let (stdout, _, code) =
+        run_corvo_script("ls.corvo", &["-1", "-F", dir.path().to_str().unwrap()]);
     assert_eq!(code, 0);
     assert!(
         stdout.contains("subdir/"),
@@ -583,7 +588,7 @@ fn test_ls_classify_appends_slash_to_dirs() {
 /// ls: --version outputs version string.
 #[test]
 fn test_ls_version() {
-    let (stdout, code) = run_corvo_script("ls.corvo", &["--version"]);
+    let (stdout, _, code) = run_corvo_script("ls.corvo", &["--version"]);
     assert_eq!(code, 0);
     assert!(
         stdout.contains("ls (Corvo coreutils)"),
@@ -594,7 +599,7 @@ fn test_ls_version() {
 /// ls: --help outputs usage string.
 #[test]
 fn test_ls_help() {
-    let (stdout, code) = run_corvo_script("ls.corvo", &["--help"]);
+    let (stdout, _, code) = run_corvo_script("ls.corvo", &["--help"]);
     assert_eq!(code, 0);
     assert!(
         stdout.contains("Usage: ls"),
@@ -609,7 +614,7 @@ fn test_ls_long_format_fields() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(dir.path().join("sample.txt"), "hello").unwrap();
 
-    let (stdout, code) = run_corvo_script("ls.corvo", &["-l", dir.path().to_str().unwrap()]);
+    let (stdout, _, code) = run_corvo_script("ls.corvo", &["-l", dir.path().to_str().unwrap()]);
     assert_eq!(code, 0);
     // Expect lines that start with a mode string like -rw-...
     let data_lines: Vec<&str> = stdout.lines().filter(|l| !l.starts_with("total")).collect();
@@ -637,7 +642,8 @@ fn test_ls_recursive() {
     std::fs::create_dir(&sub).unwrap();
     std::fs::write(sub.join("deep.txt"), "d").unwrap();
 
-    let (stdout, code) = run_corvo_script("ls.corvo", &["-1", "-R", dir.path().to_str().unwrap()]);
+    let (stdout, _, code) =
+        run_corvo_script("ls.corvo", &["-1", "-R", dir.path().to_str().unwrap()]);
     assert_eq!(code, 0);
     assert!(
         stdout.contains("deep.txt"),
@@ -656,7 +662,7 @@ fn test_ls_multiple_paths_show_headers() {
     std::fs::write(d1.join("one.txt"), "1").unwrap();
     std::fs::write(d2.join("two.txt"), "2").unwrap();
 
-    let (stdout, code) = run_corvo_script(
+    let (stdout, _, code) = run_corvo_script(
         "ls.corvo",
         &["-1", d1.to_str().unwrap(), d2.to_str().unwrap()],
     );
@@ -675,7 +681,8 @@ fn test_ls_ignore_backups() {
     std::fs::write(dir.path().join("file.txt"), "f").unwrap();
     std::fs::write(dir.path().join("file.txt~"), "backup").unwrap();
 
-    let (stdout, code) = run_corvo_script("ls.corvo", &["-1", "-B", dir.path().to_str().unwrap()]);
+    let (stdout, _, code) =
+        run_corvo_script("ls.corvo", &["-1", "-B", dir.path().to_str().unwrap()]);
     assert_eq!(code, 0);
     assert!(stdout.contains("file.txt"), "expected file.txt");
     assert!(
@@ -691,7 +698,7 @@ fn test_ls_sort_by_size() {
     std::fs::write(dir.path().join("small.txt"), "s").unwrap(); // 1 byte
     std::fs::write(dir.path().join("large.txt"), "l".repeat(1000)).unwrap(); // 1000 bytes
 
-    let (stdout, code) = run_corvo_script(
+    let (stdout, _, code) = run_corvo_script(
         "ls.corvo",
         &["-1", "--sort=size", dir.path().to_str().unwrap()],
     );
@@ -733,7 +740,7 @@ fn test_cp_then_ls_shows_copied_files() {
     }
 
     // ls dst/
-    let (stdout, code) = run_corvo_script("ls.corvo", &["-1", dst_dir.to_str().unwrap()]);
+    let (stdout, _, code) = run_corvo_script("ls.corvo", &["-1", dst_dir.to_str().unwrap()]);
     assert_eq!(code, 0);
     assert!(
         stdout.contains("foo.txt"),

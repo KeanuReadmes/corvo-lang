@@ -32,6 +32,8 @@ pub fn call(
 ) -> CorvoResult<Value> {
     match name {
         "sys.echo" => sys::echo(args, named_args),
+        "sys.print" => sys::print_no_newline(args, named_args),
+        "sys.eprint" => sys::eprint_newline(args, named_args),
         "sys.read_line" => sys::read_line(args, named_args),
         "sys.sleep" => sys::sleep(args, named_args),
         "sys.panic" => sys::panic(args, named_args),

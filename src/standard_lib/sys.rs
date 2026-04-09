@@ -19,6 +19,32 @@ pub fn echo(args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResult
     Ok(Value::Null)
 }
 
+/// Print to stdout without appending a trailing newline.
+pub fn print_no_newline(
+    args: &[Value],
+    _named_args: &HashMap<String, Value>,
+) -> CorvoResult<Value> {
+    for arg in args {
+        print!("{}", arg);
+    }
+    io::stdout()
+        .flush()
+        .map_err(|e| CorvoError::io(e.to_string()))?;
+    Ok(Value::Null)
+}
+
+/// Print to stderr with a trailing newline (mirrors sys.echo but writes to stderr).
+pub fn eprint_newline(args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResult<Value> {
+    for arg in args {
+        eprint!("{}", arg);
+    }
+    eprintln!();
+    io::stderr()
+        .flush()
+        .map_err(|e| CorvoError::io(e.to_string()))?;
+    Ok(Value::Null)
+}
+
 pub fn read_line(args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResult<Value> {
     if !args.is_empty() {
         print!("{}", args[0]);

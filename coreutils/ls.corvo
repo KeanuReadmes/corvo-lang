@@ -16,7 +16,7 @@
     "i": "inode",           "k": "kibibytes",      "l": "long",
     "L": "dereference",     "m": "stream",         "n": "numeric_uid_gid",
     "N": "literal",         "r": "reverse",        "R": "recursive",
-    "s": "blocks",          "t": "time_sort_modified",
+    "s": "blocks",          "S": "sort_size",      "t": "time_sort_modified",
     "u": "time_access",     "U": "unsorted",       "v": "sort_version",
     "x": "format_across",   "X": "sort_extension", "1": "one_per_line",
     "Z": "selinux",
@@ -258,7 +258,8 @@ try {
 
 # ── Sort key ──────────────────────────────────────────────────────────────────
 # -t sets time-sort; the specific time field (-c ctime, -u atime, else mtime).
-# --sort= overrides -t entirely.  Default is alphabetical ("name").
+# -S sets size-sort; -X sets extension-sort.
+# --sort= overrides all short-flag sorts.  Default is alphabetical ("name").
 @sort_key = "name"
 try {
   assert_eq(@o["time_sort_modified"], true)
@@ -275,7 +276,19 @@ try {
   }
 } fallback {}
 
-# --sort= flag overrides the -t time-sort selection above.
+# -S: sort by file size (largest first by default)
+try {
+  assert_eq(@o.get("sort_size", false), true)
+  @sort_key = "size"
+} fallback {}
+
+# -X: sort alphabetically by extension
+try {
+  assert_eq(@o.get("sort_extension", false), true)
+  @sort_key = "extension"
+} fallback {}
+
+# --sort= flag overrides all short-flag sort selections above.
 @sort_key = match(@o.get("sort", "")) {
   "size" => "size",
   "time" => "mtime_sec",
@@ -365,13 +378,20 @@ loop {
     assert_eq(@is_dir, true)
     try {
       assert_eq(@dir_only, true)
-      @entries = list.push(@entries, @meta)
+      # Use @pth as the display name so that absolute paths like /fixtures
+      # are shown as-is rather than just the basename.
+      @_dm = @meta
+      @_dm["name"] = @pth
+      @entries = list.push(@entries, @_dm)
     } fallback {
       @entries = fs.read_dir_meta(@pth, @follow)
       @from_dir_read = true
     }
   } fallback {
-    @entries = list.push(@entries, @meta)
+    # Non-directory: display the path as given (not just the basename).
+    @_fm = @meta
+    @_fm["name"] = @pth
+    @entries = list.push(@entries, @_fm)
   }
 
   # -a / --all: prepend synthetic "." and ".." entries to the list.
@@ -762,17 +782,39 @@ loop {
   @suf = ""
 
   # Branch 1: stream mode (-m)
+  # Items are separated by ", " and lines are wrapped at @term_w columns.
   try {
     assert_eq(@stream, true)
-      @names_out = []
-      browse(@sorted, @_so, @ee) {
-        @nm = @ee["name"]
-        @_e = @ee
-        @get_entry_suffix.call(@_e, @classify, @suf)
-        @names_out = list.push(@names_out, "${@nm}${@suf}")
+    @_stream_line = ""
+    @_stream_first = true
+    browse(@sorted, @_so, @ee) {
+      @nm = @ee["name"]
+      @_e = @ee
+      @get_entry_suffix.call(@_e, @classify, @suf)
+      @_item = "${@nm}${@suf}"
+      try {
+        assert_eq(@_stream_first, true)
+        @_stream_line = @_item
+        @_stream_first = false
+      } fallback {
+        # Check if adding ", item" would exceed terminal width
+        @_candidate = "${@_stream_line}, ${@_item}"
+        try {
+          assert_gt(string.len(@_candidate), @term_w)
+          # Would overflow: flush current line with trailing comma and start new line
+          sys.echo("${@_stream_line},")
+          @_stream_line = @_item
+        } fallback {
+          @_stream_line = @_candidate
+        }
       }
-      sys.echo(list.join(@names_out, ", "))
-    } fallback {
+    }
+    # Print the final (or only) line — no trailing comma
+    try {
+      assert_eq(@_stream_first, false)
+      sys.echo(@_stream_line)
+    } fallback {}
+  } fallback {
       # Branch 2: multi-column mode (-C)
       try {
         assert_eq(@fmt_C, true)

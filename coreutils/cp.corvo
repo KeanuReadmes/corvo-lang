@@ -171,16 +171,16 @@ try {
     # No -t flag: last positional is the destination, the rest are sources.
     try {
       assert_eq(list.len(@srcs), 0)
-      sys.echo("cp: missing file operand")
-      sys.echo("Try 'cp --help' for more information.")
+      sys.eprint("cp: missing file operand")
+      sys.eprint("Try 'cp --help' for more information.")
       @exit_code = 1
       @skip_main = true
     } fallback {}
     try {
       assert_eq(@skip_main, false)
       assert_eq(list.len(@srcs), 1)
-      sys.echo("cp: missing destination file operand after '${list.get(@srcs, 0)}'")
-      sys.echo("Try 'cp --help' for more information.")
+      sys.eprint("cp: missing destination file operand after '${list.get(@srcs, 0)}'")
+      sys.eprint("Try 'cp --help' for more information.")
       @exit_code = 1
       @skip_main = true
     } fallback {}
@@ -194,8 +194,8 @@ try {
     @dest = @target_dir
     try {
       assert_eq(list.len(@srcs), 0)
-      sys.echo("cp: missing file operand")
-      sys.echo("Try 'cp --help' for more information.")
+      sys.eprint("cp: missing file operand")
+      sys.eprint("Try 'cp --help' for more information.")
       @exit_code = 1
       @skip_main = true
     } fallback {}
@@ -218,7 +218,7 @@ try {
     assert_eq(@no_target_dir, true)
     try {
       assert_eq(@dest_is_dir, true)
-      sys.echo("cp: cannot overwrite directory '${@dest}' with non-directory")
+      sys.eprint("cp: cannot overwrite directory '${@dest}' with non-directory")
       @exit_code = 1
       @skip_main = true
     } fallback {}
@@ -236,7 +236,7 @@ try {
     try {
       assert_eq(@skip_main, false)
       assert_eq(@dest_is_dir, false)
-      sys.echo("cp: target '${@dest}': is not a directory")
+      sys.eprint("cp: target '${@dest}': is not a directory")
       @exit_code = 1
       @skip_main = true
     } fallback {}
@@ -282,7 +282,7 @@ try {
         # ── Source is a directory ──────────────────────────────────────────
         try {
           assert_eq(@recursive, false)
-          sys.echo("cp: -r not specified; omitting directory '${@_src}'")
+          sys.eprint("cp: -r not specified; omitting directory '${@_src}'")
           @exit_code = 1
         } fallback {
           # Create the destination directory (recursive mkdir: no-op if it
@@ -365,13 +365,13 @@ try {
               sys.echo("'${@_src}' -> '${@_dst}'")
             } fallback {}
           } fallback {
-            sys.echo("cp: cannot copy '${@_src}' to '${@_dst}'")
+            sys.eprint("cp: cannot copy '${@_src}' to '${@_dst}'")
             @exit_code = 1
           }
         } fallback {}
       }
     } fallback {
-      sys.echo("cp: cannot stat '${@_src}': No such file or directory")
+      sys.eprint("cp: cannot stat '${@_src}': No such file or directory")
       @exit_code = 1
     }
   }

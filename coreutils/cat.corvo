@@ -249,7 +249,7 @@ try {
           } fallback {}
           @_print_lines.call(@_lines, @_number, @_number_nonblank, @_squeeze, @_show_ends, @_show_tabs, @_lnum, @_prev_blank)
         } fallback {
-          sys.echo("cat: ${@_fname}: No such file or directory")
+          sys.eprint("cat: ${@_fname}: No such file or directory")
           @exit_code = 1
         }
       }
