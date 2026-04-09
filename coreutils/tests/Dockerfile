@@ -53,5 +53,7 @@ RUN for tool in ls cat head tail cp; do \
 COPY --from=builder /build/target/release/corvo /usr/local/bin/corvo
 RUN mkdir -p /corvo/coreutils
 COPY coreutils/*.corvo /corvo/coreutils/
+COPY coreutils/tests/ /corvo/tests/
+RUN find /corvo/tests -name "*.sh" -exec chmod +x {} \;
 
 WORKDIR /work

@@ -31,8 +31,23 @@ coreutils/           GNU-compatible coreutils alternatives written in Corvo
   cp.corvo           GNU cp
   tests/
     Dockerfile               Multi-stage build: ubuntu:noble with gnu-TOOL and uutils
-    run-parity.sh            Required CI: all 5 tools vs GNU coreutils (uutils informational)
-    run-parity-matrix.sh     Extended flag-combination matrix vs GNU coreutils
+    helpers.sh               Shared run_case / run_uutils_case / show_time functions
+    parity/
+      ls.sh                  Required parity cases for ls
+      cat.sh                 Required parity cases for cat
+      head.sh                Required parity cases for head
+      tail.sh                Required parity cases for tail
+      cp.sh                  Required parity cases for cp
+      run-all.sh             Entry point: sources helpers + each parity script
+    matrix/
+      ls.sh                  Extended flag-combination matrix for ls
+      cat.sh                 Extended flag-combination matrix for cat
+      head.sh                Extended flag-combination matrix for head
+      tail.sh                Extended flag-combination matrix for tail
+      cp.sh                  Extended flag-combination matrix for cp
+      run-all.sh             Entry point: sources helpers + each matrix script
+    run-parity.sh            Host orchestrator → runs parity/run-all.sh in container (required CI)
+    run-parity-matrix.sh     Host orchestrator → runs matrix/run-all.sh in container (required CI)
 tests/
   integration_test.rs  Integration test suite (≥ 60 tests)
 ```
@@ -188,15 +203,15 @@ When implementing a new GNU coreutils-compatible tool in `coreutils/`:
 1. Create the implementation as `coreutils/<toolname>.corvo`.
 2. Add or update an example/lint check in the pre-commit lint sweep.
 3. **Create parity tests** in `coreutils/tests/`:
-   - Add test cases for the new tool to the inner scripts in
-     `run-parity.sh` (required, all must pass) and
-     `run-parity-matrix.sh` (extended matrix).
-   - Follow the `run_case <section> <label> <gnu_cmd> <corvo_cmd>` pattern
-     used by the existing tools in those scripts.
-   - Use `gnu-<toolname>` as the GNU reference (already set up as a binary
-     copy of the system GNU tool in the Docker image).
-   - Add `run_uutils_case` calls for the `uu-<toolname>` comparison
-     (informational — never fails the suite).
+   - Add a new `coreutils/tests/parity/<toolname>.sh` with required cases.
+     Follow the `run_case <section> <label> <gnu_cmd> <corvo_cmd>` pattern
+     and add `run_uutils_case` + `show_time` calls at the end.
+   - Add a new `coreutils/tests/matrix/<toolname>.sh` with extended
+     flag-combination cases.
+   - Source both new scripts from `parity/run-all.sh` and `matrix/run-all.sh`
+     respectively (one `. "$TESTS_DIR/parity/<toolname>.sh"` line each).
+   - Use `gnu-<toolname>` as the GNU reference (already set up in the Docker
+     image).  Add `run_uutils_case` calls for `uu-<toolname>` (informational).
    - If the tool performs file-system operations, compare the resulting
      file trees with `diff -r` rather than stdout alone.
 4. Add the new tool's `.corvo` file to `coreutils/` — it will be copied into
