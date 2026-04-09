@@ -23,7 +23,31 @@ src/
   lib.rs             Public API (run_source, run_source_with_state, …)
   main.rs            CLI entry point
 examples/            .corvo example scripts, one per feature area
-coreutils/           Larger stdlib-driven demos (e.g. GNU-oriented `ls.corvo`)
+coreutils/           GNU-compatible coreutils alternatives written in Corvo
+  ls.corvo           GNU ls
+  cat.corvo          GNU cat
+  head.corvo         GNU head
+  tail.corvo         GNU tail
+  cp.corvo           GNU cp
+  tests/
+    Dockerfile               Multi-stage build: ubuntu:noble with gnu-TOOL and uutils
+    helpers.sh               Shared run_case / run_uutils_case / show_time functions
+    parity/
+      ls.sh                  Required parity cases for ls
+      cat.sh                 Required parity cases for cat
+      head.sh                Required parity cases for head
+      tail.sh                Required parity cases for tail
+      cp.sh                  Required parity cases for cp
+      run-all.sh             Entry point: sources helpers + each parity script
+    matrix/
+      ls.sh                  Extended flag-combination matrix for ls
+      cat.sh                 Extended flag-combination matrix for cat
+      head.sh                Extended flag-combination matrix for head
+      tail.sh                Extended flag-combination matrix for tail
+      cp.sh                  Extended flag-combination matrix for cp
+      run-all.sh             Entry point: sources helpers + each matrix script
+    run-parity.sh            Host orchestrator → runs parity/run-all.sh in container (required CI)
+    run-parity-matrix.sh     Host orchestrator → runs matrix/run-all.sh in container (required CI)
 tests/
   integration_test.rs  Integration test suite (≥ 60 tests)
 ```
@@ -100,10 +124,10 @@ cargo clippy --all-targets --all-features -- -D warnings
 cargo build --release
 for f in examples/*.corvo coreutils/*.corvo; do target/release/corvo --lint "$f"; done
 cargo test --all-features
-# Optional but recommended before pushing ls changes (requires Docker):
-# ./scripts/ls-parity-docker.sh --require-docker
-# Wider flag comparison (reports PASS/FAIL per option group; may include expected gaps):
-# ./scripts/ls-parity-matrix.sh
+# Parity tests vs GNU coreutils and uutils (requires Docker):
+# ./coreutils/tests/run-parity.sh --require-docker
+# Extended flag-combination matrix (informational):
+# ./coreutils/tests/run-parity-matrix.sh
 cargo fmt
 ```
 
@@ -164,8 +188,35 @@ The `.github/workflows/ci.yml` pipeline runs on every push and PR to `main`:
 | Format | `cargo fmt --check` |
 | Clippy | `cargo clippy --all-targets --all-features -- -D warnings` |
 | Test | `cargo test --all-features` (Linux, macOS, Windows) |
-| GNU ls parity | `./scripts/ls-parity-docker.sh --require-docker` (Linux + Docker only) |
-| GNU ls matrix | `./scripts/ls-parity-matrix.sh` (optional; many flag combos vs GNU `ls`) |
+| Coreutils parity | `./coreutils/tests/run-parity.sh --require-docker` (Linux + Docker) |
+| Coreutils parity matrix | `./coreutils/tests/run-parity-matrix.sh --require-docker` (Linux + Docker) |
 | Build | `cargo build --release --all-features` (Linux, macOS, Windows) |
 
 All jobs must be green before merging.
+
+---
+
+## Adding a new coreutils alternative tool
+
+When implementing a new GNU coreutils-compatible tool in `coreutils/`:
+
+1. Create the implementation as `coreutils/<toolname>.corvo`.
+2. Add or update an example/lint check in the pre-commit lint sweep.
+3. **Create parity tests** in `coreutils/tests/`:
+   - Add a new `coreutils/tests/parity/<toolname>.sh` with required cases.
+     Follow the `run_case <section> <label> <gnu_cmd> <corvo_cmd>` pattern
+     and add `run_uutils_case` + `show_time` calls at the end.
+   - Add a new `coreutils/tests/matrix/<toolname>.sh` with extended
+     flag-combination cases.
+   - Source both new scripts from `parity/run-all.sh` and `matrix/run-all.sh`
+     respectively (one `. "$TESTS_DIR/parity/<toolname>.sh"` line each).
+   - Use `gnu-<toolname>` as the GNU reference (already set up in the Docker
+     image).  Add `run_uutils_case` calls for `uu-<toolname>` (informational).
+   - If the tool performs file-system operations, compare the resulting
+     file trees with `diff -r` rather than stdout alone.
+4. Add the new tool's `.corvo` file to `coreutils/` — it will be copied into
+   the Docker image automatically by the `COPY coreutils/*.corvo` glob in
+   `coreutils/tests/Dockerfile`.
+5. Add an example under `coreutils/` (e.g. `coreutils/<toolname>.corvo` is
+   the canonical example) and verify it passes `corvo --lint`.
+6. Run the full pre-commit checklist including the parity scripts.
