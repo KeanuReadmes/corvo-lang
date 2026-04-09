@@ -41,7 +41,7 @@
 
 # ── Handle --help ─────────────────────────────────────────────────────────────
 try {
-  assert_eq(map.get(@o, "help", false), true)
+  assert_eq(@o.get("help", false), true)
   sys.echo("Usage: cat [OPTION]... [FILE]...")
   sys.echo("Concatenate FILE(s) to standard output.")
   sys.echo("")
@@ -62,7 +62,7 @@ try {
 
 # ── Handle --version ──────────────────────────────────────────────────────────
 try {
-  assert_eq(map.get(@o, "version", false), true)
+  assert_eq(@o.get("version", false), true)
   sys.echo("cat (Corvo coreutils) 0.1.0")
   @skip_main = true
 } fallback {}
@@ -77,11 +77,11 @@ try {
 try {
   assert_eq(@skip_main, true)
 } fallback {
-  @_number      = map.get(@o, "number",        false)
-  @_number_nonblank = map.get(@o, "number_nonblank", false)
-  @_squeeze     = map.get(@o, "squeeze_blank", false)
-  @_show_ends   = map.get(@o, "show_ends",     false)
-  @_show_tabs   = map.get(@o, "show_tabs",     false)
+  @_number      = @o.get("number",        false)
+  @_number_nonblank = @o.get("number_nonblank", false)
+  @_squeeze     = @o.get("squeeze_blank", false)
+  @_show_ends   = @o.get("show_ends",     false)
+  @_show_tabs   = @o.get("show_tabs",     false)
 
   # -b overrides -n
   try {
@@ -91,20 +91,20 @@ try {
 
   # -A implies -E and -T
   try {
-    assert_eq(map.get(@o, "show_all", false), true)
+    assert_eq(@o.get("show_all", false), true)
     @_show_ends = true
     @_show_tabs = true
   } fallback {}
 
   # -e implies -E
   try {
-    assert_eq(map.get(@o, "show_ends_nonprinting", false), true)
+    assert_eq(@o.get("show_ends_nonprinting", false), true)
     @_show_ends = true
   } fallback {}
 
   # -t implies -T
   try {
-    assert_eq(map.get(@o, "show_tabs_nonprinting", false), true)
+    assert_eq(@o.get("show_tabs_nonprinting", false), true)
     @_show_tabs = true
   } fallback {}
 }

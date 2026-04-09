@@ -37,7 +37,7 @@
 
 # ── Handle --help ─────────────────────────────────────────────────────────────
 try {
-  assert_eq(map.get(@o, "help", false), true)
+  assert_eq(@o.get("help", false), true)
   sys.echo("Usage: head [OPTION]... [FILE]...")
   sys.echo("Print the first 10 lines of each FILE to standard output.")
   sys.echo("With more than one FILE, precede each with a header giving the file name.")
@@ -58,7 +58,7 @@ try {
 
 # ── Handle --version ──────────────────────────────────────────────────────────
 try {
-  assert_eq(map.get(@o, "version", false), true)
+  assert_eq(@o.get("version", false), true)
   sys.echo("head (Corvo coreutils) 0.1.0")
   @skip_main = true
 } fallback {}
@@ -75,11 +75,11 @@ try {
 try {
   assert_eq(@skip_main, true)
 } fallback {
-  @_quiet   = map.get(@o, "quiet",   false)
-  @_verbose = map.get(@o, "verbose", false)
+  @_quiet   = @o.get("quiet",   false)
+  @_verbose = @o.get("verbose", false)
 
   # Parse --lines / -n
-  @_n_str = map.get(@o, "lines", "")
+  @_n_str = @o.get("lines", "")
   try {
     assert_eq(string.is_empty(@_n_str), false)
     # Support leading '-' meaning "all but last N"
@@ -92,7 +92,7 @@ try {
       @_n_lines = number.parse(0, @_n_str)
       @_n_lines = number.floor(@_n_lines)
     } fallback {
-      sys.echo("head: invalid number of lines: '${map.get(@o, "lines", "")}'")
+      sys.echo("head: invalid number of lines: '${@o.get("lines", "")}'")
       @exit_code = 1
       @skip_main = true
     }
@@ -101,7 +101,7 @@ try {
   # Parse --bytes / -c
   try {
     assert_eq(@skip_main, false)
-    @_c_str = map.get(@o, "bytes", "")
+    @_c_str = @o.get("bytes", "")
     try {
       assert_eq(string.is_empty(@_c_str), false)
       @_use_bytes = true
@@ -115,7 +115,7 @@ try {
         @_n_bytes = number.parse(0, @_c_str)
         @_n_bytes = number.floor(@_n_bytes)
       } fallback {
-        sys.echo("head: invalid number of bytes: '${map.get(@o, "bytes", "")}'")
+        sys.echo("head: invalid number of bytes: '${@o.get("bytes", "")}'")
         @exit_code = 1
         @skip_main = true
       }

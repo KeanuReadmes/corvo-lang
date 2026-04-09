@@ -95,7 +95,7 @@
 
 # ── Handle --help ─────────────────────────────────────────────────────────────
 try {
-  assert_eq(map.get(@o, "help", false), true)
+  assert_eq(@o.get("help", false), true)
   sys.echo("Usage: cp [OPTION]... [-T] SOURCE DEST")
   sys.echo("  or:  cp [OPTION]... SOURCE... DIRECTORY")
   sys.echo("  or:  cp [OPTION]... -t DIRECTORY SOURCE...")
@@ -125,7 +125,7 @@ try {
 
 # ── Handle --version ──────────────────────────────────────────────────────────
 try {
-  assert_eq(map.get(@o, "version", false), true)
+  assert_eq(@o.get("version", false), true)
   sys.echo("cp (Corvo coreutils) 0.1.0")
   @skip_main = true
 } fallback {}
@@ -134,15 +134,15 @@ try {
 try {
   assert_eq(@skip_main, true)
 } fallback {
-  @recursive = map.get(@o, "recursive", false)
-  @archive   = map.get(@o, "archive",   false)
-  @force     = map.get(@o, "force",     false)
-  @interactive  = map.get(@o, "interactive",  false)
-  @no_clobber   = map.get(@o, "no_clobber",   false)
-  @verbose   = map.get(@o, "verbose",   false)
-  @preserve  = map.get(@o, "preserve",  false)
-  @update    = map.get(@o, "update",    false)
-  @no_target_dir = map.get(@o, "no_target_directory", false)
+  @recursive = @o.get("recursive", false)
+  @archive   = @o.get("archive",   false)
+  @force     = @o.get("force",     false)
+  @interactive  = @o.get("interactive",  false)
+  @no_clobber   = @o.get("no_clobber",   false)
+  @verbose   = @o.get("verbose",   false)
+  @preserve  = @o.get("preserve",  false)
+  @update    = @o.get("update",    false)
+  @no_target_dir = @o.get("no_target_directory", false)
 
   # -a implies -r and --preserve
   try {
@@ -159,7 +159,7 @@ try {
 }
 
 # ── Resolve sources and destination ──────────────────────────────────────────
-@target_dir = map.get(@o, "target_directory", "")
+@target_dir = @o.get("target_directory", "")
 @srcs = @positional
 @dest = ""
 
@@ -318,8 +318,8 @@ try {
           assert_eq(@update,      true)
           assert_eq(@_dst_exists, true)
           @_dst_meta = fs.read_meta(@_dst, false)
-          @_src_mt   = map.get(@_meta,     "mtime_sec", 0)
-          @_dst_mt   = map.get(@_dst_meta, "mtime_sec", 0)
+          @_src_mt   = @_meta.get("mtime_sec", 0)
+          @_dst_mt   = @_dst_meta.get("mtime_sec", 0)
           try {
             assert_gt(@_src_mt, @_dst_mt)
           } fallback {

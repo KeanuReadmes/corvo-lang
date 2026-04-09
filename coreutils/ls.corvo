@@ -84,28 +84,28 @@
 # (or a human-readable approximation when -h / --human-readable is set).
 # Directories always use binary units (never SI) for human-readable output.
 @get_size_string = procedure(@entry, @human_flag, @si_flag, @sz_out) {
-  @_ft = map.get(@entry, "file_type_char", "-")
-  @_is_dir = map.get(@entry, "is_dir", false)
+  @_ft = @entry.get("file_type_char", "-")
+  @_is_dir = @entry.get("is_dir", false)
   try {
     assert_eq(@_ft, "b")
-    @_maj = number.to_string(map.get(@entry, "major", 0))
-    @_min = number.to_string(map.get(@entry, "minor", 0))
+    @_maj = number.to_string(@entry.get("major", 0))
+    @_min = number.to_string(@entry.get("minor", 0))
     @sz_out = "${@_maj}, ${@_min}"
   } fallback {
     try {
       assert_eq(@_ft, "c")
-      @_maj = number.to_string(map.get(@entry, "major", 0))
-      @_min = number.to_string(map.get(@entry, "minor", 0))
+      @_maj = number.to_string(@entry.get("major", 0))
+      @_min = number.to_string(@entry.get("minor", 0))
       @sz_out = "${@_maj}, ${@_min}"
     } fallback {
-      @sz_out = number.to_string(map.get(@entry, "size", 0))
+      @sz_out = number.to_string(@entry.get("size", 0))
       try {
         assert_eq(@human_flag, true)
         try {
           assert_eq(@_is_dir, true)
-          @sz_out = math.human_bytes(map.get(@entry, "size", 0), false)
+          @sz_out = math.human_bytes(@entry.get("size", 0), false)
         } fallback {
-          @sz_out = math.human_bytes(map.get(@entry, "size", 0), @si_flag)
+          @sz_out = math.human_bytes(@entry.get("size", 0), @si_flag)
         }
       } fallback {}
     }
@@ -115,17 +115,17 @@
 # Select the correct timestamp field (mtime by default; atime with -u; ctime
 # with -c) and format it according to the resolved time-style strftime string.
 @get_time_string = procedure(@entry, @time_access_flag, @time_change_flag, @fmt_str, @tstr_out) {
-  @_tsec = map.get(@entry, "mtime_sec", 0)
-  @_tnsec = map.get(@entry, "mtime_nsec", 0)
+  @_tsec = @entry.get("mtime_sec", 0)
+  @_tnsec = @entry.get("mtime_nsec", 0)
   try {
     assert_eq(@time_access_flag, true)
-    @_tsec = map.get(@entry, "atime_sec", 0)
-    @_tnsec = map.get(@entry, "atime_nsec", 0)
+    @_tsec = @entry.get("atime_sec", 0)
+    @_tnsec = @entry.get("atime_nsec", 0)
   } fallback {}
   try {
     assert_eq(@time_change_flag, true)
-    @_tsec = map.get(@entry, "ctime_sec", 0)
-    @_tnsec = map.get(@entry, "ctime_nsec", 0)
+    @_tsec = @entry.get("ctime_sec", 0)
+    @_tnsec = @entry.get("ctime_nsec", 0)
   } fallback {}
   @tstr_out = time.format_local(@_tsec, @_tnsec, @fmt_str)
 }
@@ -136,7 +136,7 @@
 @print_total_blocks = procedure(@sorted_list, @human_flag) {
   @_tb = 0
   browse(@sorted_list, @_ptb, @_pee) {
-    @_tb = math.add(@_tb, map.get(@_pee, "blocks", 0))
+    @_tb = math.add(@_tb, @_pee.get("blocks", 0))
   }
   @_tk = number.ceil(math.div(@_tb, 2))
   try {
@@ -161,7 +161,7 @@
   }
   @_ee2 = @ee
   @_ee2["extension"] = @_ext
-  @_ee2["_skey"] = map.get(@ee, @sk, 0)
+  @_ee2["_skey"] = @ee.get(@sk, 0)
   @acc = list.push(@acc, @_ee2)
 }
 
@@ -179,19 +179,19 @@
 
 # Handle --help / --version / --dired before touching the filesystem.
 try {
-  assert_eq(map.get(@o, "help", false), true)
+  assert_eq(@o.get("help", false), true)
   sys.echo("Usage: ls [OPTION]... [FILE]...")
   @_ls_skip = true
 } fallback {}
 
 try {
-  assert_eq(map.get(@o, "version", false), true)
+  assert_eq(@o.get("version", false), true)
   sys.echo("ls (Corvo coreutils) 0.1.0")
   @_ls_skip = true
 } fallback {}
 
 try {
-  assert_eq(map.get(@o, "dired", false), true)
+  assert_eq(@o.get("dired", false), true)
   sys.echo("ls.corvo: --dired is not implemented")
   @_ls_exit_code = 2
   @_ls_skip = true
@@ -205,56 +205,56 @@ try {
   assert_eq(@_ls_skip, true)
 } fallback {
   try {
-    assert_eq(map.get(@o, "dereference_command_line", false), true)
+    assert_eq(@o.get("dereference_command_line", false), true)
     @follow = true
   } fallback {
     try {
-      assert_eq(map.get(@o, "dereference", false), true)
+      assert_eq(@o.get("dereference", false), true)
       @follow = true
     } fallback {}
   }
 }
 
-@all        = map.get(@o, "all",            false)
-@almost     = map.get(@o, "almost_all",     false)
-@blocks     = map.get(@o, "blocks",         false)
-@inode_col  = map.get(@o, "inode",          false)
-@long       = map.get(@o, "long",           false)
-@omit_group = map.get(@o, "no_group",       false)
-@numeric_ids = map.get(@o, "numeric_uid_gid", false)
-@classify   = map.get(@o, "classify",       false)
-@human      = map.get(@o, "human_readable", false)
-@si         = map.get(@o, "si",             false)
-@reverse    = map.get(@o, "reverse",        false)
-@recursive  = map.get(@o, "recursive",      false)
-@dir_only   = map.get(@o, "directory",      false)
-@stream     = map.get(@o, "stream",         false)
+@all        = @o.get("all",            false)
+@almost     = @o.get("almost_all",     false)
+@blocks     = @o.get("blocks",         false)
+@inode_col  = @o.get("inode",          false)
+@long       = @o.get("long",           false)
+@omit_group = @o.get("no_group",       false)
+@numeric_ids = @o.get("numeric_uid_gid", false)
+@classify   = @o.get("classify",       false)
+@human      = @o.get("human_readable", false)
+@si         = @o.get("si",             false)
+@reverse    = @o.get("reverse",        false)
+@recursive  = @o.get("recursive",      false)
+@dir_only   = @o.get("directory",      false)
+@stream     = @o.get("stream",         false)
 
 # ── Output format: resolve -C / --format=vertical vs -1 ─────────────────────
 # -C (or --format=vertical) selects multi-column output; -1 overrides it back
 # to one-name-per-line mode.
-@fmt_C = map.get(@o, "format_vertical", false)
+@fmt_C = @o.get("format_vertical", false)
 try {
-  assert_eq(map.get(@o, "format", ""), "vertical")
+  assert_eq(@o.get("format", ""), "vertical")
   @fmt_C = true
 } fallback {}
 try {
-  assert_eq(map.get(@o, "one_per_line", false), true)
+  assert_eq(@o.get("one_per_line", false), true)
   @fmt_C = false
 } fallback {}
 
 # ── Terminal width ────────────────────────────────────────────────────────────
 # Default to 80 columns; override with -w / --width if the user supplied a value.
 @term_w = 80
-@ww = map.get(@o, "width", "")
+@ww = @o.get("width", "")
 try {
   assert_eq(string.len(string.trim(@ww)), 0)
 } fallback {
   @term_w = number.parse(0, @ww)
 }
 
-@hides   = map.get(@o, "hide",   list.new())
-@ignores = map.get(@o, "ignore", list.new())
+@hides   = @o.get("hide",   list.new())
+@ignores = @o.get("ignore", list.new())
 
 # ── Sort key ──────────────────────────────────────────────────────────────────
 # -t sets time-sort; the specific time field (-c ctime, -u atime, else mtime).
@@ -276,7 +276,7 @@ try {
 } fallback {}
 
 # --sort= flag overrides the -t time-sort selection above.
-@sort_key = match(map.get(@o, "sort", "")) {
+@sort_key = match(@o.get("sort", "")) {
   "size" => "size",
   "time" => "mtime_sec",
   "extension" => "extension",
@@ -285,7 +285,7 @@ try {
   _ => @sort_key
 }
 
-@unsorted = map.get(@o, "unsorted", false)
+@unsorted = @o.get("unsorted", false)
 
 # Whether a sort will be applied after enrichment.  When true the order of
 # intermediate lists does not matter and async_browse can be used safely.
@@ -303,7 +303,7 @@ try {
 # ── Time-style / strftime format ──────────────────────────────────────────────
 # Resolve --time-style (falling back to the TIME_STYLE env var, then "locale").
 # Map the chosen style name to a strftime format string used later.
-@time_style = map.get(@o, "time_style", "")
+@time_style = @o.get("time_style", "")
 try {
   assert_eq(string.len(string.trim(@time_style)), 0)
   @time_style = os.get_env("TIME_STYLE", "locale")
@@ -660,7 +660,7 @@ loop {
     assert_eq(@long, false)
     assert_eq(@inode_col, true)
     browse(@sorted, @_ix, @ee) {
-      @ixs = number.to_string(map.get(@ee, "inode", 0))
+      @ixs = number.to_string(@ee.get("inode", 0))
       @max_ino_s = math.max(@max_ino_s, string.len(@ixs))
     }
   } fallback {}
@@ -670,7 +670,7 @@ loop {
     assert_eq(@long, false)
     assert_eq(@blocks, true)
     browse(@sorted, @_bx, @ee) {
-      @bw = map.get(@ee, "blocks", 0)
+      @bw = @ee.get("blocks", 0)
       @bsw = number.to_string(number.floor(math.div(@bw, 2)))
       @max_blk_s = math.max(@max_blk_s, string.len(@bsw))
     }
@@ -694,26 +694,26 @@ loop {
     browse(@sorted, @_mw, @ee) {
       try {
         assert_eq(@inode_col, true)
-        @iw = number.to_string(map.get(@ee, "inode", 0))
+        @iw = number.to_string(@ee.get("inode", 0))
         @max_ino = math.max(@max_ino, string.len(@iw))
       } fallback {}
 
       try {
         assert_eq(@blocks, true)
-        @bw = map.get(@ee, "blocks", 0)
+        @bw = @ee.get("blocks", 0)
         @bsw = number.to_string(number.floor(math.div(@bw, 2)))
         @max_blk = math.max(@max_blk, string.len(@bsw))
       } fallback {}
 
-      @nlm = number.to_string(map.get(@ee, "nlink", 1))
+      @nlm = number.to_string(@ee.get("nlink", 1))
       @max_nl = math.max(@max_nl, string.len(@nlm))
 
-      @uum = map.get(@ee, "user", "")
-      @ggm = map.get(@ee, "group", "")
+      @uum = @ee.get("user", "")
+      @ggm = @ee.get("group", "")
       try {
         assert_eq(@numeric_ids, true)
-        @uum = number.to_string(map.get(@ee, "uid", 0))
-        @ggm = number.to_string(map.get(@ee, "gid", 0))
+        @uum = number.to_string(@ee.get("uid", 0))
+        @ggm = number.to_string(@ee.get("gid", 0))
       } fallback {}
       try {
         assert_eq(@omit_group, true)
@@ -730,8 +730,8 @@ loop {
       @get_size_string.call(@_em, @human, @si, @szm)
       @max_sz = math.max(@max_sz, string.len(@szm))
 
-      @_ta = map.get(@o, "time_access", false)
-      @_tc = map.get(@o, "time_change", false)
+      @_ta = @o.get("time_access", false)
+      @_tc = @o.get("time_change", false)
       @get_time_string.call(@_em, @_ta, @_tc, @tfmt, @tstr_m)
       @max_tm = math.max(@max_tm, string.len(@tstr_m))
     }
@@ -797,7 +797,7 @@ loop {
             assert_eq(@long, true)
             try {
               assert_eq(@ee["is_symlink"], true)
-              @_tgt = map.get(@ee, "symlink_target", "")
+              @_tgt = @ee.get("symlink_target", "")
               @namel = "${@namel} -> ${@_tgt}"
             } fallback {}
           } fallback {}
@@ -808,14 +808,14 @@ loop {
             @pre_ln = ""
             try {
               assert_eq(@blocks, true)
-              @b = map.get(@ee, "blocks", 0)
+              @b = @ee.get("blocks", 0)
               @bb = number.to_string(number.floor(math.div(@b, 2)))
               @pre_ln = string.pad_start(@bb, @max_blk_s, " ")
               @pre_ln += " "
             } fallback {}
             try {
               assert_eq(@inode_col, true)
-              @ipr = string.pad_start(number.to_string(map.get(@ee, "inode", 0)), @max_ino_s, " ")
+              @ipr = string.pad_start(number.to_string(@ee.get("inode", 0)), @max_ino_s, " ")
               @ipr += " "
               @pre_ln += @ipr
             } fallback {}
@@ -827,28 +827,28 @@ loop {
             @tstr = ""
             try {
               assert_eq(@inode_col, true)
-              @ino_s = string.pad_start(number.to_string(map.get(@ee, "inode", 0)), @max_ino, " ")
+              @ino_s = string.pad_start(number.to_string(@ee.get("inode", 0)), @max_ino, " ")
               @ino_s += " "
             } fallback {}
 
             @blk_s = ""
             try {
               assert_eq(@blocks, true)
-              @b = map.get(@ee, "blocks", 0)
+              @b = @ee.get("blocks", 0)
               @bb = number.to_string(number.floor(math.div(@b, 2)))
               @blk_s = string.pad_start(@bb, @max_blk, " ")
               @blk_s += " "
             } fallback {}
 
             @mode or= (@ee["mode_string"], "----------")
-            @nl = number.to_string(map.get(@ee, "nlink", 1))
+            @nl = number.to_string(@ee.get("nlink", 1))
             @nl_p = string.pad_start(@nl, @max_nl, " ")
-            @uu = map.get(@ee, "user", "")
-            @gg = map.get(@ee, "group", "")
+            @uu = @ee.get("user", "")
+            @gg = @ee.get("group", "")
             try {
               assert_eq(@numeric_ids, true)
-              @uu = number.to_string(map.get(@ee, "uid", 0))
-              @gg = number.to_string(map.get(@ee, "gid", 0))
+              @uu = number.to_string(@ee.get("uid", 0))
+              @gg = number.to_string(@ee.get("gid", 0))
             } fallback {}
 
             try {
@@ -863,8 +863,8 @@ loop {
             @szcol = string.pad_start(@sz_raw, @max_sz, " ")
 
             # Format and left-align the timestamp column.
-            @_ta = map.get(@o, "time_access", false)
-            @_tc = map.get(@o, "time_change", false)
+            @_ta = @o.get("time_access", false)
+            @_tc = @o.get("time_change", false)
             @get_time_string.call(@_e, @_ta, @_tc, @tfmt, @tstr)
             @t_p = string.pad_end(@tstr, @max_tm, " ")
 
