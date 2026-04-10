@@ -78,5 +78,5 @@ run_uutils_case rmdir "remove empty directory" \
 
 mkdir -p "$_TD/time_gnu_dir" "$_TD/time_corvo_dir"
 show_time "gnu-rmdir dir"   gnu-rmdir "$_TD/time_gnu_dir"
-mkdir -p "$_TD/time_gnu_dir"  # recreate for corvo timing
+mkdir -p "$_TD/time_gnu_dir" # recreate for corvo timing
 show_time "corvo rmdir dir" corvo /corvo/coreutils/rmdir.corvo -- "$_TD/time_gnu_dir"

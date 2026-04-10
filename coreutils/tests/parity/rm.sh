@@ -108,7 +108,7 @@ run_uutils_case rm "remove regular file" \
   "uu-rm '$_TD/uu_gnu.txt'" \
   "corvo /corvo/coreutils/rm.corvo -- '$_TD/uu_corvo.txt'"
 
-show_time "gnu-rm file"   gnu-rm   /fixtures/a.txt || true
-# Recreate fixture for corvo timing (a.txt may have been removed)
-cp /fixtures/a.txt "$_TD/time_corvo.txt" 2>/dev/null || true
+cp /fixtures/a.txt "$_TD/time_gnu.txt" 2>/dev/null || echo "x" > "$_TD/time_gnu.txt"
+show_time "gnu-rm file"   gnu-rm   "$_TD/time_gnu.txt"
+cp /fixtures/a.txt "$_TD/time_corvo.txt" 2>/dev/null || echo "x" > "$_TD/time_corvo.txt"
 show_time "corvo rm file" corvo /corvo/coreutils/rm.corvo -- "$_TD/time_corvo.txt" || true
