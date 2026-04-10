@@ -22,6 +22,12 @@ cd /fixtures
 . "$TESTS_DIR/parity/tail.sh"
 # shellcheck source=cp.sh
 . "$TESTS_DIR/parity/cp.sh"
+# shellcheck source=rm.sh
+. "$TESTS_DIR/parity/rm.sh"
+# shellcheck source=rmdir.sh
+. "$TESTS_DIR/parity/rmdir.sh"
+# shellcheck source=mkdir.sh
+. "$TESTS_DIR/parity/mkdir.sh"
 
 echo ""
 echo "=================================================="

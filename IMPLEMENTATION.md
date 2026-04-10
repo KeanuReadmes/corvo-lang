@@ -18,18 +18,27 @@ Corvo is strongly and limited typed. A variable's type is inferred on its first 
 ### `string`
 * `string.concat(str1: string, str2: string) -> string`
 * `string.replace(target: string, old: string, new: string) -> string`
+* `string.replace_first(target: string, old: string, new: string) -> string`
 * `string.split(target: string, delimiter: string) -> list`
 * `string.trim(target: string) -> string`
+* `string.trim_start(target: string) -> string`
+* `string.trim_end(target: string) -> string`
 * `string.contains(target: string, substr: string) -> boolean`
 * `string.starts_with(target: string, prefix: string) -> boolean`
 * `string.ends_with(target: string, suffix: string) -> boolean`
 * `string.to_lower(target: string) -> string`
 * `string.to_upper(target: string) -> string`
-* `string.len(target: string) -> number`
+* `string.len(target: string) -> number`  (UTF-8 byte length; use `string.chars` + `list.len` for Unicode character count)
 * `string.reverse(target: string) -> string`
 * `string.is_empty(target: string) -> boolean`
 * `string.pad_start(target: string, width: number, fill?: string) -> string`
 * `string.pad_end(target: string, width: number, fill?: string) -> string`
+* `string.substring(target: string, start: number, end?: number) -> string`
+* `string.index_of(target: string, needle: string, start?: number) -> number`
+* `string.char_at(target: string, index: number) -> string`
+* `string.repeat(target: string, count: number) -> string`
+* `string.count(target: string, needle: string) -> number`
+* `string.chars(target: string) -> list`
 
 ### `number`
 * `number.to_string(num: number) -> string`

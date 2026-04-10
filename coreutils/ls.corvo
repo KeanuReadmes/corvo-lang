@@ -248,7 +248,7 @@ try {
 @term_w = 80
 @ww = @o.get("width", "")
 try {
-  assert_eq(string.len(string.trim(@ww)), 0)
+  assert_eq(string.is_empty(string.trim(@ww)), true)
 } fallback {
   @term_w = number.parse(0, @ww)
 }
@@ -318,7 +318,7 @@ try {
 # Map the chosen style name to a strftime format string used later.
 @time_style = @o.get("time_style", "")
 try {
-  assert_eq(string.len(string.trim(@time_style)), 0)
+  assert_eq(string.is_empty(string.trim(@time_style)), true)
   @time_style = os.get_env("TIME_STYLE", "locale")
 } fallback {}
 
@@ -406,7 +406,7 @@ loop {
     @entries2 = list.push(@entries2, @md1)
     @parp = fs.path_parent(@pth)
     try {
-      assert_eq(string.len(@parp), 0)
+      assert_eq(string.is_empty(@parp), true)
     } fallback {
       @md2 = fs.read_meta(@parp, @follow)
       @md2["name"] = ".."

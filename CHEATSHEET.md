@@ -273,18 +273,29 @@ Functions are grouped by module. Parameter names in `[brackets]` are optional.
 |---|---|---|---|
 | `string.concat` | `s: string, s2: string` | `string` | Concatenate two strings |
 | `string.replace` | `s: string, old: string, new: string` | `string` | Replace all occurrences of `old` with `new` |
+| `string.replace_first` | `s: string, old: string, new: string` | `string` | Replace only the first occurrence of `old` with `new` |
 | `string.split` | `s: string, delimiter: string` | `list[string]` | Split on a delimiter |
 | `string.trim` | `s: string` | `string` | Remove leading and trailing whitespace |
+| `string.trim_start` | `s: string` | `string` | Remove leading whitespace only |
+| `string.trim_end` | `s: string` | `string` | Remove trailing whitespace only |
 | `string.contains` | `s: string, substr: string` | `bool` | Check if `s` contains `substr` |
 | `string.starts_with` | `s: string, prefix: string` | `bool` | Check if `s` starts with `prefix` |
 | `string.ends_with` | `s: string, suffix: string` | `bool` | Check if `s` ends with `suffix` |
 | `string.to_lower` | `s: string` | `string` | Convert to lowercase |
 | `string.to_upper` | `s: string` | `string` | Convert to uppercase |
-| `string.len` | `s: string` | `number` | Number of characters |
+| `string.len` | `s: string` | `number` | Number of UTF-8 bytes in the string (use `string.chars` and `list.len` for Unicode character count) |
 | `string.reverse` | `s: string` | `string` | Reverse the characters |
 | `string.is_empty` | `s: string` | `bool` | Check if the string has zero length |
 | `string.pad_start` | `s: string, width: number, [fill: string]` | `string` | Pad on the left to `width` characters (default fill space) |
 | `string.pad_end` | `s: string, width: number, [fill: string]` | `string` | Pad on the right to `width` characters (default fill space) |
+| `string.substring` | `s: string, start: number, [end: number]` | `string` | Extract substring by Unicode char indices (end exclusive, defaults to end of string) |
+| `string.index_of` | `s: string, needle: string, [start: number]` | `number` | First char-index of `needle`, or `-1` if not found |
+| `string.char_at` | `s: string, index: number` | `string` | Unicode character at `index` (errors if out of range) |
+| `string.repeat` | `s: string, count: number` | `string` | Repeat `s` `count` times |
+| `string.count` | `s: string, needle: string` | `number` | Count non-overlapping occurrences of `needle` |
+| `string.chars` | `s: string` | `list[string]` | Split into a list of individual Unicode characters |
+| `string.fnmatch` | `s: string, pattern: string` | `bool` | Glob-style match (`*`, `?`) |
+| `string.byte_slice` | `s: string, start: number, [end: number]` | `string` | Raw byte-level slice |
 
 **Example file:** [`examples/string_methods.corvo`](examples/string_methods.corvo)
 

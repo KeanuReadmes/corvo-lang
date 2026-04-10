@@ -25,6 +25,12 @@ cd /fixtures
 . "$TESTS_DIR/matrix/tail.sh"
 # shellcheck source=cp.sh
 . "$TESTS_DIR/matrix/cp.sh"
+# shellcheck source=rm.sh
+. "$TESTS_DIR/matrix/rm.sh"
+# shellcheck source=rmdir.sh
+. "$TESTS_DIR/matrix/rmdir.sh"
+# shellcheck source=mkdir.sh
+. "$TESTS_DIR/matrix/mkdir.sh"
 
 echo ""
 echo "======================================================"
