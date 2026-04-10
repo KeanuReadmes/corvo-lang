@@ -283,7 +283,7 @@ Functions are grouped by module. Parameter names in `[brackets]` are optional.
 | `string.ends_with` | `s: string, suffix: string` | `bool` | Check if `s` ends with `suffix` |
 | `string.to_lower` | `s: string` | `string` | Convert to lowercase |
 | `string.to_upper` | `s: string` | `string` | Convert to uppercase |
-| `string.len` | `s: string` | `number` | Number of UTF-8 bytes in the string |
+| `string.len` | `s: string` | `number` | Number of UTF-8 bytes in the string (use `string.chars` and `list.len` for Unicode character count) |
 | `string.reverse` | `s: string` | `string` | Reverse the characters |
 | `string.is_empty` | `s: string` | `bool` | Check if the string has zero length |
 | `string.pad_start` | `s: string, width: number, [fill: string]` | `string` | Pad on the left to `width` characters (default fill space) |

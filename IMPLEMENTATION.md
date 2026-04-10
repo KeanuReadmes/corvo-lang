@@ -28,7 +28,7 @@ Corvo is strongly and limited typed. A variable's type is inferred on its first 
 * `string.ends_with(target: string, suffix: string) -> boolean`
 * `string.to_lower(target: string) -> string`
 * `string.to_upper(target: string) -> string`
-* `string.len(target: string) -> number`
+* `string.len(target: string) -> number`  (UTF-8 byte length; use `string.chars` + `list.len` for Unicode character count)
 * `string.reverse(target: string) -> string`
 * `string.is_empty(target: string) -> boolean`
 * `string.pad_start(target: string, width: number, fill?: string) -> string`
