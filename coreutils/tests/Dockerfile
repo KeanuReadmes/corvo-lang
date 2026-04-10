@@ -23,7 +23,7 @@ RUN apt-get update \
 
 # Save GNU coreutils as gnu-TOOL before uutils may replace the plain names.
 # This matches the Ubuntu 26.04+ convention where GNU stays under the gnu- prefix.
-RUN for tool in ls cat head tail cp; do \
+RUN for tool in ls cat head tail cp rm rmdir mkdir; do \
       bin="$(command -v "$tool" 2>/dev/null)"; \
       [ -n "$bin" ] && cp "$bin" "/usr/local/bin/gnu-${tool}"; \
     done
@@ -40,7 +40,7 @@ RUN apt-get update \
 # Create uu-TOOL wrappers.  If uutils installed a multicall binary named
 # 'coreutils', delegate through it (same as the ubuntu 26.04 expected layout).
 # Otherwise symlink whatever TOOL resolves to now.
-RUN for tool in ls cat head tail cp; do \
+RUN for tool in ls cat head tail cp rm rmdir mkdir; do \
       if coreutils --list 2>/dev/null | grep -qw "$tool"; then \
         printf '#!/bin/sh\nexec coreutils %s "$@"\n' "$tool" \
           > "/usr/local/bin/uu-${tool}" \
