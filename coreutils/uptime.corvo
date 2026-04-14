@@ -220,7 +220,7 @@ try {
       @_format_load.call(@_load5, @_l5_str)
       @_format_load.call(@_load15, @_l15_str)
 
-      @_output = " ${@_time_str} up ${@_up_str}, ${number.to_string(@_user_count)} ${@_user_str},  load average: ${@_l1_str}, ${@_l5_str}, ${@_l15_str}"
+      @_output = "${@_time_str} up ${@_up_str}, ${number.to_string(@_user_count)} ${@_user_str},  load average: ${@_l1_str}, ${@_l5_str}, ${@_l15_str}"
       sys.echo(@_output)
     }
   }

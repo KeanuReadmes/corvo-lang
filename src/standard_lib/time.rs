@@ -52,9 +52,10 @@ pub fn unix_now(args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoRe
 /// Format a Unix timestamp in UTC timezone using a `strftime` pattern.
 /// Args: `seconds: number`, `[nanoseconds: number]`, `format: string`
 pub fn format_utc(args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResult<Value> {
-    let secs = args.first().and_then(|v| v.as_number()).ok_or_else(|| {
-        CorvoError::invalid_argument("time.format_utc requires seconds (number)")
-    })? as i64;
+    let secs =
+        args.first().and_then(|v| v.as_number()).ok_or_else(|| {
+            CorvoError::invalid_argument("time.format_utc requires seconds (number)")
+        })? as i64;
 
     let nsec = args
         .get(1)

@@ -117,9 +117,7 @@ pub fn info(_args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResul
 /// Returns a number representing how long the system has been running.
 pub fn uptime(args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResult<Value> {
     if !args.is_empty() {
-        return Err(CorvoError::invalid_argument(
-            "os.uptime takes no arguments",
-        ));
+        return Err(CorvoError::invalid_argument("os.uptime takes no arguments"));
     }
 
     #[cfg(target_os = "linux")]
