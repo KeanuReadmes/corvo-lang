@@ -32,9 +32,15 @@ pub fn hash(args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResult
             hasher.update(data.as_bytes());
             format!("{:x}", hasher.finalize())
         }
+        "blake2b" => {
+            use blake2::{Blake2b512, Digest};
+            let mut hasher = Blake2b512::new();
+            hasher.update(data.as_bytes());
+            format!("{:x}", hasher.finalize())
+        }
         _ => {
             return Err(CorvoError::invalid_argument(
-                "Unsupported hash algorithm. Use md5, sha256, or sha512",
+                "Unsupported hash algorithm. Use md5, sha256, sha512, or blake2b",
             ))
         }
     };
@@ -141,9 +147,15 @@ pub fn hash_file(args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoR
             hasher.update(&data);
             format!("{:x}", hasher.finalize())
         }
+        "blake2b" => {
+            use blake2::{Blake2b512, Digest};
+            let mut hasher = Blake2b512::new();
+            hasher.update(&data);
+            format!("{:x}", hasher.finalize())
+        }
         _ => {
             return Err(CorvoError::invalid_argument(
-                "Unsupported hash algorithm. Use md5, sha256, or sha512",
+                "Unsupported hash algorithm. Use md5, sha256, sha512, or blake2b",
             ))
         }
     };
@@ -163,6 +175,55 @@ pub fn checksum(args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoRe
     let mut hasher = Sha256::new();
     hasher.update(&data);
     Ok(Value::String(format!("{:x}", hasher.finalize())))
+}
+
+fn make_cksum_crc_table() -> [u32; 256] {
+    let mut table = [0u32; 256];
+    for i in 0..256u32 {
+        let mut crc = i << 24;
+        for _ in 0..8 {
+            if crc & 0x8000_0000 != 0 {
+                crc = (crc << 1) ^ 0x04C1_1DB7;
+            } else {
+                crc <<= 1;
+            }
+        }
+        table[i as usize] = crc;
+    }
+    table
+}
+
+/// Compute the GNU cksum CRC-32 for a file.
+/// Returns a map with keys "crc" (u32 as f64) and "size" (byte count as f64).
+pub fn crc32_file(args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResult<Value> {
+    let path = args
+        .first()
+        .and_then(|v| v.as_string())
+        .ok_or_else(|| CorvoError::invalid_argument("crypto.crc32_file requires a file path"))?;
+
+    let data = std::fs::read(path).map_err(|e| CorvoError::file_system(e.to_string()))?;
+    let size = data.len() as u64;
+    let table = make_cksum_crc_table();
+
+    let mut crc: u32 = 0;
+    for byte in &data {
+        crc = table[((crc >> 24) ^ *byte as u32) as usize] ^ (crc << 8);
+    }
+    // Append length bytes (LSB first, until zero)
+    let mut len = size;
+    loop {
+        crc = table[((crc >> 24) ^ (len & 0xff) as u32) as usize] ^ (crc << 8);
+        len >>= 8;
+        if len == 0 {
+            break;
+        }
+    }
+    crc ^= 0xffff_ffff;
+
+    let mut result = std::collections::HashMap::new();
+    result.insert("crc".to_string(), Value::Number(crc as f64));
+    result.insert("size".to_string(), Value::Number(size as f64));
+    Ok(Value::Map(result))
 }
 
 #[cfg(test)]

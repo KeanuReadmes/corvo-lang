@@ -36,6 +36,16 @@ cd /fixtures
 . "$TESTS_DIR/parity/date.sh"
 # shellcheck source=uptime.sh
 . "$TESTS_DIR/parity/uptime.sh"
+# shellcheck source=b2sum.sh
+. "$TESTS_DIR/parity/b2sum.sh"
+# shellcheck source=base32.sh
+. "$TESTS_DIR/parity/base32.sh"
+# shellcheck source=base64.sh
+. "$TESTS_DIR/parity/base64.sh"
+# shellcheck source=basenc.sh
+. "$TESTS_DIR/parity/basenc.sh"
+# shellcheck source=cksum.sh
+. "$TESTS_DIR/parity/cksum.sh"
 
 echo ""
 echo "=================================================="

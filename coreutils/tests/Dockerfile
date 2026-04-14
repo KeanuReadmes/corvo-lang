@@ -23,7 +23,7 @@ RUN apt-get update \
 
 # Save GNU coreutils as gnu-TOOL before uutils may replace the plain names.
 # This matches the Ubuntu 26.04+ convention where GNU stays under the gnu- prefix.
-RUN for tool in ls cat head tail cp rm rmdir mkdir cut wc date uptime; do \
+RUN for tool in ls cat head tail cp rm rmdir mkdir cut wc date uptime b2sum base32 base64 basenc cksum; do \
       bin="$(command -v "$tool" 2>/dev/null)"; \
       [ -n "$bin" ] && cp "$bin" "/usr/local/bin/gnu-${tool}"; \
     done

@@ -11,6 +11,108 @@ fn cmp_values_for_sort(a: &Value, b: &Value) -> Ordering {
     }
 }
 
+/// Base32-family encode using a 32-byte alphabet slice.
+fn base32_encode_alphabet(input: &[u8], alphabet: &[u8]) -> String {
+    let mut out = String::new();
+    let mut i = 0;
+    while i < input.len() {
+        let b = |j: usize| {
+            if i + j < input.len() {
+                input[i + j]
+            } else {
+                0u8
+            }
+        };
+        out.push(alphabet[(b(0) >> 3) as usize] as char);
+        out.push(alphabet[((b(0) & 0x07) << 2 | b(1) >> 6) as usize] as char);
+        if i + 1 < input.len() {
+            out.push(alphabet[((b(1) & 0x3e) >> 1) as usize] as char);
+            out.push(alphabet[((b(1) & 0x01) << 4 | b(2) >> 4) as usize] as char);
+        } else {
+            out.push_str("==");
+        }
+        if i + 2 < input.len() {
+            out.push(alphabet[((b(2) & 0x0f) << 1 | b(3) >> 7) as usize] as char);
+        } else {
+            out.push('=');
+        }
+        if i + 3 < input.len() {
+            out.push(alphabet[((b(3) & 0x7c) >> 2) as usize] as char);
+            out.push(alphabet[((b(3) & 0x03) << 3 | b(4) >> 5) as usize] as char);
+        } else {
+            out.push_str("==");
+        }
+        if i + 4 < input.len() {
+            out.push(alphabet[(b(4) & 0x1f) as usize] as char);
+        } else {
+            out.push('=');
+        }
+        i += 5;
+    }
+    out
+}
+
+/// Base32-family decode. `alphabet` contains valid chars (case-insensitive for standard,
+/// `hex_mode` for base32hex where digits 0-9 precede letters).
+fn base32_decode_alphabet(input: &str, _alphabet: &str, hex_mode: bool) -> Result<Vec<u8>, String> {
+    let upper = input.to_uppercase();
+    let cleaned: String = upper.chars().filter(|c| !c.is_whitespace()).collect();
+
+    let val = |c: char| -> Option<u8> {
+        if hex_mode {
+            match c {
+                '0'..='9' => Some(c as u8 - b'0'),
+                'A'..='V' => Some(c as u8 - b'A' + 10),
+                _ => None,
+            }
+        } else {
+            match c {
+                'A'..='Z' => Some(c as u8 - b'A'),
+                '2'..='7' => Some(c as u8 - b'2' + 26),
+                _ => None,
+            }
+        }
+    };
+
+    let mut out = Vec::new();
+    let chars: Vec<char> = cleaned.chars().collect();
+    let mut i = 0;
+    while i + 7 < chars.len() || (i < chars.len() && chars.len() - i == 8) {
+        if chars.len() < i + 8 {
+            break;
+        }
+        let chunk = &chars[i..i + 8];
+        let v: Vec<Option<u8>> = chunk.iter().map(|&c| val(c)).collect();
+        if let (Some(c0), Some(c1)) = (v[0], v[1]) {
+            out.push((c0 << 3) | (c1 >> 2));
+        } else {
+            break;
+        }
+        if chunk[2] != '=' {
+            if let (Some(c1), Some(c2), Some(c3)) = (v[1], v[2], v[3]) {
+                out.push((c1 << 6) | (c2 << 1) | (c3 >> 4));
+            }
+        }
+        if chunk[4] != '=' {
+            if let (Some(c3), Some(c4)) = (v[3], v[4]) {
+                out.push((c3 << 4) | (c4 >> 1));
+            }
+        }
+        if chunk[5] != '=' {
+            if let (Some(c4), Some(c5), Some(c6)) = (v[4], v[5], v[6]) {
+                out.push((c4 << 7) | (c5 << 2) | (c6 >> 3));
+            }
+        }
+        if chunk[7] != '=' {
+            if let (Some(c6), Some(c7)) = (v[6], v[7]) {
+                out.push((c6 << 5) | c7);
+            }
+        }
+        i += 8;
+    }
+    Ok(out)
+}
+
 pub fn call_string_method(name: &str, args: &[Value]) -> CorvoResult<Value> {
     let method = name.strip_prefix("string.").unwrap();
     let target = args
@@ -253,6 +355,72 @@ pub fn call_string_method(name: &str, args: &[Value]) -> CorvoResult<Value> {
                 .map(|c| Value::String(c.to_string()))
                 .collect();
             Ok(Value::List(list))
+        }
+        "base64_encode" => {
+            use base64::Engine as _;
+            Ok(Value::String(
+                base64::engine::general_purpose::STANDARD.encode(target.as_bytes()),
+            ))
+        }
+        "base64_decode" => {
+            use base64::Engine as _;
+            let cleaned: String = target.chars().filter(|c| !c.is_whitespace()).collect();
+            let bytes = base64::engine::general_purpose::STANDARD
+                .decode(cleaned.as_bytes())
+                .map_err(|e| CorvoError::invalid_argument(format!("base64_decode: {}", e)))?;
+            String::from_utf8(bytes).map(Value::String).map_err(|e| {
+                CorvoError::invalid_argument(format!("base64_decode: not valid UTF-8: {}", e))
+            })
+        }
+        "base32_encode" => Ok(Value::String(base32_encode_alphabet(
+            target.as_bytes(),
+            b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567",
+        ))),
+        "base32_decode" => {
+            let bytes = base32_decode_alphabet(
+                target,
+                "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz234567",
+                false,
+            )
+            .map_err(|e| CorvoError::invalid_argument(format!("base32_decode: {}", e)))?;
+            String::from_utf8(bytes).map(Value::String).map_err(|e| {
+                CorvoError::invalid_argument(format!("base32_decode: not valid UTF-8: {}", e))
+            })
+        }
+        "base32hex_encode" => Ok(Value::String(base32_encode_alphabet(
+            target.as_bytes(),
+            b"0123456789ABCDEFGHIJKLMNOPQRSTUV",
+        ))),
+        "base32hex_decode" => {
+            let bytes = base32_decode_alphabet(
+                target,
+                "0123456789ABCDEFGHIJKLMNOPQRSTUVabcdefghijklmnopqrstuv",
+                true,
+            )
+            .map_err(|e| CorvoError::invalid_argument(format!("base32hex_decode: {}", e)))?;
+            String::from_utf8(bytes).map(Value::String).map_err(|e| {
+                CorvoError::invalid_argument(format!("base32hex_decode: not valid UTF-8: {}", e))
+            })
+        }
+        "hex_encode" => {
+            let hex: String = target.bytes().map(|b| format!("{:02x}", b)).collect();
+            Ok(Value::String(hex))
+        }
+        "hex_decode" => {
+            let cleaned: String = target.chars().filter(|c| !c.is_whitespace()).collect();
+            if !cleaned.len().is_multiple_of(2) {
+                return Err(CorvoError::invalid_argument(
+                    "hex_decode: odd number of hex digits",
+                ));
+            }
+            let bytes: Result<Vec<u8>, _> = (0..cleaned.len() / 2)
+                .map(|i| u8::from_str_radix(&cleaned[i * 2..i * 2 + 2], 16))
+                .collect();
+            let bytes =
+                bytes.map_err(|e| CorvoError::invalid_argument(format!("hex_decode: {}", e)))?;
+            String::from_utf8(bytes).map(Value::String).map_err(|e| {
+                CorvoError::invalid_argument(format!("hex_decode: not valid UTF-8: {}", e))
+            })
         }
         _ => Err(CorvoError::unknown_function(format!("string.{}", method))),
     }
