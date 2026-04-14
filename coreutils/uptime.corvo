@@ -1,0 +1,229 @@
+# coreutils/uptime.corvo - GNU-compatible `uptime`
+# Run: `corvo coreutils/uptime.corvo -- [OPTION]...`
+#
+# Tell how long the system has been running.
+#
+# NOTE: Pass `--` before script arguments so the Corvo runner does not
+#       interpret flags like -p as its own options:
+#         corvo coreutils/uptime.corvo -- -p
+
+# -- Argument-parser spec ------------------------------------------------------
+@_uptime_spec = {
+  "aliases": {
+    "p": "pretty",
+    "s": "since",
+    "pretty": "pretty",
+    "since": "since"
+  }
+}
+
+@parsed = args.parse(os.argv(), @_uptime_spec)
+@o = @parsed["options"]
+
+# -- Skip-main flag ------------------------------------------------------------
+@skip_main = false
+@exit_code = 0
+
+# -- Handle --help -------------------------------------------------------------
+try {
+  assert_eq(@o.get("help", false), true)
+  sys.echo("Usage: uptime [OPTION]...")
+  sys.echo("Tell how long the system has been running.")
+  sys.echo("")
+  sys.echo("  -p, --pretty   show uptime in pretty format")
+  sys.echo("  -s, --since    system up since, in yyyy-mm-dd HH:MM:SS format")
+  sys.echo("      --help     display this help and exit")
+  sys.echo("      --version  display version information and exit")
+  @skip_main = true
+} fallback {}
+
+# -- Handle --version ----------------------------------------------------------
+try {
+  assert_eq(@o.get("version", false), true)
+  sys.echo("uptime (Corvo coreutils) 0.1.0")
+  @skip_main = true
+} fallback {}
+
+# -- Flag extraction -----------------------------------------------------------
+@_pretty = false
+@_since = false
+
+try {
+  assert_eq(@skip_main, true)
+} fallback {
+  @_pretty = @o.get("pretty", false)
+  @_since = @o.get("since", false)
+}
+
+# -- Get uptime and related info -----------------------------------------------
+@_uptime_secs = 0
+@_boot_time = 0
+@_load_avg = {}
+@_user_count = 0
+@_current_time = 0
+
+try {
+  assert_eq(@skip_main, true)
+} fallback {
+  @_uptime_secs = os.uptime()
+  @_boot_time = time.boot_time()
+  @_load_avg = os.load_average()
+  @_user_count = os.user_count()
+  @_current_time = time.unix_now()
+}
+
+# -- Procedure: format uptime duration in pretty format ------------------------
+@_format_pretty = procedure(@secs, @result_out) {
+  @_days = number.floor(math.div(@secs, 86400))
+  @_rem = math.mod(@secs, 86400)
+  @_hours = number.floor(math.div(@_rem, 3600))
+  @_rem = math.mod(@_rem, 3600)
+  @_mins = number.floor(math.div(@_rem, 60))
+
+  @_parts = list.new()
+
+  try {
+    assert_gt(@_days, 0)
+    @_day_str = "day"
+    try {
+      assert_gt(@_days, 1)
+      @_day_str = "days"
+    } fallback {}
+    @_parts = list.push(@_parts, "${number.to_string(@_days)} ${@_day_str}")
+  } fallback {}
+
+  try {
+    assert_gt(@_hours, 0)
+    @_hour_str = "hour"
+    try {
+      assert_gt(@_hours, 1)
+      @_hour_str = "hours"
+    } fallback {}
+    @_parts = list.push(@_parts, "${number.to_string(@_hours)} ${@_hour_str}")
+  } fallback {}
+
+  try {
+    assert_gt(@_mins, 0)
+    @_min_str = "minute"
+    try {
+      assert_gt(@_mins, 1)
+      @_min_str = "minutes"
+    } fallback {}
+    @_parts = list.push(@_parts, "${number.to_string(@_mins)} ${@_min_str}")
+  } fallback {}
+
+  try {
+    assert_eq(list.len(@_parts), 0)
+    @result_out = "0 minutes"
+  } fallback {
+    @result_out = list.join(@_parts, ", ")
+  }
+}
+
+# -- Procedure: format uptime duration in short format (for default output) ----
+@_format_short = procedure(@secs, @result_out) {
+  @_days = number.floor(math.div(@secs, 86400))
+  @_rem = math.mod(@secs, 86400)
+  @_hours = number.floor(math.div(@_rem, 3600))
+  @_rem = math.mod(@_rem, 3600)
+  @_mins = number.floor(math.div(@_rem, 60))
+
+  try {
+    assert_gt(@_days, 0)
+    @_day_str = "day"
+    try {
+      assert_gt(@_days, 1)
+      @_day_str = "days"
+    } fallback {}
+    @_h_str = string.pad_start(number.to_string(@_hours), 2, " ")
+    @_m_str = string.pad_start(number.to_string(@_mins), 2, "0")
+    @result_out = "${number.to_string(@_days)} ${@_day_str}, ${@_h_str}:${@_m_str}"
+  } fallback {
+    try {
+      assert_gt(@_hours, 0)
+      @_m_str = string.pad_start(number.to_string(@_mins), 2, "0")
+      @result_out = "${number.to_string(@_hours)}:${@_m_str}"
+    } fallback {
+      @_min_str = "min"
+      try {
+        assert_gt(@_mins, 1)
+        @_min_str = "mins"
+      } fallback {}
+      @result_out = "${number.to_string(@_mins)} ${@_min_str}"
+    }
+  }
+}
+
+# -- Main: output based on mode ------------------------------------------------
+try {
+  assert_eq(@skip_main, true)
+} fallback {
+  try {
+    # -s, --since: show boot time
+    assert_eq(@_since, true)
+    @_boot_str = time.format_local(@_boot_time, 0, "%Y-%m-%d %H:%M:%S")
+    sys.echo(@_boot_str)
+  } fallback {
+    try {
+      # -p, --pretty: show uptime in pretty format
+      assert_eq(@_pretty, true)
+      @_pretty_str = ""
+      @_format_pretty.call(@_uptime_secs, @_pretty_str)
+      sys.echo("up ${@_pretty_str}")
+    } fallback {
+      # Default: show full uptime line
+      # Format: " HH:MM:SS up N days, HH:MM, N users, load average: X.XX, X.XX, X.XX"
+      @_time_str = time.format_local(@_current_time, 0, "%H:%M:%S")
+      @_up_str = ""
+      @_format_short.call(@_uptime_secs, @_up_str)
+
+      @_user_str = "user"
+      try {
+        assert_gt(@_user_count, 1)
+        @_user_str = "users"
+      } fallback {}
+      try {
+        assert_eq(@_user_count, 0)
+        @_user_str = "users"
+      } fallback {}
+
+      @_load1 = @_load_avg.get("1min", 0)
+      @_load5 = @_load_avg.get("5min", 0)
+      @_load15 = @_load_avg.get("15min", 0)
+
+      # Format load averages to 2 decimal places
+      @_l1_str = number.to_string(@_load1)
+      @_l5_str = number.to_string(@_load5)
+      @_l15_str = number.to_string(@_load15)
+
+      # Truncate to 2 decimal places if needed
+      @_format_load = procedure(@load_val, @load_out) {
+        @_str = number.to_string(@load_val)
+        @_dot_idx = string.index_of(@_str, ".", 0)
+        @_neg1 = math.sub(0, 1)
+        try {
+          # Check if dot exists (idx != -1)
+          assert_neq(@_dot_idx, @_neg1)
+          @_end = math.add(@_dot_idx, 3)
+          try {
+            assert_gt(@_end, string.len(@_str))
+            @load_out = @_str
+          } fallback {
+            @load_out = string.substring(@_str, 0, @_end)
+          }
+        } fallback {
+          @load_out = @_str
+        }
+      }
+
+      @_format_load.call(@_load1, @_l1_str)
+      @_format_load.call(@_load5, @_l5_str)
+      @_format_load.call(@_load15, @_l15_str)
+
+      @_output = " ${@_time_str} up ${@_up_str}, ${number.to_string(@_user_count)} ${@_user_str},  load average: ${@_l1_str}, ${@_l5_str}, ${@_l15_str}"
+      sys.echo(@_output)
+    }
+  }
+}
+
+sys.exit(@exit_code)

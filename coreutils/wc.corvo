@@ -1,0 +1,312 @@
+# coreutils/wc.corvo - GNU-compatible `wc`
+# Run: `corvo coreutils/wc.corvo -- [OPTION]... [FILE]...`
+#
+# Print newline, word, and byte counts for each FILE.
+# With no FILE, or when FILE is -, read standard input.
+#
+# NOTE: Pass `--` before script arguments so the Corvo runner does not
+#       interpret flags like -l as its own options:
+#         corvo coreutils/wc.corvo -- -l file.txt
+
+# -- Argument-parser spec ------------------------------------------------------
+@_wc_spec = {
+  "aliases": {
+    "c": "bytes",
+    "m": "chars",
+    "l": "lines",
+    "L": "max_line_length",
+    "w": "words",
+    "bytes": "bytes",
+    "chars": "chars",
+    "lines": "lines",
+    "max_line_length": "max_line_length",
+    "words": "words"
+  }
+}
+
+@parsed = args.parse(os.argv(), @_wc_spec)
+@o = @parsed["options"]
+@files = @parsed["positional"]
+
+# -- Skip-main flag ------------------------------------------------------------
+@skip_main = false
+@exit_code = 0
+
+# -- Handle --help -------------------------------------------------------------
+try {
+  assert_eq(@o.get("help", false), true)
+  sys.echo("Usage: wc [OPTION]... [FILE]...")
+  sys.echo("Print newline, word, and byte counts for each FILE.")
+  sys.echo("")
+  sys.echo("  -c, --bytes            print the byte counts")
+  sys.echo("  -m, --chars            print the character counts")
+  sys.echo("  -l, --lines            print the newline counts")
+  sys.echo("  -L, --max-line-length  print the maximum display width")
+  sys.echo("  -w, --words            print the word counts")
+  sys.echo("      --help             display this help and exit")
+  sys.echo("      --version          output version information and exit")
+  @skip_main = true
+} fallback {}
+
+# -- Handle --version ----------------------------------------------------------
+try {
+  assert_eq(@o.get("version", false), true)
+  sys.echo("wc (Corvo coreutils) 0.1.0")
+  @skip_main = true
+} fallback {}
+
+# -- Flag extraction -----------------------------------------------------------
+@_show_lines = false
+@_show_words = false
+@_show_chars = false
+@_show_bytes = false
+@_show_max_len = false
+@_any_flag = false
+
+try {
+  assert_eq(@skip_main, true)
+} fallback {
+  @_show_lines = @o.get("lines", false)
+  @_show_words = @o.get("words", false)
+  @_show_chars = @o.get("chars", false)
+  @_show_bytes = @o.get("bytes", false)
+  @_show_max_len = @o.get("max_line_length", false)
+
+  # Check if any flag was provided
+  try {
+    assert_eq(@_show_lines, true)
+    @_any_flag = true
+  } fallback {}
+  try {
+    assert_eq(@_show_words, true)
+    @_any_flag = true
+  } fallback {}
+  try {
+    assert_eq(@_show_chars, true)
+    @_any_flag = true
+  } fallback {}
+  try {
+    assert_eq(@_show_bytes, true)
+    @_any_flag = true
+  } fallback {}
+  try {
+    assert_eq(@_show_max_len, true)
+    @_any_flag = true
+  } fallback {}
+
+  # Default: show lines, words, bytes (if no flags specified)
+  try {
+    assert_eq(@_any_flag, false)
+    @_show_lines = true
+    @_show_words = true
+    @_show_bytes = true
+  } fallback {}
+}
+
+# -- Procedure: count stats for content ----------------------------------------
+# Returns a map with line_count, word_count, char_count, byte_count, max_line_len
+@_count_stats = procedure(@content, @stats_out) {
+  @_lines = string.split(@content, "\n")
+  @_line_count = 0
+  @_word_count = 0
+  @_char_count = 0
+  @_byte_count = string.len(@content)
+  @_max_line_len = 0
+
+  # Count newlines - simply count occurrences of \n
+  @_line_count = string.count(@content, "\n")
+
+  # Count words and max line length
+  browse(@_lines, @_idx, @_line) {
+    # Words: split by whitespace, count non-empty elements
+    @_words = string.split(@_line, " ")
+    browse(@_words, @_widx, @_word) {
+      # Handle tabs by splitting further
+      @_parts = string.split(@_word, "\t")
+      browse(@_parts, @_pidx, @_part) {
+        @_trimmed = string.trim(@_part)
+        try {
+          assert_eq(string.is_empty(@_trimmed), false)
+          @_word_count = math.add(@_word_count, 1)
+        } fallback {}
+      }
+    }
+
+    # Max line length (display width)
+    @_line_len = string.len(@_line)
+    try {
+      assert_gt(@_line_len, @_max_line_len)
+      @_max_line_len = @_line_len
+    } fallback {}
+  }
+
+  # Character count (treating each byte as a character for now - UTF-8 aware in future)
+  @_char_count = @_byte_count
+
+  @stats_out = {
+    "lines": @_line_count,
+    "words": @_word_count,
+    "chars": @_char_count,
+    "bytes": @_byte_count,
+    "max_len": @_max_line_len
+  }
+}
+
+# -- Procedure: format output line ---------------------------------------------
+@_format_output = procedure(@stats, @filename, @show_l, @show_w, @show_c, @show_b, @show_L, @output_out) {
+  @_parts = list.new()
+
+  try {
+    assert_eq(@show_l, true)
+    @_parts = list.push(@_parts, string.pad_start(number.to_string(@stats["lines"]), 7, " "))
+  } fallback {}
+
+  try {
+    assert_eq(@show_w, true)
+    @_parts = list.push(@_parts, string.pad_start(number.to_string(@stats["words"]), 7, " "))
+  } fallback {}
+
+  try {
+    assert_eq(@show_c, true)
+    @_parts = list.push(@_parts, string.pad_start(number.to_string(@stats["chars"]), 7, " "))
+  } fallback {}
+
+  try {
+    assert_eq(@show_b, true)
+    @_parts = list.push(@_parts, string.pad_start(number.to_string(@stats["bytes"]), 7, " "))
+  } fallback {}
+
+  try {
+    assert_eq(@show_L, true)
+    @_parts = list.push(@_parts, string.pad_start(number.to_string(@stats["max_len"]), 7, " "))
+  } fallback {}
+
+  @output_out = list.join(@_parts, "")
+  try {
+    assert_eq(string.is_empty(@filename), false)
+    @output_out = string.concat(@output_out, " ")
+    @output_out = string.concat(@output_out, @filename)
+  } fallback {}
+}
+
+# -- Totals tracking -----------------------------------------------------------
+@_total_lines = 0
+@_total_words = 0
+@_total_chars = 0
+@_total_bytes = 0
+@_total_max_len = 0
+@_file_count = 0
+
+# -- Main: process each file ---------------------------------------------------
+try {
+  assert_eq(@skip_main, true)
+} fallback {
+  try {
+    # No files: read stdin
+    assert_eq(list.len(@files), 0)
+    @_content = ""
+    try {
+      @_content = fs.read("/dev/stdin")
+    } fallback {
+      # Fallback: read line by line
+      loop {
+        @_line = sys.read_line("")
+        try {
+          assert_eq(string.len(@_line), 0)
+          terminate
+        } fallback {}
+        @_content = string.concat(@_content, @_line)
+        @_content = string.concat(@_content, "\n")
+      }
+    }
+    @_stats = {}
+    @_count_stats.call(@_content, @_stats)
+    @_out = ""
+    @_format_output.call(@_stats, "", @_show_lines, @_show_words, @_show_chars, @_show_bytes, @_show_max_len, @_out)
+    sys.echo(@_out)
+  } fallback {
+    # Process each file
+    browse(@files, @_fi, @_fname) {
+      @_is_stdin = false
+      try {
+        assert_eq(@_fname, "-")
+        @_is_stdin = true
+      } fallback {}
+
+      @_content = ""
+      @_read_ok = false
+
+      try {
+        assert_eq(@_is_stdin, true)
+        try {
+          @_content = fs.read("/dev/stdin")
+          @_read_ok = true
+        } fallback {
+          loop {
+            @_line = sys.read_line("")
+            try {
+              assert_eq(string.len(@_line), 0)
+              terminate
+            } fallback {}
+            @_content = string.concat(@_content, @_line)
+            @_content = string.concat(@_content, "\n")
+          }
+          @_read_ok = true
+        }
+      } fallback {
+        try {
+          assert_eq(fs.exists(@_fname), true)
+          @_content = fs.read(@_fname)
+          @_read_ok = true
+        } fallback {}
+      }
+
+      try {
+        assert_eq(@_read_ok, true)
+        @_stats = {}
+        @_count_stats.call(@_content, @_stats)
+
+        # Accumulate totals
+        @_total_lines = math.add(@_total_lines, @_stats["lines"])
+        @_total_words = math.add(@_total_words, @_stats["words"])
+        @_total_chars = math.add(@_total_chars, @_stats["chars"])
+        @_total_bytes = math.add(@_total_bytes, @_stats["bytes"])
+        try {
+          assert_gt(@_stats["max_len"], @_total_max_len)
+          @_total_max_len = @_stats["max_len"]
+        } fallback {}
+        @_file_count = math.add(@_file_count, 1)
+
+        @_display_name = @_fname
+        try {
+          assert_eq(@_is_stdin, true)
+          @_display_name = ""
+        } fallback {}
+
+        @_out = ""
+        @_format_output.call(@_stats, @_display_name, @_show_lines, @_show_words, @_show_chars, @_show_bytes, @_show_max_len, @_out)
+        sys.echo(@_out)
+      } fallback {
+        sys.eprint("wc: ${@_fname}: No such file or directory")
+        @exit_code = 1
+      }
+    }
+
+    # Print total if more than one file
+    try {
+      assert_gt(@_file_count, 1)
+      @_total_stats = {
+        "lines": @_total_lines,
+        "words": @_total_words,
+        "chars": @_total_chars,
+        "bytes": @_total_bytes,
+        "max_len": @_total_max_len
+      }
+      @_out = ""
+      @_format_output.call(@_total_stats, "total", @_show_lines, @_show_words, @_show_chars, @_show_bytes, @_show_max_len, @_out)
+      sys.echo(@_out)
+    } fallback {}
+  }
+}
+
+sys.exit(@exit_code)
