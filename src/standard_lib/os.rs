@@ -113,6 +113,205 @@ pub fn info(_args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResul
     Ok(Value::Map(result))
 }
 
+/// Get system uptime in seconds.
+/// Returns a number representing how long the system has been running.
+pub fn uptime(args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResult<Value> {
+    if !args.is_empty() {
+        return Err(CorvoError::invalid_argument(
+            "os.uptime takes no arguments",
+        ));
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let uptime_secs = std::fs::read_to_string("/proc/uptime")
+            .map_err(|e| CorvoError::io(format!("failed to read /proc/uptime: {}", e)))?
+            .split_whitespace()
+            .next()
+            .and_then(|s| s.parse::<f64>().ok())
+            .ok_or_else(|| CorvoError::runtime("failed to parse /proc/uptime"))?;
+
+        Ok(Value::Number(uptime_secs))
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        // On macOS, use sysctl to get boot time and compute uptime
+        let output = std::process::Command::new("sysctl")
+            .args(["-n", "kern.boottime"])
+            .output()
+            .map_err(|e| CorvoError::io(format!("failed to run sysctl: {}", e)))?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let boot_sec = stdout
+            .split("sec = ")
+            .nth(1)
+            .and_then(|s| s.split(',').next())
+            .and_then(|s| s.trim().parse::<f64>().ok())
+            .ok_or_else(|| CorvoError::runtime("failed to parse sysctl boot time"))?;
+
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|e| CorvoError::runtime(e.to_string()))?
+            .as_secs_f64();
+
+        return Ok(Value::Number(now - boot_sec));
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        // On Windows, use PowerShell to get uptime
+        let output = std::process::Command::new("powershell")
+            .args([
+                "-Command",
+                "(Get-Date) - (Get-CimInstance Win32_OperatingSystem).LastBootUpTime | Select-Object -ExpandProperty TotalSeconds",
+            ])
+            .output()
+            .map_err(|e| CorvoError::io(format!("failed to get uptime: {}", e)))?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let secs: f64 = stdout
+            .trim()
+            .parse()
+            .map_err(|_| CorvoError::runtime("failed to parse uptime"))?;
+
+        return Ok(Value::Number(secs));
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+    Err(CorvoError::runtime(
+        "os.uptime is not supported on this platform",
+    ))
+}
+
+/// Get system load averages (1, 5, 15 minute).
+/// Returns a map with keys "1min", "5min", "15min".
+pub fn load_average(args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResult<Value> {
+    if !args.is_empty() {
+        return Err(CorvoError::invalid_argument(
+            "os.load_average takes no arguments",
+        ));
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let loadavg = std::fs::read_to_string("/proc/loadavg")
+            .map_err(|e| CorvoError::io(format!("failed to read /proc/loadavg: {}", e)))?;
+
+        let parts: Vec<&str> = loadavg.split_whitespace().collect();
+        if parts.len() < 3 {
+            return Err(CorvoError::runtime("failed to parse /proc/loadavg"));
+        }
+
+        let mut result = HashMap::new();
+        result.insert(
+            "1min".to_string(),
+            Value::Number(parts[0].parse().unwrap_or(0.0)),
+        );
+        result.insert(
+            "5min".to_string(),
+            Value::Number(parts[1].parse().unwrap_or(0.0)),
+        );
+        result.insert(
+            "15min".to_string(),
+            Value::Number(parts[2].parse().unwrap_or(0.0)),
+        );
+
+        Ok(Value::Map(result))
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let output = std::process::Command::new("sysctl")
+            .args(["-n", "vm.loadavg"])
+            .output()
+            .map_err(|e| CorvoError::io(format!("failed to run sysctl: {}", e)))?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        // Output format: "{ 1.23 4.56 7.89 }"
+        let nums: Vec<f64> = stdout
+            .replace(['{', '}'], "")
+            .split_whitespace()
+            .filter_map(|s| s.parse().ok())
+            .collect();
+
+        let mut result = HashMap::new();
+        result.insert(
+            "1min".to_string(),
+            Value::Number(*nums.first().unwrap_or(&0.0)),
+        );
+        result.insert(
+            "5min".to_string(),
+            Value::Number(*nums.get(1).unwrap_or(&0.0)),
+        );
+        result.insert(
+            "15min".to_string(),
+            Value::Number(*nums.get(2).unwrap_or(&0.0)),
+        );
+
+        return Ok(Value::Map(result));
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        // Windows doesn't have the same concept of load average
+        // Return a map with 0 values and a note
+        let mut result = HashMap::new();
+        result.insert("1min".to_string(), Value::Number(0.0));
+        result.insert("5min".to_string(), Value::Number(0.0));
+        result.insert("15min".to_string(), Value::Number(0.0));
+        return Ok(Value::Map(result));
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+    Err(CorvoError::runtime(
+        "os.load_average is not supported on this platform",
+    ))
+}
+
+/// Get the number of logged-in users.
+/// Returns a number.
+pub fn user_count(args: &[Value], _named_args: &HashMap<String, Value>) -> CorvoResult<Value> {
+    if !args.is_empty() {
+        return Err(CorvoError::invalid_argument(
+            "os.user_count takes no arguments",
+        ));
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    {
+        // Use 'who' command to count logged-in users
+        let output = std::process::Command::new("who")
+            .output()
+            .map_err(|e| CorvoError::io(format!("failed to run 'who': {}", e)))?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let count = stdout.lines().filter(|l| !l.trim().is_empty()).count();
+        Ok(Value::Number(count as f64))
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        // On Windows, use 'query user' or PowerShell
+        let output = std::process::Command::new("powershell")
+            .args([
+                "-Command",
+                "(Get-CimInstance Win32_ComputerSystem).NumberOfLoggedOnUsers",
+            ])
+            .output()
+            .map_err(|e| CorvoError::io(format!("failed to get user count: {}", e)))?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let count: f64 = stdout.trim().parse().unwrap_or(0.0);
+        return Ok(Value::Number(count));
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+    Err(CorvoError::runtime(
+        "os.user_count is not supported on this platform",
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
