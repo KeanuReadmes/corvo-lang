@@ -340,6 +340,9 @@ pub const KNOWN_FUNCTIONS: &[&str] = &[
     "os.info",
     "os.argv",
     "os.getcwd",
+    "os.uptime",
+    "os.load_average",
+    "os.user_count",
     // math
     "math.add",
     "math.sub",
@@ -405,8 +408,12 @@ pub const KNOWN_FUNCTIONS: &[&str] = &[
     // args
     "args.scan",
     "args.parse",
+    // time
     "time.format_local",
+    "time.format_utc",
     "time.unix_now",
+    "time.parse_date",
+    "time.boot_time",
     // template
     "template.render",
     "template.render_file",

@@ -31,6 +31,14 @@ cd /fixtures
 . "$TESTS_DIR/matrix/rmdir.sh"
 # shellcheck source=mkdir.sh
 . "$TESTS_DIR/matrix/mkdir.sh"
+# shellcheck source=wc.sh
+. "$TESTS_DIR/matrix/wc.sh"
+# shellcheck source=cut.sh
+. "$TESTS_DIR/matrix/cut.sh"
+# shellcheck source=date.sh
+. "$TESTS_DIR/matrix/date.sh"
+# shellcheck source=uptime.sh
+. "$TESTS_DIR/matrix/uptime.sh"
 
 echo ""
 echo "======================================================"

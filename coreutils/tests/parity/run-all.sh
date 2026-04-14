@@ -28,6 +28,14 @@ cd /fixtures
 . "$TESTS_DIR/parity/rmdir.sh"
 # shellcheck source=mkdir.sh
 . "$TESTS_DIR/parity/mkdir.sh"
+# shellcheck source=wc.sh
+. "$TESTS_DIR/parity/wc.sh"
+# shellcheck source=cut.sh
+. "$TESTS_DIR/parity/cut.sh"
+# shellcheck source=date.sh
+. "$TESTS_DIR/parity/date.sh"
+# shellcheck source=uptime.sh
+. "$TESTS_DIR/parity/uptime.sh"
 
 echo ""
 echo "=================================================="
